@@ -31,13 +31,15 @@ function setActiveNavLink() {
     link.classList.toggle('active', resolvedPath === currentPath);
   });
 
-  // Check if any photography page is active and mark the dropdown
-  const photographyLinks = document.querySelectorAll('.dropdown-menu a');
-  const isPhotographyActive = Array.from(photographyLinks).some(link => link.classList.contains('active'));
-  const photographySummary = document.querySelector('.nav-dropdown summary');
-  if (photographySummary) {
-    photographySummary.classList.toggle('active', isPhotographyActive);
-  }
+  // Highlight dropdown summaries when any child is active
+  document.querySelectorAll('.nav-dropdown').forEach((dropdown) => {
+    const submenuLinks = dropdown.querySelectorAll('.dropdown-menu a');
+    const isActive = Array.from(submenuLinks).some(link => link.classList.contains('active'));
+    const summary = dropdown.querySelector('summary');
+    if (summary) {
+      summary.classList.toggle('active', isActive);
+    }
+  });
 }
 
 function toggleMobileMenu() {
