@@ -30,6 +30,14 @@ function setActiveNavLink() {
     const currentPath = currentUrl.pathname.replace(/\/index\.html$/, '/');
     link.classList.toggle('active', resolvedPath === currentPath);
   });
+
+  // Check if any photography page is active and mark the dropdown
+  const photographyLinks = document.querySelectorAll('.dropdown-menu a');
+  const isPhotographyActive = Array.from(photographyLinks).some(link => link.classList.contains('active'));
+  const photographySummary = document.querySelector('.nav-dropdown summary');
+  if (photographySummary) {
+    photographySummary.classList.toggle('active', isPhotographyActive);
+  }
 }
 
 function toggleMobileMenu() {
@@ -119,9 +127,14 @@ function initSiteShell() {
       </div>
       <div class="nav-links" id="navLinks">
         <a href="/index.html">Home</a>
-        <a href="/photography/portrait/index.html">Portrait</a>
-        <a href="/photography/landscape/index.html">Landscape</a>
-        <a href="/photography/aerial/index.html">Aerial</a>
+        <details class="nav-dropdown">
+          <summary>Photography</summary>
+          <div class="dropdown-menu">
+            <a href="/photography/portrait/index.html">Portrait</a>
+            <a href="/photography/landscape/index.html">Landscape</a>
+            <a href="/photography/aerial/index.html">Aerial</a>
+          </div>
+        </details>
         <a href="/3d-printing/ring-generator/index.html">Ring Generator</a>
         <a href="/laser-engraving/box-generator/index.html">Box Generator</a>
         <a href="/electronics/robot-arm/index.html">Robot Arm</a>

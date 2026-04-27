@@ -102,6 +102,69 @@ input {
   background: rgba(37, 99, 235, 0.12);
 }
 
+.nav-dropdown {
+  position: relative;
+}
+
+.nav-dropdown summary {
+  display: inline-flex;
+  padding: 10px 14px;
+  border-radius: 14px;
+  color: var(--text);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  list-style: none;
+}
+
+.nav-dropdown summary:hover {
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.nav-dropdown summary.active {
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.nav-dropdown summary::marker {
+  display: none;
+}
+
+.nav-dropdown summary::after {
+  content: "▼";
+  margin-left: 6px;
+  font-size: 0.8em;
+  transition: transform 0.2s ease;
+}
+
+.nav-dropdown[open] summary::after {
+  transform: rotate(180deg);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 160px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 8px 0;
+  z-index: 200;
+}
+
+.dropdown-menu a {
+  display: block;
+  padding: 8px 16px;
+  color: var(--text);
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+.dropdown-menu a:hover {
+  background: rgba(37, 99, 235, 0.08);
+}
+
 .nav-toggle {
   display: none;
   width: 44px;
@@ -443,6 +506,19 @@ input {
 
   .nav-links.open {
     display: flex;
+  }
+
+  .dropdown-menu {
+    position: static;
+    box-shadow: none;
+    border: none;
+    background: transparent;
+    padding: 0;
+    margin-left: 16px;
+  }
+
+  .dropdown-menu a {
+    padding: 6px 16px;
   }
 
   .hero {
