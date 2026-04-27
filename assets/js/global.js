@@ -64,6 +64,19 @@ function bindNavigation() {
   if (toggle) {
     toggle.addEventListener('click', toggleMobileMenu);
   }
+
+  // Ensure only one dropdown is open at a time
+  document.querySelectorAll('.nav-dropdown').forEach((dropdown) => {
+    dropdown.addEventListener('toggle', (event) => {
+      if (event.target.open) {
+        document.querySelectorAll('.nav-dropdown').forEach((other) => {
+          if (other !== event.target) {
+            other.open = false;
+          }
+        });
+      }
+    });
+  });
 }
 
 function protectPhotos() {
@@ -135,9 +148,24 @@ function initSiteShell() {
             <a href="/photography/aerial/index.html">Aerial</a>
           </div>
         </details>
-        <a href="/3d-printing/ring-generator/index.html">Ring Generator</a>
-        <a href="/laser-engraving/box-generator/index.html">Box Generator</a>
-        <a href="/electronics/robot-arm/index.html">Robot Arm</a>
+        <details class="nav-dropdown">
+          <summary>3D Printing</summary>
+          <div class="dropdown-menu">
+            <a href="/3d-printing/ring-generator/index.html">Ring Generator</a>
+          </div>
+        </details>
+        <details class="nav-dropdown">
+          <summary>Laser Engraving</summary>
+          <div class="dropdown-menu">
+            <a href="/laser-engraving/box-generator/index.html">Box Generator</a>
+          </div>
+        </details>
+        <details class="nav-dropdown">
+          <summary>Electronics</summary>
+          <div class="dropdown-menu">
+            <a href="/electronics/robot-arm/index.html">Robot Arm</a>
+          </div>
+        </details>
       </div>
     </nav>
   `;
