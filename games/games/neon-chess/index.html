@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEON CHESS // GRID WAR</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cyan: #00f5ff;
+    --magenta: #ff00aa;
+    --yellow: #ffee00;
+    --dark: #050810;
+    --dark2: #0a1020;
+    --dark3: #0d1530;
+    --grid: #1a2540;
+    --p1: #00f5ff;
+    --p2: #ff00aa;
+    --glow-cyan: 0 0 8px #00f5ff, 0 0 20px #00f5ff55;
+    --glow-magenta: 0 0 8px #ff00aa, 0 0 20px #ff00aa55;
+    --glow-yellow: 0 0 8px #ffee00, 0 0 20px #ffee0055;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--dark);
+    color: #ccd6f6;
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Subtle vertical grid lines only — no horizontal stripes */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: linear-gradient(90deg, rgba(0,245,255,0.04) 1px, transparent 1px);
+    background-size: 40px 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    min-height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  .header h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: clamp(1.4rem, 4vw, 2.4rem);
+    letter-spacing: 0.15em;
+    background: linear-gradient(90deg, var(--cyan), var(--magenta), var(--cyan));
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s linear infinite;
+  }
+
+  .header .subtitle {
+    font-size: 0.65rem;
+    color: var(--yellow);
+    letter-spacing: 0.4em;
+    text-shadow: var(--glow-yellow);
+    margin-top: 2px;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+  }
+
+  /* Main layout */
+  .game-layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    width: 100%;
+    max-width: 900px;
+    justify-content: center;
+  }
+
+  /* Player Panels */
+  .player-panel {
+    width: 160px;
+    flex-shrink: 0;
+  }
+
+  .panel-card {
+    border: 1px solid;
+    padding: 12px;
+    background: var(--dark2);
+    position: relative;
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  }
+
+  .panel-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+    background: linear-gradient(135deg, currentColor 0%, transparent 60%);
+    opacity: 0.05;
+  }
+
+  .p1-panel .panel-card {
+    border-color: var(--cyan);
+    box-shadow: inset 0 0 20px rgba(0,245,255,0.05), var(--glow-cyan);
+    color: var(--cyan);
+  }
+
+  .p2-panel .panel-card {
+    border-color: var(--magenta);
+    box-shadow: inset 0 0 20px rgba(255,0,170,0.05), var(--glow-magenta);
+    color: var(--magenta);
+  }
+
+  .player-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.3em;
+    margin-bottom: 6px;
+    opacity: 0.7;
+  }
+
+  .player-name {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+
+  .p1-panel .player-name { color: var(--cyan); text-shadow: var(--glow-cyan); }
+  .p2-panel .player-name { color: var(--magenta); text-shadow: var(--glow-magenta); }
+
+  .active-indicator {
+    height: 2px;
+    margin-bottom: 10px;
+    background: transparent;
+    transition: background 0.3s;
+  }
+
+  .active-indicator.active {
+    animation: pulse-bar 1s ease-in-out infinite alternate;
+  }
+
+  .p1-panel .active-indicator.active { background: var(--cyan); box-shadow: var(--glow-cyan); }
+  .p2-panel .active-indicator.active { background: var(--magenta); box-shadow: var(--glow-magenta); }
+
+  @keyframes pulse-bar {
+    from { opacity: 0.5; }
+    to { opacity: 1; }
+  }
+
+  .captured-label {
+    font-size: 0.55rem;
+    opacity: 0.5;
+    letter-spacing: 0.2em;
+    margin-bottom: 4px;
+    color: #ccd6f6;
+  }
+
+  .captured-pieces {
+    min-height: 30px;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    word-break: break-all;
+    color: #ccd6f6;
+  }
+
+  .status-tag {
+    margin-top: 10px;
+    font-size: 0.55rem;
+    padding: 4px 8px;
+    text-align: center;
+    letter-spacing: 0.2em;
+    display: none;
+  }
+
+  .status-tag.show { display: block; }
+  .p1-panel .status-tag { border: 1px solid var(--cyan); color: var(--cyan); background: rgba(0,245,255,0.05); }
+  .p2-panel .status-tag { border: 1px solid var(--magenta); color: var(--magenta); background: rgba(255,0,170,0.05); }
+
+  /* Board area */
+  .board-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Status bar */
+  .status-bar {
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    padding: 6px 16px;
+    border: 1px solid var(--yellow);
+    color: var(--yellow);
+    text-shadow: var(--glow-yellow);
+    box-shadow: var(--glow-yellow);
+    background: rgba(255,238,0,0.05);
+    clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+    text-align: center;
+    min-width: 240px;
+    animation: status-glow 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes status-glow {
+    from { box-shadow: 0 0 6px #ffee00, 0 0 12px #ffee0033; }
+    to { box-shadow: 0 0 12px #ffee00, 0 0 24px #ffee0066; }
+  }
+
+  /* Board */
+  .board-wrapper {
+    position: relative;
+  }
+
+  .board-coords-wrap {
+    display: flex;
+    align-items: center;
+  }
+
+  .coords-col {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    height: calc(8 * var(--sq));
+    padding: 0 4px;
+    font-size: 0.6rem;
+    color: rgba(0,245,255,0.4);
+    letter-spacing: 0.1em;
+  }
+
+  .coords-row {
+    display: flex;
+    justify-content: space-around;
+    width: calc(8 * var(--sq));
+    padding: 4px 0;
+    font-size: 0.6rem;
+    color: rgba(0,245,255,0.4);
+    letter-spacing: 0.1em;
+  }
+
+  .board {
+    --sq: 68px;
+    display: grid;
+    grid-template-columns: repeat(8, var(--sq));
+    grid-template-rows: repeat(8, var(--sq));
+    border: 1px solid var(--cyan);
+    box-shadow: 0 0 30px rgba(0,245,255,0.2), inset 0 0 30px rgba(0,0,0,0.5);
+    position: relative;
+  }
+
+  .board::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border: 1px solid rgba(0,245,255,0.2);
+    pointer-events: none;
+  }
+
+  .sq {
+    width: var(--sq);
+    height: var(--sq);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.15s;
+    font-size: calc(var(--sq) * 0.58);
+    line-height: 1;
+    user-select: none;
+  }
+
+  .sq.light { background: #112240; }
+  .sq.dark  { background: #07101f; }
+
+  .sq:hover { background: rgba(0,245,255,0.14) !important; }
+
+  .sq.selected {
+    background: rgba(0,245,255,0.35) !important;
+    box-shadow: inset 0 0 0 3px var(--cyan), inset 0 0 20px rgba(0,245,255,0.5);
+  }
+
+  .sq.selected .piece.white { filter: drop-shadow(0 0 10px #00f5ff) drop-shadow(0 0 20px #00f5ff) brightness(1.4); }
+  .sq.selected .piece.black { filter: drop-shadow(0 0 10px #ff00aa) drop-shadow(0 0 20px #ff00aa) brightness(1.4); }
+
+  .sq.valid-move::after {
+    content: '';
+    position: absolute;
+    width: 34%;
+    height: 34%;
+    border-radius: 50%;
+    background: rgba(0,245,255,0.7);
+    box-shadow: 0 0 14px #00f5ff, 0 0 28px rgba(0,245,255,0.5);
+    pointer-events: none;
+  }
+
+  .sq.valid-capture::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border: 3px solid #ff00aa;
+    border-radius: 0;
+    background: rgba(255,0,170,0.12);
+    box-shadow: inset 0 0 14px rgba(255,0,170,0.5), 0 0 10px rgba(255,0,170,0.4);
+    pointer-events: none;
+  }
+
+  .sq.last-move { background: rgba(255,238,0,0.13) !important; }
+  .sq.in-check { background: rgba(255,40,40,0.35) !important; box-shadow: inset 0 0 0 3px #ff2828, 0 0 24px rgba(255,40,40,0.7); }
+
+  /* Pieces */
+  .piece { position: relative; z-index: 2; transition: transform 0.1s, filter 0.15s; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.9)); line-height: 1; }
+  .piece.white { filter: drop-shadow(0 0 6px rgba(0,245,255,1)) drop-shadow(0 2px 5px rgba(0,0,0,0.9)); color: #e0faff; }
+  .piece.black { filter: drop-shadow(0 0 6px rgba(255,0,170,1)) drop-shadow(0 2px 5px rgba(0,0,0,0.9)); color: #ffe0f5; }
+
+  .sq:hover .piece { transform: scale(1.08); }
+  .sq.selected .piece { transform: scale(1.12); }
+
+  /* Promotion modal */
+  .promo-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5,8,16,0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    display: none;
+  }
+
+  .promo-overlay.show { display: flex; }
+
+  .promo-modal {
+    border: 1px solid var(--yellow);
+    background: var(--dark2);
+    padding: 24px;
+    box-shadow: var(--glow-yellow), 0 0 60px rgba(255,238,0,0.15);
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+    text-align: center;
+  }
+
+  .promo-modal h3 {
+    font-family: 'Orbitron', sans-serif;
+    color: var(--yellow);
+    font-size: 0.8rem;
+    letter-spacing: 0.3em;
+    margin-bottom: 16px;
+  }
+
+  .promo-pieces {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+
+  .promo-btn {
+    width: 64px;
+    height: 64px;
+    border: 1px solid var(--yellow);
+    background: var(--dark3);
+    font-size: 2.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
+  }
+
+  .promo-btn:hover {
+    background: rgba(255,238,0,0.1);
+    box-shadow: var(--glow-yellow);
+    transform: scale(1.1);
+  }
+
+  /* Game over modal */
+  .gameover-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5,8,16,0.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+  }
+
+  .gameover-overlay.show { display: flex; }
+
+  .gameover-modal {
+    border: 1px solid var(--cyan);
+    background: var(--dark2);
+    padding: 32px 40px;
+    box-shadow: var(--glow-cyan), 0 0 80px rgba(0,245,255,0.2);
+    clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+    text-align: center;
+    max-width: 360px;
+  }
+
+  .gameover-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    background: linear-gradient(90deg, var(--cyan), var(--magenta));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+
+  .gameover-subtitle {
+    color: var(--yellow);
+    font-size: 0.75rem;
+    letter-spacing: 0.3em;
+    margin-bottom: 24px;
+    text-shadow: var(--glow-yellow);
+  }
+
+  .gameover-winner {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem;
+    margin-bottom: 24px;
+    color: #ccd6f6;
+  }
+
+  .restart-btn {
+    padding: 10px 28px;
+    border: 1px solid var(--cyan);
+    background: transparent;
+    color: var(--cyan);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.3em;
+    cursor: pointer;
+    clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+    transition: all 0.2s;
+    text-shadow: var(--glow-cyan);
+    box-shadow: var(--glow-cyan);
+  }
+
+  .restart-btn:hover {
+    background: rgba(0,245,255,0.1);
+    box-shadow: 0 0 20px #00f5ff, 0 0 40px #00f5ff55;
+    transform: scale(1.02);
+  }
+
+  /* Move log */
+  .move-log-wrap {
+    width: 100%;
+    max-width: calc(8 * 68px + 24px);
+  }
+
+  .move-log-header {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.55rem;
+    letter-spacing: 0.3em;
+    color: rgba(0,245,255,0.5);
+    margin-bottom: 4px;
+  }
+
+  .move-log {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    max-height: 48px;
+    overflow-y: auto;
+    padding: 6px;
+    background: var(--dark2);
+    border: 1px solid rgba(0,245,255,0.15);
+    font-size: 0.65rem;
+    color: rgba(204,214,246,0.6);
+  }
+
+  .move-log::-webkit-scrollbar { width: 4px; height: 4px; }
+  .move-log::-webkit-scrollbar-track { background: var(--dark); }
+  .move-log::-webkit-scrollbar-thumb { background: var(--cyan); }
+
+  .move-entry { white-space: nowrap; }
+  .move-entry .num { color: rgba(255,238,0,0.5); margin-right: 2px; }
+  .move-entry .w { color: var(--cyan); }
+  .move-entry .b { color: var(--magenta); margin-left: 4px; }
+
+  /* Flicker animation */
+  @keyframes flicker {
+    0%, 95%, 100% { opacity: 1; }
+    96%, 99% { opacity: 0.85; }
+  }
+
+  .board { animation: flicker 8s infinite; }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    .board { --sq: 42px; }
+    .player-panel { width: 80px; }
+    .player-name { font-size: 0.65rem; }
+    .piece { font-size: calc(42px * 0.58); }
+    .promo-btn { width: 50px; height: 50px; font-size: 1.8rem; }
+  }
+
+  @media (max-width: 460px) {
+    .board { --sq: 36px; }
+    .player-panel { display: none; }
+    .piece { font-size: calc(36px * 0.6); }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>NEON CHESS</h1>
+    <div class="subtitle">// GRID WAR PROTOCOL //</div>
+  </div>
+
+  <div class="game-layout">
+    <!-- P1 Panel -->
+    <div class="player-panel p1-panel">
+      <div class="panel-card">
+        <div class="player-label">// PLAYER 01</div>
+        <div class="player-name">CYAN UNIT</div>
+        <div class="active-indicator" id="p1-indicator"></div>
+        <div class="captured-label">CAPTURES:</div>
+        <div class="captured-pieces" id="p1-captures"></div>
+        <div class="status-tag" id="p1-check">⚠ CHECK</div>
+      </div>
+    </div>
+
+    <!-- Board -->
+    <div class="board-area">
+      <div class="status-bar" id="status-bar">INITIALIZING...</div>
+      <div class="board-wrapper">
+        <div class="board-coords-wrap">
+          <div class="coords-col" id="rank-coords"></div>
+          <div>
+            <div class="board" id="board"></div>
+            <div class="coords-row" id="file-coords"></div>
+          </div>
+        </div>
+      </div>
+      <div class="move-log-wrap">
+        <div class="move-log-header">// MOVE HISTORY</div>
+        <div class="move-log" id="move-log"></div>
+      </div>
+    </div>
+
+    <!-- P2 Panel -->
+    <div class="player-panel p2-panel">
+      <div class="panel-card">
+        <div class="player-label">// PLAYER 02</div>
+        <div class="player-name">MAGENTA UNIT</div>
+        <div class="active-indicator" id="p2-indicator"></div>
+        <div class="captured-label">CAPTURES:</div>
+        <div class="captured-pieces" id="p2-captures"></div>
+        <div class="status-tag" id="p2-check">⚠ CHECK</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Promotion Modal -->
+<div class="promo-overlay" id="promo-overlay">
+  <div class="promo-modal">
+    <h3>// SELECT UPGRADE //</h3>
+    <div class="promo-pieces" id="promo-pieces"></div>
+  </div>
+</div>
+
+<!-- Game Over Modal -->
+<div class="gameover-overlay" id="gameover-overlay">
+  <div class="gameover-modal">
+    <div class="gameover-title">GAME OVER</div>
+    <div class="gameover-subtitle" id="gameover-sub">// PROTOCOL TERMINATED //</div>
+    <div class="gameover-winner" id="gameover-winner"></div>
+    <button class="restart-btn" onclick="initGame()">// RESTART //</button>
+  </div>
+</div>
+
+<script>
+// ===================== CHESS ENGINE =====================
+
+const PIECES = {
+  wK:'♔', wQ:'♕', wR:'♖', wB:'♗', wN:'♘', wP:'♙',
+  bK:'♚', bQ:'♛', bR:'♜', bB:'♝', bN:'♞', bP:'♟',
+};
+
+const PIECE_VALUE = { P:1, N:3, B:3, R:5, Q:9, K:0 };
+
+const PROMO_PIECES = ['Q','R','B','N'];
+
+let board, turn, selected, validMoves, gameOver;
+let enPassantTarget, castlingRights, halfMoveClock, fullMoveNumber;
+let lastMove, moveHistory, captured;
+
+function initGame() {
+  board = [
+    ['bR','bN','bB','bQ','bK','bB','bN','bR'],
+    ['bP','bP','bP','bP','bP','bP','bP','bP'],
+    [null,null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null,null],
+    ['wP','wP','wP','wP','wP','wP','wP','wP'],
+    ['wR','wN','wB','wQ','wK','wB','wN','wR'],
+  ];
+  turn = 'w';
+  selected = null;
+  validMoves = [];
+  gameOver = false;
+  enPassantTarget = null;
+  castlingRights = { wK:true, wQ:true, bK:true, bQ:true };
+  halfMoveClock = 0;
+  fullMoveNumber = 1;
+  lastMove = null;
+  moveHistory = [];
+  captured = { w:[], b:[] };
+
+  document.getElementById('gameover-overlay').classList.remove('show');
+  document.getElementById('promo-overlay').classList.remove('show');
+
+  renderBoard();
+  updateUI();
+}
+
+function color(p) { return p ? p[0] : null; }
+function type(p)  { return p ? p[1] : null; }
+function enemy(c) { return c === 'w' ? 'b' : 'w'; }
+
+function inBounds(r,c) { return r>=0&&r<8&&c>=0&&c<8; }
+
+function getPseudoMoves(b, r, c, ep, cr, forCheck) {
+  const p = b[r][c];
+  if (!p) return [];
+  const col = color(p), pt = type(p);
+  const moves = [];
+  const dir = col === 'w' ? -1 : 1;
+
+  const add = (tr, tc, special) => moves.push({fr:r,fc:c,tr,tc,...(special||{})});
+
+  if (pt === 'P') {
+    // Forward
+    if (inBounds(r+dir,c) && !b[r+dir][c]) {
+      add(r+dir,c);
+      const startRow = col==='w'?6:1;
+      if (r===startRow && !b[r+2*dir][c]) add(r+2*dir,c,{doublePush:true});
+    }
+    // Captures
+    for (const dc of [-1,1]) {
+      if (inBounds(r+dir,c+dc)) {
+        if (b[r+dir][c+dc] && color(b[r+dir][c+dc])===enemy(col))
+          add(r+dir,c+dc);
+        if (ep && ep[0]===r+dir && ep[1]===c+dc)
+          add(r+dir,c+dc,{enPassant:true,epCapture:[r,c+dc]});
+      }
+    }
+  }
+
+  const slide = (dirs) => {
+    for (const [dr,dc] of dirs) {
+      let tr=r+dr,tc=c+dc;
+      while(inBounds(tr,tc)) {
+        if (b[tr][tc]) {
+          if (color(b[tr][tc])===enemy(col)) add(tr,tc);
+          break;
+        }
+        add(tr,tc);
+        tr+=dr; tc+=dc;
+      }
+    }
+  };
+
+  if (pt==='R') slide([[0,1],[0,-1],[1,0],[-1,0]]);
+  if (pt==='B') slide([[1,1],[1,-1],[-1,1],[-1,-1]]);
+  if (pt==='Q') slide([[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]]);
+
+  if (pt==='N') {
+    for (const [dr,dc] of [[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]]) {
+      const tr=r+dr,tc=c+dc;
+      if (inBounds(tr,tc) && color(b[tr][tc])!==col) add(tr,tc);
+    }
+  }
+
+  if (pt==='K') {
+    for (const [dr,dc] of [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]]) {
+      const tr=r+dr,tc=c+dc;
+      if (inBounds(tr,tc) && color(b[tr][tc])!==col) add(tr,tc);
+    }
+    // Castling
+    if (!forCheck) {
+      const row = col==='w'?7:0;
+      if (r===row && c===4) {
+        if (cr[col+'K'] && !b[row][5] && !b[row][6] &&
+            !isAttacked(b,row,4,enemy(col),ep,cr) &&
+            !isAttacked(b,row,5,enemy(col),ep,cr) &&
+            !isAttacked(b,row,6,enemy(col),ep,cr))
+          add(row,6,{castle:'K'});
+        if (cr[col+'Q'] && !b[row][3] && !b[row][2] && !b[row][1] &&
+            !isAttacked(b,row,4,enemy(col),ep,cr) &&
+            !isAttacked(b,row,3,enemy(col),ep,cr) &&
+            !isAttacked(b,row,2,enemy(col),ep,cr))
+          add(row,2,{castle:'Q'});
+      }
+    }
+  }
+
+  return moves;
+}
+
+function isAttacked(b, r, c, byColor, ep, cr) {
+  for (let row=0; row<8; row++)
+    for (let col=0; col<8; col++)
+      if (b[row][col] && color(b[row][col])===byColor)
+        if (getPseudoMoves(b,row,col,ep,cr,true).some(m=>m.tr===r&&m.tc===c))
+          return true;
+  return false;
+}
+
+function findKing(b, col) {
+  for (let r=0;r<8;r++)
+    for (let c=0;c<8;c++)
+      if (b[r][c]===col+'K') return [r,c];
+  return null;
+}
+
+function applyMove(b, move) {
+  const nb = b.map(r=>[...r]);
+  const {fr,fc,tr,tc} = move;
+  nb[tr][tc] = nb[fr][fc];
+  nb[fr][fc] = null;
+  if (move.enPassant) nb[move.epCapture[0]][move.epCapture[1]] = null;
+  if (move.castle==='K') { nb[tr][5]=nb[tr][7]; nb[tr][7]=null; }
+  if (move.castle==='Q') { nb[tr][3]=nb[tr][0]; nb[tr][0]=null; }
+  return nb;
+}
+
+function getLegalMoves(b, r, c, ep, cr) {
+  const col = color(b[r][c]);
+  const pseudo = getPseudoMoves(b,r,c,ep,cr,false);
+  return pseudo.filter(m => {
+    const nb = applyMove(b, m);
+    const [kr,kc] = findKing(nb, col);
+    return !isAttacked(nb,kr,kc,enemy(col),null,{wK:false,wQ:false,bK:false,bQ:false});
+  });
+}
+
+function getAllLegalMoves(b, col, ep, cr) {
+  const moves = [];
+  for (let r=0;r<8;r++)
+    for (let c=0;c<8;c++)
+      if (color(b[r][c])===col)
+        moves.push(...getLegalMoves(b,r,c,ep,cr));
+  return moves;
+}
+
+function isInCheck(b, col, ep, cr) {
+  const [kr,kc] = findKing(b,col);
+  return isAttacked(b,kr,kc,enemy(col),ep,cr);
+}
+
+// ===================== GAME STATE =====================
+
+let pendingPromotion = null;
+
+function onSquareClick(r, c) {
+  if (gameOver || pendingPromotion) return;
+
+  const p = board[r][c];
+
+  if (selected) {
+    const move = validMoves.find(m=>m.tr===r&&m.tc===c);
+    if (move) {
+      executeMove(move);
+      return;
+    }
+    selected = null;
+    validMoves = [];
+  }
+
+  if (p && color(p)===turn) {
+    selected = [r,c];
+    validMoves = getLegalMoves(board,r,c,enPassantTarget,castlingRights);
+  } else {
+    selected = null;
+    validMoves = [];
+  }
+
+  renderBoard();
+}
+
+function executeMove(move) {
+  const {fr,fc,tr,tc} = move;
+  const piece = board[fr][fc];
+  const col = color(piece);
+  const pt = type(piece);
+  const capturedPiece = move.enPassant ? board[move.epCapture[0]][move.epCapture[1]] : board[tr][tc];
+
+  // Apply board
+  board = applyMove(board, move);
+
+  // Promotion?
+  const promoRow = col==='w'?0:7;
+  if (pt==='P' && tr===promoRow) {
+    pendingPromotion = {tr, tc, col, move, capturedPiece};
+    renderBoard();
+    showPromotion(col);
+    return;
+  }
+
+  finishMove(move, col, pt, capturedPiece);
+}
+
+function finishMove(move, col, pt, capturedPiece) {
+  const {fr,fc,tr,tc} = move;
+
+  // Update castling rights
+  if (pt==='K') { castlingRights[col+'K']=false; castlingRights[col+'Q']=false; }
+  if (pt==='R') {
+    if (fc===0) castlingRights[col+'Q']=false;
+    if (fc===7) castlingRights[col+'K']=false;
+  }
+
+  // En passant
+  enPassantTarget = move.doublePush ? [fr+(col==='w'?-1:1), fc] : null;
+
+  // Captures
+  if (capturedPiece) captured[enemy(col)].push(capturedPiece);
+
+  // Move history
+  const notation = getNotation(move, col, pt, capturedPiece);
+  const halfTurn = col==='w' ? {w: notation} : {b: notation};
+  if (col==='w') moveHistory.push({num: fullMoveNumber, w: notation, b:''});
+  else moveHistory[moveHistory.length-1].b = notation;
+
+  if (col==='b') fullMoveNumber++;
+
+  lastMove = move;
+  selected = null;
+  validMoves = [];
+  turn = enemy(col);
+
+  const allMoves = getAllLegalMoves(board, turn, enPassantTarget, castlingRights);
+  const check = isInCheck(board, turn, enPassantTarget, castlingRights);
+
+  if (allMoves.length === 0) {
+    gameOver = true;
+    if (check) {
+      showGameOver('CHECKMATE', col==='w'?'CYAN UNIT WINS':'MAGENTA UNIT WINS');
+    } else {
+      showGameOver('STALEMATE', 'DRAW — PROTOCOL DEADLOCK');
+    }
+  }
+
+  renderBoard();
+  updateUI();
+}
+
+function getNotation(move, col, pt, cap) {
+  const files = 'abcdefgh';
+  const ranks = '87654321';
+  let n = pt==='P' ? '' : pt;
+  if (cap) n += 'x';
+  n += files[move.tc] + ranks[move.tr];
+  if (move.castle==='K') n = 'O-O';
+  if (move.castle==='Q') n = 'O-O-O';
+  return n;
+}
+
+function showPromotion(col) {
+  const overlay = document.getElementById('promo-overlay');
+  const container = document.getElementById('promo-pieces');
+  overlay.classList.add('show');
+  container.innerHTML = '';
+  PROMO_PIECES.forEach(pt => {
+    const btn = document.createElement('button');
+    btn.className = 'promo-btn';
+    btn.textContent = PIECES[col+pt];
+    btn.onclick = () => {
+      board[pendingPromotion.tr][pendingPromotion.tc] = col+pt;
+      overlay.classList.remove('show');
+      const {move, col: c, capturedPiece} = pendingPromotion;
+      pendingPromotion = null;
+      finishMove(move, c, 'P', capturedPiece);
+    };
+    container.appendChild(btn);
+  });
+}
+
+function showGameOver(title, winner) {
+  document.getElementById('gameover-sub').textContent = `// ${title} //`;
+  document.getElementById('gameover-winner').textContent = winner;
+  setTimeout(() => document.getElementById('gameover-overlay').classList.add('show'), 600);
+}
+
+// ===================== RENDERING =====================
+
+function renderBoard() {
+  const boardEl = document.getElementById('board');
+  boardEl.innerHTML = '';
+
+  const selSet = new Set(validMoves.map(m=>`${m.tr},${m.tc}`));
+
+  for (let r=0;r<8;r++) {
+    for (let c=0;c<8;c++) {
+      const sq = document.createElement('div');
+      const isLight = (r+c)%2===0;
+      sq.className = 'sq ' + (isLight?'light':'dark');
+
+      if (selected && selected[0]===r && selected[1]===c) sq.classList.add('selected');
+
+      if (selSet.has(`${r},${c}`)) {
+        const p = board[r][c];
+        if (p && color(p)!==turn) sq.classList.add('valid-capture');
+        else sq.classList.add('valid-move');
+      }
+
+      if (lastMove && ((lastMove.fr===r&&lastMove.fc===c)||(lastMove.tr===r&&lastMove.tc===c)))
+        sq.classList.add('last-move');
+
+      // Check highlight
+      if (!gameOver) {
+        const p = board[r][c];
+        if (p && type(p)==='K' && isInCheck(board,color(p),enPassantTarget,castlingRights))
+          sq.classList.add('in-check');
+      }
+
+      const p = board[r][c];
+      if (p) {
+        const span = document.createElement('span');
+        span.className = 'piece ' + (color(p)==='w'?'white':'black');
+        span.textContent = PIECES[p];
+        sq.appendChild(span);
+      }
+
+      sq.addEventListener('click', () => onSquareClick(r,c));
+      boardEl.appendChild(sq);
+    }
+  }
+
+  // Coords
+  const files = 'abcdefgh';
+  const ranks = '87654321';
+  const rankEl = document.getElementById('rank-coords');
+  const fileEl = document.getElementById('file-coords');
+  rankEl.innerHTML = ranks.split('').map(r=>`<span>${r}</span>`).join('');
+  fileEl.innerHTML = files.split('').map(f=>`<span>${f}</span>`).join('');
+}
+
+function updateUI() {
+  // Status bar
+  const statusEl = document.getElementById('status-bar');
+  const check = !gameOver && isInCheck(board, turn, enPassantTarget, castlingRights);
+  if (check) {
+    statusEl.textContent = (turn==='w'?'CYAN':'MAGENTA') + ' UNIT IN CHECK';
+    statusEl.style.borderColor = '#ff2828';
+    statusEl.style.color = '#ff2828';
+    statusEl.style.textShadow = '0 0 8px #ff2828';
+    statusEl.style.boxShadow = '0 0 8px #ff2828, 0 0 20px #ff282855';
+  } else if (!gameOver) {
+    statusEl.textContent = (turn==='w'?'CYAN':'MAGENTA') + ' UNIT // MOVE';
+    statusEl.style.borderColor = turn==='w'?'var(--cyan)':'var(--magenta)';
+    statusEl.style.color = turn==='w'?'var(--cyan)':'var(--magenta)';
+    statusEl.style.textShadow = turn==='w'?'var(--glow-cyan)':'var(--glow-magenta)';
+    statusEl.style.boxShadow = turn==='w'?'var(--glow-cyan)':'var(--glow-magenta)';
+  }
+
+  // Indicators
+  document.getElementById('p1-indicator').className = 'active-indicator' + (turn==='w'?' active':'');
+  document.getElementById('p2-indicator').className = 'active-indicator' + (turn==='b'?' active':'');
+
+  // Check tags
+  document.getElementById('p1-check').className = 'status-tag' + (check&&turn==='w'?' show':'');
+  document.getElementById('p2-check').className = 'status-tag' + (check&&turn==='b'?' show':'');
+
+  // Captures
+  const capSort = (arr) => arr.slice().sort((a,b)=>PIECE_VALUE[type(b)]-PIECE_VALUE[type(a)]);
+  document.getElementById('p1-captures').textContent = capSort(captured.b).map(p=>PIECES[p]).join('');
+  document.getElementById('p2-captures').textContent = capSort(captured.w).map(p=>PIECES[p]).join('');
+
+  // Move log
+  const logEl = document.getElementById('move-log');
+  logEl.innerHTML = moveHistory.map(m =>
+    `<span class="move-entry"><span class="num">${m.num}.</span><span class="w">${m.w}</span><span class="b">${m.b}</span></span>`
+  ).join('');
+  logEl.scrollLeft = logEl.scrollWidth;
+}
+
+// Start
+initGame();
+</script>
+</body>
+</html>
