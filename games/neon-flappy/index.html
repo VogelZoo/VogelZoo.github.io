@@ -12,10 +12,8 @@
     --magenta: #ff00aa;
     --yellow: #ffe600;
     --dark: #050a0f;
-    --grid: #0a1a2a;
     --pipe: #00f5ff;
     --pipe-dark: #004a55;
-    --bird: #ffe600;
     --glow-c: 0 0 8px #00f5ff, 0 0 20px #00f5ff44;
     --glow-m: 0 0 8px #ff00aa, 0 0 20px #ff00aa44;
     --glow-y: 0 0 8px #ffe600, 0 0 20px #ffe60044;
@@ -23,32 +21,39 @@
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  body {
+  html, body {
+    width: 100%;
+    height: 100%;
     background: var(--dark);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    font-family: 'Share Tech Mono', monospace;
     overflow: hidden;
+    font-family: 'Share Tech Mono', monospace;
+    /* no-select */
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
   }
 
   #wrapper {
-    position: relative;
+    position: fixed;
+    inset: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
+    justify-content: center;
+    gap: 0;
   }
 
   #hud {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    width: 400px;
+    width: 100%;
     padding: 6px 12px;
     border: 1px solid #00f5ff33;
+    border-bottom: none;
     background: #00f5ff08;
+    flex-shrink: 0;
   }
 
   #hud .label {
@@ -71,11 +76,21 @@
     text-shadow: var(--glow-m);
   }
 
+  #canvas-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    width: 100%;
+    overflow: hidden;
+  }
+
   canvas {
     display: block;
+    width: 100%;
+    height: 100%;
     border: 1px solid #00f5ff44;
     box-shadow: 0 0 30px #00f5ff22, inset 0 0 60px #000a14;
     image-rendering: pixelated;
+    cursor: none;
   }
 
   #footer {
@@ -83,12 +98,13 @@
     color: #00f5ff44;
     letter-spacing: 3px;
     text-transform: uppercase;
+    padding: 6px 0 4px;
+    flex-shrink: 0;
   }
 
   #scanline {
     position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
+    inset: 0;
     background: repeating-linear-gradient(
       to bottom,
       transparent 0px,
@@ -118,18 +134,50 @@
     </div>
   </div>
 
-  <div style="position:relative">
-    <canvas id="c" width="400" height="550"></canvas>
+  <div id="canvas-wrap">
+    <canvas id="c"></canvas>
     <div id="scanline"></div>
   </div>
 
-  <div id="footer">SPACE / TAP to flap &nbsp;·&nbsp; v1.0</div>
+  <div id="footer">SPACE / TAP to flap &nbsp;·&nbsp; v1.1</div>
 </div>
 
 <script>
+// ─────────────────────────────────────────────
+//  DIFFICULTY TUNING VARIABLES
+// ─────────────────────────────────────────────
+
+// Vertical gap between top and bottom pipes (pixels, scaled to canvas height)
+const PIPE_GAP_INITIAL = 0.28;   // fraction of canvas height
+const PIPE_GAP_FINAL   = 0.16;   // fraction of canvas height (minimum, harder)
+const PIPE_GAP_RATE    = 0.004;  // reduction per pipe spawned (fraction units)
+
+// Horizontal distance between consecutive pipes (pixels, scaled to canvas width)
+const PIPE_INTERVAL_INITIAL = 0.28;  // fraction of canvas width
+const PIPE_INTERVAL_FINAL   = 0.18;  // fraction of canvas width (minimum, harder)
+const PIPE_INTERVAL_RATE    = 0.003; // reduction per pipe spawned (fraction units)
+
+// Scroll / pipe speed (pixels per frame, scaled to canvas width)
+const SPEED_INITIAL = 0.006;   // fraction of canvas width per frame
+const SPEED_FINAL   = 0.014;   // fraction of canvas width per frame (maximum)
+const SPEED_RATE    = 0.00008; // increase per frame while playing
+
+// ─────────────────────────────────────────────
+
 const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d');
-const W = canvas.width, H = canvas.height;
+const ctx    = canvas.getContext('2d');
+
+let W, H;
+
+function resize() {
+  const wrap = document.getElementById('canvas-wrap');
+  W = wrap.clientWidth;
+  H = wrap.clientHeight;
+  canvas.width  = W;
+  canvas.height = H;
+}
+resize();
+window.addEventListener('resize', () => { resize(); if (state === 'start') reset(); });
 
 // Colors
 const C_BG    = '#050a0f';
@@ -143,46 +191,107 @@ const C_TEXT  = '#00f5ff';
 const C_DIM   = '#00f5ff44';
 
 // Game state
-let state = 'start'; // 'start', 'play', 'dead'
+let state = 'start'; // 'start' | 'play' | 'dead'
 let score = 0, hi = 0;
 let raf;
 
-// Bird
-const BIRD_X = 90;
-const BIRD_R = 13;
-let bird = { y: H/2, vy: 0, angle: 0, trail: [] };
+// Dynamic values (recalculated each frame from difficulty vars)
+let currentSpeed    = 0;
+let currentGapFrac  = 0;
+let currentInterval = 0; // in pixels
 
-// Physics
-const GRAVITY = 0.45;
-const FLAP_V  = -7.5;
+// Counters
+let pipeSpawnCount = 0;  // how many pipes have been spawned (drives difficulty curve)
+let distSinceLastPipe = 0; // pixel distance scrolled since last pipe
+
+// Bird (y as fraction of H)
+const BIRD_X_FRAC = 0.22;
+let BIRD_X = 0;
+const BIRD_R_FRAC = 0.024;
+let BIRD_R = 0;
+let bird = { y: 0, vy: 0, angle: 0, trail: [] };
+
+// Physics (scaled)
+let GRAVITY  = 0;
+let FLAP_V   = 0;
+
+function calcPhysics() {
+  // Keep feel consistent regardless of canvas size
+  // Base tuned for ~550px height
+  BIRD_R = Math.round(BIRD_R_FRAC * H);
+  BIRD_X = Math.round(BIRD_X_FRAC * W);
+  GRAVITY = H * 0.00082;
+  FLAP_V  = H * -0.014;
+}
+
+// Pipe width
+const PIPE_W_FRAC = 0.13;
+let PIPE_W = 0;
 
 // Pipes
-const PIPE_W    = 52;
-const PIPE_GAP  = 155;
-const PIPE_SPEED = 2.4;
 let pipes = [];
-let pipeTimer = 0;
-const PIPE_INTERVAL = 90; // frames
 
 // Parallax stars
-let stars = Array.from({length:60}, () => ({
-  x: Math.random()*W,
-  y: Math.random()*H,
-  r: Math.random()*1.2+0.3,
-  speed: Math.random()*0.6+0.2,
-  brightness: Math.random()
-}));
+let stars = [];
+function initStars() {
+  stars = Array.from({length: 60}, () => ({
+    x: Math.random() * W,
+    y: Math.random() * H,
+    r: Math.random() * 1.2 + 0.3,
+    speedFrac: (Math.random() * 0.6 + 0.2) * 0.001, // fraction of W per frame
+    brightness: Math.random()
+  }));
+}
 
 // Grid scroll
 let gridOffset = 0;
 
 function reset() {
-  bird = { y: H/2, vy: 0, angle: 0, trail: [] };
+  calcPhysics();
+  PIPE_W = Math.round(PIPE_W_FRAC * W);
+  bird = { y: H / 2, vy: 0, angle: 0, trail: [] };
   pipes = [];
-  pipeTimer = 0;
+  pipeSpawnCount = 0;
+  distSinceLastPipe = 0;
+  currentSpeed   = SPEED_INITIAL * W;
+  currentGapFrac = PIPE_GAP_INITIAL;
+  currentInterval = PIPE_INTERVAL_INITIAL * W;
   score = 0;
   updateHUD();
+  initStars();
 }
+
+// ── Difficulty helpers ──────────────────────
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+function difficultyStep(frame) {
+  // Speed ramps every frame
+  currentSpeed = clamp(
+    currentSpeed + SPEED_RATE * W,
+    SPEED_INITIAL * W,
+    SPEED_FINAL   * W
+  );
+}
+
+function nextPipeInterval() {
+  // Get interval for upcoming pipe (decreases over time)
+  const t = pipeSpawnCount;
+  return clamp(
+    (PIPE_INTERVAL_INITIAL - PIPE_INTERVAL_RATE * t) * W,
+    PIPE_INTERVAL_FINAL * W,
+    PIPE_INTERVAL_INITIAL * W
+  );
+}
+
+function currentPipeGap() {
+  const t = pipeSpawnCount;
+  return clamp(
+    (PIPE_GAP_INITIAL - PIPE_GAP_RATE * t) * H,
+    PIPE_GAP_FINAL * H,
+    PIPE_GAP_INITIAL * H
+  );
+}
+// ────────────────────────────────────────────
 
 function flap() {
   if (state === 'dead') return;
@@ -191,29 +300,28 @@ function flap() {
 }
 
 function spawnPipe() {
-  const margin = 80;
-  const topH = margin + Math.random() * (H - PIPE_GAP - margin*2);
-  pipes.push({ x: W + PIPE_W/2, topH, scored: false });
+  const gap  = currentPipeGap();
+  const margin = H * 0.13;
+  const topH = margin + Math.random() * (H - gap - margin * 2);
+  pipes.push({ x: W + PIPE_W / 2, topH, gap, scored: false });
+  pipeSpawnCount++;
 }
 
 function updateHUD() {
-  document.getElementById('score-display').textContent = String(score).padStart(3,'0');
-  document.getElementById('hi-display').textContent    = String(hi).padStart(3,'0');
+  document.getElementById('score-display').textContent = String(score).padStart(3, '0');
+  document.getElementById('hi-display').textContent    = String(hi).padStart(3, '0');
 }
 
 function drawGrid() {
   ctx.strokeStyle = C_GRID;
   ctx.lineWidth = 0.5;
-  const size = 32;
-  // Horizontal
+  const size = Math.round(W / 12.5); // ~32px on 400px
+  ctx.globalAlpha = 0.5;
   for (let y = 0; y < H; y += size) {
-    ctx.globalAlpha = 0.5;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
   }
-  // Vertical scrolling
   const offset = gridOffset % size;
   for (let x = -size + offset; x < W; x += size) {
-    ctx.globalAlpha = 0.5;
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
   }
   ctx.globalAlpha = 1;
@@ -224,66 +332,64 @@ function drawStars() {
     ctx.globalAlpha = 0.4 + 0.6 * s.brightness;
     ctx.fillStyle = C_TEXT;
     ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
 }
 
 function drawPipe(pipe) {
-  const {x, topH} = pipe;
-  const hw = PIPE_W/2;
+  const { x, topH, gap } = pipe;
+  const hw     = PIPE_W / 2;
+  const capExt = Math.round(PIPE_W * 0.096); // ~5px on 52px pipe
+  const capH   = Math.round(PIPE_W * 0.346); // ~18px
+  const capOff = Math.round(PIPE_W * 0.423); // ~22px
 
-  // Top pipe body
+  // Top body
   ctx.fillStyle = C_PIPEF;
-  ctx.fillRect(x - hw, 0, PIPE_W, topH - 10);
-
-  // Top pipe cap
-  ctx.fillStyle = C_PIPEF;
-  ctx.fillRect(x - hw - 5, topH - 22, PIPE_W + 10, 18);
+  ctx.fillRect(x - hw, 0, PIPE_W, topH - capH * 0.6);
+  // Top cap
+  ctx.fillRect(x - hw - capExt, topH - capOff, PIPE_W + capExt * 2, capH);
 
   // Neon outline top
   ctx.strokeStyle = C_PIPE;
   ctx.lineWidth = 1.5;
   ctx.shadowBlur = 10;
   ctx.shadowColor = C_PIPE;
-  ctx.strokeRect(x - hw, 0, PIPE_W, topH - 10);
-  ctx.strokeRect(x - hw - 5, topH - 22, PIPE_W + 10, 18);
-  // Inner highlight
+  ctx.strokeRect(x - hw, 0, PIPE_W, topH - capH * 0.6);
+  ctx.strokeRect(x - hw - capExt, topH - capOff, PIPE_W + capExt * 2, capH);
   ctx.strokeStyle = '#ffffff22';
   ctx.lineWidth = 1;
   ctx.shadowBlur = 0;
-  ctx.strokeRect(x - hw + 4, 4, PIPE_W - 8, topH - 14);
+  ctx.strokeRect(x - hw + 4, 4, PIPE_W - 8, topH - capH * 0.6 - 4);
 
-  const botY = topH + PIPE_GAP;
+  const botY = topH + gap;
   const botH = H - botY;
 
-  // Bottom pipe cap
+  // Bottom cap + body
   ctx.fillStyle = C_PIPEF;
-  ctx.fillRect(x - hw - 5, botY + 4, PIPE_W + 10, 18);
-  // Bottom pipe body
-  ctx.fillRect(x - hw, botY + 18, PIPE_W, botH);
+  ctx.fillRect(x - hw - capExt, botY + 4, PIPE_W + capExt * 2, capH);
+  ctx.fillRect(x - hw, botY + capH, PIPE_W, botH);
 
   ctx.strokeStyle = C_PIPE;
   ctx.lineWidth = 1.5;
   ctx.shadowBlur = 10;
   ctx.shadowColor = C_PIPE;
-  ctx.strokeRect(x - hw - 5, botY + 4, PIPE_W + 10, 18);
-  ctx.strokeRect(x - hw, botY + 18, PIPE_W, botH);
+  ctx.strokeRect(x - hw - capExt, botY + 4, PIPE_W + capExt * 2, capH);
+  ctx.strokeRect(x - hw, botY + capH, PIPE_W, botH);
   ctx.shadowBlur = 0;
 }
 
 function drawBird(dead) {
-  const {y, angle, trail} = bird;
+  const { y, angle, trail } = bird;
 
   // Trail
   for (let i = 0; i < trail.length; i++) {
     const t = trail[i];
-    const alpha = (i / trail.length) * 0.3;
-    ctx.globalAlpha = alpha;
+    ctx.globalAlpha = (i / trail.length) * 0.3;
     ctx.fillStyle = dead ? C_DEAD : C_BIRD;
     ctx.beginPath();
-    ctx.arc(BIRD_X - (trail.length - i)*3, t, BIRD_R * (i/trail.length) * 0.7, 0, Math.PI*2);
+    ctx.arc(BIRD_X - (trail.length - i) * 3, t, BIRD_R * (i / trail.length) * 0.7, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
@@ -292,57 +398,55 @@ function drawBird(dead) {
   ctx.translate(BIRD_X, y);
   ctx.rotate(angle);
 
-  // Glow
   ctx.shadowBlur = 20;
   ctx.shadowColor = dead ? C_DEAD : C_BIRD;
 
-  // Body
   const grad = ctx.createRadialGradient(-3, -3, 2, 0, 0, BIRD_R);
   grad.addColorStop(0, dead ? '#ff6080' : '#fff176');
   grad.addColorStop(1, dead ? C_DEAD : C_BIRDG);
   ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.arc(0, 0, BIRD_R, 0, Math.PI*2);
+  ctx.arc(0, 0, BIRD_R, 0, Math.PI * 2);
   ctx.fill();
 
-  // Eye
   ctx.shadowBlur = 0;
   ctx.fillStyle = '#000';
-  ctx.beginPath(); ctx.arc(5, -4, 3.5, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(BIRD_R * 0.38, -BIRD_R * 0.31, BIRD_R * 0.27, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.arc(6, -5, 1.5, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(BIRD_R * 0.46, -BIRD_R * 0.38, BIRD_R * 0.12, 0, Math.PI * 2); ctx.fill();
 
-  // Wing
   ctx.fillStyle = dead ? '#cc0020' : '#ff8800';
   ctx.beginPath();
-  ctx.ellipse(-4, 3, 9, 5, -0.4, 0, Math.PI*2);
+  ctx.ellipse(-BIRD_R * 0.3, BIRD_R * 0.23, BIRD_R * 0.69, BIRD_R * 0.38, -0.4, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.restore();
 }
+
+function textSize(frac) { return Math.max(11, Math.round(frac * Math.min(W, H))); }
 
 function drawOverlay() {
   if (state === 'start') {
     ctx.fillStyle = 'rgba(5,10,15,0.55)';
     ctx.fillRect(0, 0, W, H);
 
-    ctx.font = '900 42px Orbitron, monospace';
+    ctx.font = `900 ${textSize(0.076)}px Orbitron, monospace`;
     ctx.textAlign = 'center';
     ctx.shadowBlur = 24;
     ctx.shadowColor = C_PIPE;
     ctx.fillStyle = C_PIPE;
-    ctx.fillText('FLAP//SYS', W/2, H/2 - 40);
+    ctx.fillText('FLAP//SYS', W / 2, H / 2 - H * 0.07);
     ctx.shadowBlur = 0;
 
-    ctx.font = '13px Share Tech Mono, monospace';
+    ctx.font = `${textSize(0.024)}px Share Tech Mono, monospace`;
     ctx.fillStyle = C_TEXT;
-    ctx.globalAlpha = 0.7 + 0.3 * Math.sin(Date.now()/400);
-    ctx.fillText('[ SPACE / TAP TO INITIALIZE ]', W/2, H/2 + 10);
+    ctx.globalAlpha = 0.7 + 0.3 * Math.sin(Date.now() / 400);
+    ctx.fillText('[ SPACE / TAP TO INITIALIZE ]', W / 2, H / 2 + H * 0.018);
     ctx.globalAlpha = 1;
 
-    ctx.font = '11px Share Tech Mono, monospace';
+    ctx.font = `${textSize(0.020)}px Share Tech Mono, monospace`;
     ctx.fillStyle = C_DIM;
-    ctx.fillText('avoid the conduits — survive the grid', W/2, H/2 + 40);
+    ctx.fillText('avoid the conduits — survive the grid', W / 2, H / 2 + H * 0.072);
     ctx.textAlign = 'left';
   }
 
@@ -350,30 +454,30 @@ function drawOverlay() {
     ctx.fillStyle = 'rgba(5,10,15,0.72)';
     ctx.fillRect(0, 0, W, H);
 
-    ctx.font = '700 36px Orbitron, monospace';
+    ctx.font = `700 ${textSize(0.065)}px Orbitron, monospace`;
     ctx.textAlign = 'center';
     ctx.shadowBlur = 20;
     ctx.shadowColor = C_DEAD;
     ctx.fillStyle = C_DEAD;
-    ctx.fillText('// TERMINATED //', W/2, H/2 - 55);
+    ctx.fillText('// TERMINATED //', W / 2, H / 2 - H * 0.10);
     ctx.shadowBlur = 0;
 
-    ctx.font = '13px Share Tech Mono, monospace';
+    ctx.font = `${textSize(0.024)}px Share Tech Mono, monospace`;
     ctx.fillStyle = '#ffffff88';
-    ctx.fillText(`score  ${String(score).padStart(3,'0')}`, W/2, H/2);
-    ctx.fillText(`best   ${String(hi).padStart(3,'0')}`, W/2, H/2 + 22);
+    ctx.fillText(`score  ${String(score).padStart(3, '0')}`, W / 2, H / 2);
+    ctx.fillText(`best   ${String(hi).padStart(3, '0')}`,   W / 2, H / 2 + H * 0.04);
 
     if (score >= hi && score > 0) {
       ctx.fillStyle = C_BIRD;
       ctx.shadowBlur = 10;
       ctx.shadowColor = C_BIRD;
-      ctx.fillText('— NEW RECORD —', W/2, H/2 + 50);
+      ctx.fillText('— NEW RECORD —', W / 2, H / 2 + H * 0.09);
       ctx.shadowBlur = 0;
     }
 
     ctx.fillStyle = C_TEXT;
-    ctx.globalAlpha = 0.6 + 0.4 * Math.sin(Date.now()/350);
-    ctx.fillText('[ SPACE / TAP TO RESTART ]', W/2, H/2 + 85);
+    ctx.globalAlpha = 0.6 + 0.4 * Math.sin(Date.now() / 350);
+    ctx.fillText('[ SPACE / TAP TO RESTART ]', W / 2, H / 2 + H * 0.155);
     ctx.globalAlpha = 1;
     ctx.textAlign = 'left';
   }
@@ -383,8 +487,8 @@ function drawFloor() {
   ctx.fillStyle = '#0a1a26';
   ctx.fillRect(0, H - 2, W, 2);
   ctx.fillStyle = C_PIPE;
-  ctx.fillRect(0, H - 2, W, 1);
-  ctx.shadowBlur = 8; ctx.shadowColor = C_PIPE;
+  ctx.shadowBlur = 8;
+  ctx.shadowColor = C_PIPE;
   ctx.fillRect(0, H - 2, W, 1);
   ctx.shadowBlur = 0;
 }
@@ -393,9 +497,9 @@ function checkCollision() {
   const bx = BIRD_X, by = bird.y;
   if (by + BIRD_R >= H - 2 || by - BIRD_R <= 0) return true;
   for (const p of pipes) {
-    const hw = PIPE_W/2 + 5; // cap is wider
+    const hw = PIPE_W / 2 + 5;
     if (bx + BIRD_R > p.x - hw && bx - BIRD_R < p.x + hw) {
-      if (by - BIRD_R < p.topH - 4 || by + BIRD_R > p.topH + PIPE_GAP + 4) {
+      if (by - BIRD_R < p.topH - 4 || by + BIRD_R > p.topH + p.gap + 4) {
         return true;
       }
     }
@@ -404,7 +508,6 @@ function checkCollision() {
 }
 
 function loop() {
-  // BG
   ctx.fillStyle = C_BG;
   ctx.fillRect(0, 0, W, H);
 
@@ -412,21 +515,28 @@ function loop() {
   drawStars();
 
   if (state === 'play' || state === 'dead') {
-    // Update stars
-    if (state === 'play') {
-      for (const s of stars) {
-        s.x -= s.speed;
-        if (s.x < 0) { s.x = W; s.y = Math.random()*H; }
-      }
-      gridOffset += PIPE_SPEED;
-    }
 
-    // Pipes
     if (state === 'play') {
-      pipeTimer++;
-      if (pipeTimer >= PIPE_INTERVAL) { spawnPipe(); pipeTimer = 0; }
+      difficultyStep();
+
+      // Move stars
+      for (const s of stars) {
+        s.x -= s.speedFrac * W;
+        if (s.x < 0) { s.x = W; s.y = Math.random() * H; }
+      }
+      gridOffset += currentSpeed;
+
+      // Pipe spawning based on distance traveled
+      distSinceLastPipe += currentSpeed;
+      const needed = nextPipeInterval();
+      if (distSinceLastPipe >= needed) {
+        spawnPipe();
+        distSinceLastPipe = 0;
+      }
+
+      // Move pipes & score
       for (const p of pipes) {
-        p.x -= PIPE_SPEED;
+        p.x -= currentSpeed;
         if (!p.scored && p.x < BIRD_X - BIRD_R) {
           p.scored = true;
           score++;
@@ -436,13 +546,14 @@ function loop() {
       }
       pipes = pipes.filter(p => p.x > -PIPE_W);
     }
+
     for (const p of pipes) drawPipe(p);
 
     // Bird physics
     if (state === 'play') {
       bird.vy += GRAVITY;
       bird.y  += bird.vy;
-      bird.angle = Math.max(-0.5, Math.min(Math.PI/2, bird.vy * 0.07));
+      bird.angle = Math.max(-0.5, Math.min(Math.PI / 2, bird.vy * 0.07));
       bird.trail.push(bird.y);
       if (bird.trail.length > 8) bird.trail.shift();
 
@@ -453,13 +564,13 @@ function loop() {
     } else if (state === 'dead') {
       bird.vy += GRAVITY * 0.6;
       bird.y  += bird.vy;
-      bird.angle = Math.min(Math.PI/2, bird.angle + 0.07);
+      bird.angle = Math.min(Math.PI / 2, bird.angle + 0.07);
     }
 
     drawBird(state === 'dead');
   } else {
-    // Start screen - idle bird bob
-    bird.y = H/2 + Math.sin(Date.now()/600) * 8;
+    // Start screen — idle bird bob
+    bird.y = H / 2 + Math.sin(Date.now() / 600) * 8;
     drawBird(false);
   }
 
