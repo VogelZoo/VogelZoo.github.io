@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FLAP//SYS</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+  :root {
+    --cyan: #00f5ff;
+    --magenta: #ff00aa;
+    --yellow: #ffe600;
+    --dark: #050a0f;
+    --grid: #0a1a2a;
+    --pipe: #00f5ff;
+    --pipe-dark: #004a55;
+    --bird: #ffe600;
+    --glow-c: 0 0 8px #00f5ff, 0 0 20px #00f5ff44;
+    --glow-m: 0 0 8px #ff00aa, 0 0 20px #ff00aa44;
+    --glow-y: 0 0 8px #ffe600, 0 0 20px #ffe60044;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--dark);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Share Tech Mono', monospace;
+    overflow: hidden;
+  }
+
+  #wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  #hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 400px;
+    padding: 6px 12px;
+    border: 1px solid #00f5ff33;
+    background: #00f5ff08;
+  }
+
+  #hud .label {
+    font-size: 10px;
+    color: #00f5ff88;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  #hud .value {
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    color: var(--cyan);
+    text-shadow: var(--glow-c);
+    font-weight: 700;
+  }
+
+  #hud .hi-val {
+    color: var(--magenta);
+    text-shadow: var(--glow-m);
+  }
+
+  canvas {
+    display: block;
+    border: 1px solid #00f5ff44;
+    box-shadow: 0 0 30px #00f5ff22, inset 0 0 60px #000a14;
+    image-rendering: pixelated;
+  }
+
+  #footer {
+    font-size: 10px;
+    color: #00f5ff44;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  #scanline {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 3px,
+      rgba(0,0,0,0.15) 3px,
+      rgba(0,0,0,0.15) 4px
+    );
+    pointer-events: none;
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+
+<div id="wrapper">
+  <div id="hud">
+    <div>
+      <div class="label">Score</div>
+      <div class="value" id="score-display">000</div>
+    </div>
+    <div style="text-align:center">
+      <div class="label" style="letter-spacing:4px; font-size:12px; color: var(--cyan); text-shadow: var(--glow-c);">FLAP//SYS</div>
+    </div>
+    <div style="text-align:right">
+      <div class="label">Best</div>
+      <div class="value hi-val" id="hi-display">000</div>
+    </div>
+  </div>
+
+  <div style="position:relative">
+    <canvas id="c" width="400" height="550"></canvas>
+    <div id="scanline"></div>
+  </div>
+
+  <div id="footer">SPACE / TAP to flap &nbsp;·&nbsp; v1.0</div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+// Colors
+const C_BG    = '#050a0f';
+const C_GRID  = '#0a1a26';
+const C_PIPE  = '#00f5ff';
+const C_PIPEF = '#004a55';
+const C_BIRD  = '#ffe600';
+const C_BIRDG = '#ff8800';
+const C_DEAD  = '#ff003c';
+const C_TEXT  = '#00f5ff';
+const C_DIM   = '#00f5ff44';
+
+// Game state
+let state = 'start'; // 'start', 'play', 'dead'
+let score = 0, hi = 0;
+let raf;
+
+// Bird
+const BIRD_X = 90;
+const BIRD_R = 13;
+let bird = { y: H/2, vy: 0, angle: 0, trail: [] };
+
+// Physics
+const GRAVITY = 0.45;
+const FLAP_V  = -7.5;
+
+// Pipes
+const PIPE_W    = 52;
+const PIPE_GAP  = 155;
+const PIPE_SPEED = 2.4;
+let pipes = [];
+let pipeTimer = 0;
+const PIPE_INTERVAL = 90; // frames
+
+// Parallax stars
+let stars = Array.from({length:60}, () => ({
+  x: Math.random()*W,
+  y: Math.random()*H,
+  r: Math.random()*1.2+0.3,
+  speed: Math.random()*0.6+0.2,
+  brightness: Math.random()
+}));
+
+// Grid scroll
+let gridOffset = 0;
+
+function reset() {
+  bird = { y: H/2, vy: 0, angle: 0, trail: [] };
+  pipes = [];
+  pipeTimer = 0;
+  score = 0;
+  updateHUD();
+}
+
+function flap() {
+  if (state === 'dead') return;
+  if (state === 'start') { state = 'play'; }
+  bird.vy = FLAP_V;
+}
+
+function spawnPipe() {
+  const margin = 80;
+  const topH = margin + Math.random() * (H - PIPE_GAP - margin*2);
+  pipes.push({ x: W + PIPE_W/2, topH, scored: false });
+}
+
+function updateHUD() {
+  document.getElementById('score-display').textContent = String(score).padStart(3,'0');
+  document.getElementById('hi-display').textContent    = String(hi).padStart(3,'0');
+}
+
+function drawGrid() {
+  ctx.strokeStyle = C_GRID;
+  ctx.lineWidth = 0.5;
+  const size = 32;
+  // Horizontal
+  for (let y = 0; y < H; y += size) {
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  // Vertical scrolling
+  const offset = gridOffset % size;
+  for (let x = -size + offset; x < W; x += size) {
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawStars() {
+  for (const s of stars) {
+    ctx.globalAlpha = 0.4 + 0.6 * s.brightness;
+    ctx.fillStyle = C_TEXT;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawPipe(pipe) {
+  const {x, topH} = pipe;
+  const hw = PIPE_W/2;
+
+  // Top pipe body
+  ctx.fillStyle = C_PIPEF;
+  ctx.fillRect(x - hw, 0, PIPE_W, topH - 10);
+
+  // Top pipe cap
+  ctx.fillStyle = C_PIPEF;
+  ctx.fillRect(x - hw - 5, topH - 22, PIPE_W + 10, 18);
+
+  // Neon outline top
+  ctx.strokeStyle = C_PIPE;
+  ctx.lineWidth = 1.5;
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = C_PIPE;
+  ctx.strokeRect(x - hw, 0, PIPE_W, topH - 10);
+  ctx.strokeRect(x - hw - 5, topH - 22, PIPE_W + 10, 18);
+  // Inner highlight
+  ctx.strokeStyle = '#ffffff22';
+  ctx.lineWidth = 1;
+  ctx.shadowBlur = 0;
+  ctx.strokeRect(x - hw + 4, 4, PIPE_W - 8, topH - 14);
+
+  const botY = topH + PIPE_GAP;
+  const botH = H - botY;
+
+  // Bottom pipe cap
+  ctx.fillStyle = C_PIPEF;
+  ctx.fillRect(x - hw - 5, botY + 4, PIPE_W + 10, 18);
+  // Bottom pipe body
+  ctx.fillRect(x - hw, botY + 18, PIPE_W, botH);
+
+  ctx.strokeStyle = C_PIPE;
+  ctx.lineWidth = 1.5;
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = C_PIPE;
+  ctx.strokeRect(x - hw - 5, botY + 4, PIPE_W + 10, 18);
+  ctx.strokeRect(x - hw, botY + 18, PIPE_W, botH);
+  ctx.shadowBlur = 0;
+}
+
+function drawBird(dead) {
+  const {y, angle, trail} = bird;
+
+  // Trail
+  for (let i = 0; i < trail.length; i++) {
+    const t = trail[i];
+    const alpha = (i / trail.length) * 0.3;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = dead ? C_DEAD : C_BIRD;
+    ctx.beginPath();
+    ctx.arc(BIRD_X - (trail.length - i)*3, t, BIRD_R * (i/trail.length) * 0.7, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.save();
+  ctx.translate(BIRD_X, y);
+  ctx.rotate(angle);
+
+  // Glow
+  ctx.shadowBlur = 20;
+  ctx.shadowColor = dead ? C_DEAD : C_BIRD;
+
+  // Body
+  const grad = ctx.createRadialGradient(-3, -3, 2, 0, 0, BIRD_R);
+  grad.addColorStop(0, dead ? '#ff6080' : '#fff176');
+  grad.addColorStop(1, dead ? C_DEAD : C_BIRDG);
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(0, 0, BIRD_R, 0, Math.PI*2);
+  ctx.fill();
+
+  // Eye
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.arc(5, -4, 3.5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(6, -5, 1.5, 0, Math.PI*2); ctx.fill();
+
+  // Wing
+  ctx.fillStyle = dead ? '#cc0020' : '#ff8800';
+  ctx.beginPath();
+  ctx.ellipse(-4, 3, 9, 5, -0.4, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawOverlay() {
+  if (state === 'start') {
+    ctx.fillStyle = 'rgba(5,10,15,0.55)';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.font = '900 42px Orbitron, monospace';
+    ctx.textAlign = 'center';
+    ctx.shadowBlur = 24;
+    ctx.shadowColor = C_PIPE;
+    ctx.fillStyle = C_PIPE;
+    ctx.fillText('FLAP//SYS', W/2, H/2 - 40);
+    ctx.shadowBlur = 0;
+
+    ctx.font = '13px Share Tech Mono, monospace';
+    ctx.fillStyle = C_TEXT;
+    ctx.globalAlpha = 0.7 + 0.3 * Math.sin(Date.now()/400);
+    ctx.fillText('[ SPACE / TAP TO INITIALIZE ]', W/2, H/2 + 10);
+    ctx.globalAlpha = 1;
+
+    ctx.font = '11px Share Tech Mono, monospace';
+    ctx.fillStyle = C_DIM;
+    ctx.fillText('avoid the conduits — survive the grid', W/2, H/2 + 40);
+    ctx.textAlign = 'left';
+  }
+
+  if (state === 'dead') {
+    ctx.fillStyle = 'rgba(5,10,15,0.72)';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.font = '700 36px Orbitron, monospace';
+    ctx.textAlign = 'center';
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = C_DEAD;
+    ctx.fillStyle = C_DEAD;
+    ctx.fillText('// TERMINATED //', W/2, H/2 - 55);
+    ctx.shadowBlur = 0;
+
+    ctx.font = '13px Share Tech Mono, monospace';
+    ctx.fillStyle = '#ffffff88';
+    ctx.fillText(`score  ${String(score).padStart(3,'0')}`, W/2, H/2);
+    ctx.fillText(`best   ${String(hi).padStart(3,'0')}`, W/2, H/2 + 22);
+
+    if (score >= hi && score > 0) {
+      ctx.fillStyle = C_BIRD;
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = C_BIRD;
+      ctx.fillText('— NEW RECORD —', W/2, H/2 + 50);
+      ctx.shadowBlur = 0;
+    }
+
+    ctx.fillStyle = C_TEXT;
+    ctx.globalAlpha = 0.6 + 0.4 * Math.sin(Date.now()/350);
+    ctx.fillText('[ SPACE / TAP TO RESTART ]', W/2, H/2 + 85);
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'left';
+  }
+}
+
+function drawFloor() {
+  ctx.fillStyle = '#0a1a26';
+  ctx.fillRect(0, H - 2, W, 2);
+  ctx.fillStyle = C_PIPE;
+  ctx.fillRect(0, H - 2, W, 1);
+  ctx.shadowBlur = 8; ctx.shadowColor = C_PIPE;
+  ctx.fillRect(0, H - 2, W, 1);
+  ctx.shadowBlur = 0;
+}
+
+function checkCollision() {
+  const bx = BIRD_X, by = bird.y;
+  if (by + BIRD_R >= H - 2 || by - BIRD_R <= 0) return true;
+  for (const p of pipes) {
+    const hw = PIPE_W/2 + 5; // cap is wider
+    if (bx + BIRD_R > p.x - hw && bx - BIRD_R < p.x + hw) {
+      if (by - BIRD_R < p.topH - 4 || by + BIRD_R > p.topH + PIPE_GAP + 4) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function loop() {
+  // BG
+  ctx.fillStyle = C_BG;
+  ctx.fillRect(0, 0, W, H);
+
+  drawGrid();
+  drawStars();
+
+  if (state === 'play' || state === 'dead') {
+    // Update stars
+    if (state === 'play') {
+      for (const s of stars) {
+        s.x -= s.speed;
+        if (s.x < 0) { s.x = W; s.y = Math.random()*H; }
+      }
+      gridOffset += PIPE_SPEED;
+    }
+
+    // Pipes
+    if (state === 'play') {
+      pipeTimer++;
+      if (pipeTimer >= PIPE_INTERVAL) { spawnPipe(); pipeTimer = 0; }
+      for (const p of pipes) {
+        p.x -= PIPE_SPEED;
+        if (!p.scored && p.x < BIRD_X - BIRD_R) {
+          p.scored = true;
+          score++;
+          if (score > hi) hi = score;
+          updateHUD();
+        }
+      }
+      pipes = pipes.filter(p => p.x > -PIPE_W);
+    }
+    for (const p of pipes) drawPipe(p);
+
+    // Bird physics
+    if (state === 'play') {
+      bird.vy += GRAVITY;
+      bird.y  += bird.vy;
+      bird.angle = Math.max(-0.5, Math.min(Math.PI/2, bird.vy * 0.07));
+      bird.trail.push(bird.y);
+      if (bird.trail.length > 8) bird.trail.shift();
+
+      if (checkCollision()) {
+        state = 'dead';
+        bird.vy = -3;
+      }
+    } else if (state === 'dead') {
+      bird.vy += GRAVITY * 0.6;
+      bird.y  += bird.vy;
+      bird.angle = Math.min(Math.PI/2, bird.angle + 0.07);
+    }
+
+    drawBird(state === 'dead');
+  } else {
+    // Start screen - idle bird bob
+    bird.y = H/2 + Math.sin(Date.now()/600) * 8;
+    drawBird(false);
+  }
+
+  drawFloor();
+  drawOverlay();
+
+  raf = requestAnimationFrame(loop);
+}
+
+// Input
+function handleFlap() {
+  if (state === 'dead') {
+    state = 'start';
+    reset();
+    return;
+  }
+  flap();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); handleFlap(); }
+});
+canvas.addEventListener('pointerdown', e => { e.preventDefault(); handleFlap(); });
+
+reset();
+loop();
+</script>
+</body>
+</html>
