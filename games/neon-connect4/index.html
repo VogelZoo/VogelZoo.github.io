@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEON CONNECT FOUR // GRID WAR</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cyan: #00f5ff;
+    --magenta: #ff00aa;
+    --yellow: #ffee00;
+    --dark: #050810;
+    --dark2: #0a1020;
+    --dark3: #0d1530;
+    --glow-cyan: 0 0 8px #00f5ff, 0 0 20px #00f5ff55;
+    --glow-magenta: 0 0 8px #ff00aa, 0 0 20px #ff00aa55;
+    --glow-yellow: 0 0 8px #ffee00, 0 0 20px #ffee0055;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--dark);
+    color: #ccd6f6;
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: linear-gradient(90deg, rgba(0,245,255,0.04) 1px, transparent 1px);
+    background-size: 40px 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 16px;
+    width: 100%;
+  }
+
+  /* Header */
+  .header { text-align: center; margin-bottom: 20px; }
+
+  .header h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: clamp(1.4rem, 4vw, 2.4rem);
+    letter-spacing: 0.15em;
+    background: linear-gradient(90deg, var(--cyan), var(--magenta), var(--cyan));
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s linear infinite;
+  }
+
+  .header .subtitle {
+    font-size: 0.65rem;
+    color: var(--yellow);
+    letter-spacing: 0.4em;
+    text-shadow: var(--glow-yellow);
+    margin-top: 3px;
+  }
+
+  @keyframes shimmer {
+    0%   { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+  }
+
+  /* Status bar */
+  .status-bar {
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    padding: 7px 20px;
+    border: 1px solid var(--yellow);
+    color: var(--yellow);
+    text-shadow: var(--glow-yellow);
+    background: rgba(255,238,0,0.05);
+    clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+    text-align: center;
+    min-width: 280px;
+    margin-bottom: 16px;
+    transition: border-color 0.3s, color 0.3s, box-shadow 0.3s;
+    animation: status-glow 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes status-glow {
+    from { box-shadow: 0 0 6px currentColor, 0 0 12px transparent; }
+    to   { box-shadow: 0 0 14px currentColor, 0 0 28px rgba(255,238,0,0.2); }
+  }
+
+  /* Main layout */
+  .game-layout {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    justify-content: center;
+    width: 100%;
+    max-width: 860px;
+  }
+
+  /* Player panels */
+  .player-panel { width: 150px; flex-shrink: 0; }
+
+  .panel-card {
+    border: 1px solid;
+    padding: 14px 12px;
+    background: var(--dark2);
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  }
+
+  .p1-panel .panel-card { border-color: var(--cyan);    box-shadow: inset 0 0 20px rgba(0,245,255,0.05), var(--glow-cyan); }
+  .p2-panel .panel-card { border-color: var(--magenta); box-shadow: inset 0 0 20px rgba(255,0,170,0.05), var(--glow-magenta); }
+
+  .player-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.58rem;
+    letter-spacing: 0.3em;
+    margin-bottom: 6px;
+    opacity: 0.7;
+  }
+
+  .p1-panel .player-label { color: var(--cyan); }
+  .p2-panel .player-label { color: var(--magenta); }
+
+  .player-name {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+
+  .p1-panel .player-name { color: var(--cyan);    text-shadow: var(--glow-cyan); }
+  .p2-panel .player-name { color: var(--magenta); text-shadow: var(--glow-magenta); }
+
+  .active-indicator {
+    height: 2px;
+    margin-bottom: 12px;
+    background: transparent;
+    transition: background 0.3s;
+  }
+
+  .active-indicator.active { animation: pulse-bar 1s ease-in-out infinite alternate; }
+  .p1-panel .active-indicator.active { background: var(--cyan);    box-shadow: var(--glow-cyan); }
+  .p2-panel .active-indicator.active { background: var(--magenta); box-shadow: var(--glow-magenta); }
+
+  @keyframes pulse-bar { from { opacity: 0.5; } to { opacity: 1; } }
+
+  .wins-label { font-size: 0.55rem; opacity: 0.5; letter-spacing: 0.2em; margin-bottom: 4px; }
+
+  .wins-count {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2rem;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .p1-panel .wins-count { color: var(--cyan);    text-shadow: var(--glow-cyan); }
+  .p2-panel .wins-count { color: var(--magenta); text-shadow: var(--glow-magenta); }
+
+  .wins-sub { font-size: 0.55rem; opacity: 0.4; letter-spacing: 0.15em; margin-top: 2px; }
+
+  /* Board area */
+  .board-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  /* Drop arrows */
+  .drop-row {
+    display: flex;
+    gap: 0;
+    margin-bottom: 6px;
+  }
+
+  .drop-arrow {
+    width: var(--cell);
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.9rem;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+    color: var(--cyan);
+    text-shadow: var(--glow-cyan);
+    user-select: none;
+  }
+
+  .drop-arrow.active { opacity: 0; }
+  .drop-arrow.active:hover { opacity: 1; }
+  .drop-arrow.preview { opacity: 0.85; animation: arrow-pulse 0.7s ease-in-out infinite alternate; }
+
+  @keyframes arrow-pulse {
+    from { transform: translateY(0); }
+    to   { transform: translateY(4px); }
+  }
+
+  /* Board frame */
+  .board-frame {
+    --cell: 72px;
+    background: var(--dark3);
+    border: 2px solid var(--cyan);
+    box-shadow: 0 0 40px rgba(0,245,255,0.18), inset 0 0 40px rgba(0,0,0,0.6);
+    position: relative;
+    padding: 8px;
+    clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  }
+
+  .board-frame::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border: 1px solid rgba(0,245,255,0.18);
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+    pointer-events: none;
+  }
+
+  .board-grid {
+    display: grid;
+    grid-template-columns: repeat(7, var(--cell));
+    grid-template-rows: repeat(6, var(--cell));
+    gap: 6px;
+  }
+
+  /* Cells */
+  .cell {
+    width: var(--cell);
+    height: var(--cell);
+    border-radius: 50%;
+    background: var(--dark);
+    border: 1px solid rgba(0,245,255,0.08);
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+    cursor: pointer;
+  }
+
+  .cell:hover { border-color: rgba(0,245,255,0.25); }
+
+  /* Token inside cell */
+  .token {
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.08s;
+  }
+
+  .token.placed { opacity: 1; animation: drop-in 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+
+  @keyframes drop-in {
+    from { transform: translateY(-120%) scale(0.85); opacity: 0.4; }
+    to   { transform: translateY(0) scale(1); opacity: 1; }
+  }
+
+  .token.p1 {
+    background: radial-gradient(circle at 35% 30%, #60ffff, #00b8cc 50%, #006680);
+    box-shadow: 0 0 12px #00f5ff, 0 0 24px rgba(0,245,255,0.5), inset 0 -4px 8px rgba(0,0,0,0.4);
+    border: 1.5px solid rgba(0,245,255,0.9);
+  }
+
+  .token.p2 {
+    background: radial-gradient(circle at 35% 30%, #ff80d4, #cc0077 50%, #700040);
+    box-shadow: 0 0 12px #ff00aa, 0 0 24px rgba(255,0,170,0.5), inset 0 -4px 8px rgba(0,0,0,0.4);
+    border: 1.5px solid rgba(255,0,170,0.9);
+  }
+
+  .token.preview-p1 {
+    opacity: 0.35;
+    background: radial-gradient(circle at 35% 30%, #60ffff, #00b8cc);
+    border: 1.5px solid rgba(0,245,255,0.5);
+    animation: none;
+  }
+
+  .token.preview-p2 {
+    opacity: 0.35;
+    background: radial-gradient(circle at 35% 30%, #ff80d4, #cc0077);
+    border: 1.5px solid rgba(255,0,170,0.5);
+    animation: none;
+  }
+
+  /* Win highlight */
+  .cell.win-cell .token {
+    animation: win-pulse 0.6s ease-in-out infinite alternate !important;
+  }
+
+  .cell.win-cell.p1-win .token {
+    box-shadow: 0 0 20px #00f5ff, 0 0 40px rgba(0,245,255,0.8), inset 0 -4px 8px rgba(0,0,0,0.4);
+  }
+
+  .cell.win-cell.p2-win .token {
+    box-shadow: 0 0 20px #ff00aa, 0 0 40px rgba(255,0,170,0.8), inset 0 -4px 8px rgba(0,0,0,0.4);
+  }
+
+  @keyframes win-pulse {
+    from { transform: scale(0.92); }
+    to   { transform: scale(1.05); }
+  }
+
+  /* Column highlight on hover */
+  .col-hover .cell { border-color: rgba(0,245,255,0.2); }
+
+  /* Game over */
+  .gameover-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5,8,16,0.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+  }
+
+  .gameover-overlay.show { display: flex; }
+
+  .gameover-modal {
+    border: 1px solid var(--cyan);
+    background: var(--dark2);
+    padding: 36px 48px;
+    box-shadow: var(--glow-cyan), 0 0 80px rgba(0,245,255,0.15);
+    clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+    text-align: center;
+  }
+
+  .gameover-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    background: linear-gradient(90deg, var(--cyan), var(--magenta));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+
+  .gameover-sub    { color: var(--yellow); font-size: 0.7rem; letter-spacing: 0.3em; text-shadow: var(--glow-yellow); margin-bottom: 16px; }
+  .gameover-winner { font-family: 'Orbitron', sans-serif; font-size: 1rem; margin-bottom: 28px; color: #ccd6f6; }
+
+  .modal-btns { display: flex; gap: 12px; justify-content: center; }
+
+  .action-btn {
+    padding: 10px 22px;
+    border: 1px solid var(--cyan);
+    background: transparent;
+    color: var(--cyan);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.25em;
+    cursor: pointer;
+    clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+    transition: all 0.2s;
+  }
+
+  .action-btn:hover { background: rgba(0,245,255,0.1); box-shadow: var(--glow-cyan); transform: scale(1.03); }
+
+  .action-btn.secondary {
+    border-color: rgba(0,245,255,0.35);
+    color: rgba(0,245,255,0.5);
+  }
+
+  .action-btn.secondary:hover { border-color: var(--cyan); color: var(--cyan); }
+
+  /* Responsive */
+  @media (max-width: 740px) {
+    .board-frame { --cell: 48px; }
+    .drop-arrow  { width: 48px; }
+    .player-panel { width: 100px; }
+    .player-name { font-size: 0.65rem; }
+    .wins-count { font-size: 1.5rem; }
+  }
+
+  @media (max-width: 520px) {
+    .board-frame { --cell: 40px; padding: 5px; }
+    .board-grid  { gap: 4px; }
+    .drop-arrow  { width: 40px; }
+    .player-panel { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>NEON CONNECT FOUR</h1>
+    <div class="subtitle">// GRID WAR PROTOCOL //</div>
+  </div>
+
+  <div class="status-bar" id="status-bar">INITIALIZING...</div>
+
+  <div class="game-layout">
+    <!-- P1 -->
+    <div class="player-panel p1-panel">
+      <div class="panel-card">
+        <div class="player-label">// PLAYER 01</div>
+        <div class="player-name">CYAN UNIT</div>
+        <div class="active-indicator" id="p1-indicator"></div>
+        <div class="wins-label">WINS:</div>
+        <div class="wins-count" id="p1-wins">0</div>
+        <div class="wins-sub">SESSIONS</div>
+      </div>
+    </div>
+
+    <!-- Board -->
+    <div class="board-area">
+      <div class="drop-row" id="drop-row"></div>
+      <div class="board-frame">
+        <div class="board-grid" id="board-grid"></div>
+      </div>
+    </div>
+
+    <!-- P2 -->
+    <div class="player-panel p2-panel">
+      <div class="panel-card">
+        <div class="player-label">// PLAYER 02</div>
+        <div class="player-name">MAGENTA UNIT</div>
+        <div class="active-indicator" id="p2-indicator"></div>
+        <div class="wins-label">WINS:</div>
+        <div class="wins-count" id="p2-wins">0</div>
+        <div class="wins-sub">SESSIONS</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Game Over -->
+<div class="gameover-overlay" id="gameover-overlay">
+  <div class="gameover-modal">
+    <div class="gameover-title">GAME OVER</div>
+    <div class="gameover-sub" id="go-sub"></div>
+    <div class="gameover-winner" id="go-winner"></div>
+    <div class="modal-btns">
+      <button class="action-btn" onclick="newRound()">// PLAY AGAIN //</button>
+      <button class="action-btn secondary" onclick="resetAll()">// RESET ALL //</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ROWS = 6, COLS = 7;
+let grid, turn, gameOver, winCells;
+let wins = { p1: 0, p2: 0 };
+let hoverCol = -1;
+
+function initGame() {
+  grid = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+  turn = 1;
+  gameOver = false;
+  winCells = [];
+  hoverCol = -1;
+  document.getElementById('gameover-overlay').classList.remove('show');
+  buildBoard();
+  updateUI();
+}
+
+function newRound()  { initGame(); }
+function resetAll()  { wins.p1 = 0; wins.p2 = 0; initGame(); }
+
+function buildBoard() {
+  const grid_el = document.getElementById('board-grid');
+  const drop_el = document.getElementById('drop-row');
+  grid_el.innerHTML = '';
+  drop_el.innerHTML = '';
+
+  for (let c = 0; c < COLS; c++) {
+    const arrow = document.createElement('div');
+    arrow.className = 'drop-arrow active';
+    arrow.textContent = '▼';
+    arrow.dataset.col = c;
+    arrow.addEventListener('mouseenter', () => setHover(c));
+    arrow.addEventListener('mouseleave', () => setHover(-1));
+    arrow.addEventListener('click', () => dropToken(c));
+    drop_el.appendChild(arrow);
+  }
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.id = `cell-${r}-${c}`;
+      cell.dataset.col = c;
+      cell.addEventListener('mouseenter', () => setHover(c));
+      cell.addEventListener('mouseleave', () => setHover(-1));
+      cell.addEventListener('click', () => dropToken(c));
+
+      const token = document.createElement('div');
+      token.className = 'token';
+      token.id = `token-${r}-${c}`;
+      cell.appendChild(token);
+
+      grid_el.appendChild(cell);
+    }
+  }
+}
+
+function setHover(col) {
+  if (gameOver) return;
+  hoverCol = col;
+  renderPreview();
+  // Update arrows
+  document.querySelectorAll('.drop-arrow').forEach((a, i) => {
+    a.classList.toggle('preview', i === col);
+  });
+}
+
+function renderPreview() {
+  // Clear all previews
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++) {
+      const t = document.getElementById(`token-${r}-${c}`);
+      if (t && (t.classList.contains('preview-p1') || t.classList.contains('preview-p2'))) {
+        t.className = 'token';
+      }
+    }
+
+  if (hoverCol < 0 || gameOver) return;
+
+  const landRow = getDropRow(hoverCol);
+  if (landRow < 0) return;
+
+  const t = document.getElementById(`token-${landRow}-${hoverCol}`);
+  if (t) t.className = `token preview-p${turn}`;
+}
+
+function getDropRow(col) {
+  for (let r = ROWS - 1; r >= 0; r--)
+    if (grid[r][col] === 0) return r;
+  return -1;
+}
+
+function dropToken(col) {
+  if (gameOver) return;
+  const row = getDropRow(col);
+  if (row < 0) return;
+
+  grid[row][col] = turn;
+
+  // Clear preview then place real token
+  const t = document.getElementById(`token-${row}-${col}`);
+  t.className = `token p${turn} placed`;
+
+  const win = checkWin(row, col);
+  if (win) {
+    winCells = win;
+    gameOver = true;
+    wins[`p${turn}`]++;
+    highlightWin();
+    setTimeout(() => showGameOver(false), 700);
+  } else if (isBoardFull()) {
+    gameOver = true;
+    setTimeout(() => showGameOver(true), 400);
+  } else {
+    turn = turn === 1 ? 2 : 1;
+    hoverCol = -1;
+    renderPreview();
+    updateUI();
+  }
+}
+
+function checkWin(r, c) {
+  const p = grid[r][c];
+  const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+  for (const [dr,dc] of dirs) {
+    let cells = [[r,c]];
+    for (let i=1;i<4;i++) {
+      const nr=r+dr*i, nc=c+dc*i;
+      if (nr<0||nr>=ROWS||nc<0||nc>=COLS||grid[nr][nc]!==p) break;
+      cells.push([nr,nc]);
+    }
+    for (let i=1;i<4;i++) {
+      const nr=r-dr*i, nc=c-dc*i;
+      if (nr<0||nr>=ROWS||nc<0||nc>=COLS||grid[nr][nc]!==p) break;
+      cells.push([nr,nc]);
+    }
+    if (cells.length >= 4) return cells;
+  }
+  return null;
+}
+
+function isBoardFull() {
+  return grid[0].every(v => v !== 0);
+}
+
+function highlightWin() {
+  winCells.forEach(([r,c]) => {
+    const cell = document.getElementById(`cell-${r}-${c}`);
+    cell.classList.add('win-cell', `p${turn}-win`);
+  });
+}
+
+function showGameOver(draw) {
+  const sub  = document.getElementById('go-sub');
+  const win  = document.getElementById('go-winner');
+  if (draw) {
+    sub.textContent  = '// DRAW — GRID SATURATED //';
+    win.textContent  = 'NO WINNER THIS ROUND';
+  } else {
+    sub.textContent  = '// FOUR IN A ROW DETECTED //';
+    win.textContent  = turn === 1 ? 'CYAN UNIT WINS' : 'MAGENTA UNIT WINS';
+  }
+  updateUI();
+  document.getElementById('gameover-overlay').classList.add('show');
+}
+
+function updateUI() {
+  // Status bar
+  const sb = document.getElementById('status-bar');
+  if (!gameOver) {
+    sb.textContent = turn === 1 ? 'CYAN UNIT // DROP TOKEN' : 'MAGENTA UNIT // DROP TOKEN';
+    const col  = turn === 1 ? 'var(--cyan)' : 'var(--magenta)';
+    const glow = turn === 1 ? 'var(--glow-cyan)' : 'var(--glow-magenta)';
+    sb.style.borderColor = col;
+    sb.style.color       = col;
+    sb.style.textShadow  = glow;
+    sb.style.boxShadow   = glow;
+  }
+
+  // Drop arrows color
+  document.querySelectorAll('.drop-arrow').forEach(a => {
+    a.style.color      = turn === 1 ? 'var(--cyan)' : 'var(--magenta)';
+    a.style.textShadow = turn === 1 ? 'var(--glow-cyan)' : 'var(--glow-magenta)';
+  });
+
+  // Active indicators
+  document.getElementById('p1-indicator').className = 'active-indicator' + (turn===1&&!gameOver?' active':'');
+  document.getElementById('p2-indicator').className = 'active-indicator' + (turn===2&&!gameOver?' active':'');
+
+  // Wins
+  document.getElementById('p1-wins').textContent = wins.p1;
+  document.getElementById('p2-wins').textContent = wins.p2;
+}
+
+initGame();
+</script>
+</body>
+</html>
