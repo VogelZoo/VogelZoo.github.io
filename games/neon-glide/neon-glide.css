@@ -1,0 +1,14 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    background: #0a0a0a;
+    font-family: 'Courier New', Courier, monospace;
+    user-select: none;
+}
+
+canvas {
+    display: block;
+    background: linear-gradient(to bottom, #021B79, #0575E6);
+}
+
+/* Additional cyberpunk styles can be added here */
