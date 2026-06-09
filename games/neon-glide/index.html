@@ -35,7 +35,7 @@
             pointer-events: none;
             display: none; 
             flex-direction: column;
-            justify-between: space-between;
+            justify-content: space-between;
             padding: 20px;
             box-sizing: border-box;
         }
@@ -137,7 +137,7 @@
 
     <div id="screen-overlay">
         <h1 id="menu-title">NEON GLIDE</h1>
-        <p id="menu-desc">Swipe UP to pitch up. Swipe DOWN to dive.<br>Intercept gold matrices for speed boosts. Avoid cyber-mines!</p>
+        <p id="menu-desc">Swipe UP to pitch up. Swipe DOWN to dive.<br>Build speed in dives, then pull up to soar! Avoid mines and stay airborne.</p>
         <button id="action-btn">INITIALIZE GLIDE</button>
     </div>
 
@@ -156,25 +156,29 @@
         const menuDesc = document.getElementById('menu-desc');
         const actionBtn = document.getElementById('action-btn');
 
-        // Game State Engine variables
+        // Game States
         let gameState = 'START'; 
         let scoreDistance = 0;
         let globalHighScore = 0;
         let lastTime = 0;
-        let boostFlashTimer = 0; // Visual fx frames when grabbing gold
+        let boostFlashTimer = 0; 
 
-        // Dynamic System Constraints
+        // Vector Aerodynamic Configurations
         const physics = {
-            gravity: 0.075,            // Relaxed downward pull
-            minPitch: -Math.PI / 4.5,  
-            maxPitch: Math.PI / 4,     
-            stallPitch: Math.PI / 4.8, // Widened safety threshold
-            pitchSpeed: 0.07,          
-            minSpeed: 1.6,             // Forgiving stall point limits
-            maxSpeed: 18.0,
+            gravity: 0.09,             
+            minPitch: -Math.PI / 3.5,  // Steeper max dive angles allowed
+            maxPitch: Math.PI / 3.5,   // Steeper max climbs allowed
+            stallPitch: Math.PI / 5.2, 
+            pitchSpeed: 0.065,          
+            dragBaseline: 0.008,       // Natural atmospheric drag slowing you down over time
+            speedConversion: 0.16,     // How efficiently pitch adds gravity to forward airspeed
+            liftFactor: 0.13,          // Controls velocity-to-altitude generation efficiency
+            
+            minSpeed: 1.5,             
+            maxSpeed: 19.0,
             startingSpeed: 7.5,      
-            startingAltitude: 220,
-            baseSpeedCap: 7.5          // Upgradable via boosts
+            startingAltitude: 200,
+            baseSpeedCap: 7.5          
         };
 
         // Entities
@@ -185,11 +189,11 @@
         let boosts = [];
         let terrainPoints = [];
         
-        // Input Controls
+        // Controls
         let touchStartY = 0;
         const swipeThreshold = 5;
 
-        // --- COOKIE INTERFACE UTILITIES ---
+        // --- HIGH SCORE BROWSER COOKIE MANAGEMENT ---
         function setCookie(name, value, days) {
             const date = new Date();
             date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
@@ -203,9 +207,7 @@
             const ca = decodedCookie.split(';');
             for(let i = 0; i < ca.length; i++) {
                 let c = ca[i].trim();
-                if (c.indexOf(cname) === 0) {
-                    return c.substring(cname.length, c.length);
-                }
+                if (c.indexOf(cname) === 0) return c.substring(cname.length, c.length);
             }
             return "";
         }
@@ -220,7 +222,7 @@
             let currentFloorScore = Math.floor(scoreDistance);
             if (currentFloorScore > globalHighScore) {
                 globalHighScore = currentFloorScore;
-                setCookie("neonglide_highscore", globalHighScore, 365); // Retain securely for 1 year
+                setCookie("neonglide_highscore", globalHighScore, 365); 
                 highscoreDisplay.innerText = `BEST: ${globalHighScore}m`;
             }
         }
@@ -263,17 +265,19 @@
         }
 
         function resetGame() {
-            physics.baseSpeedCap = 7.5; // Reset velocity base line tracking 
+            physics.baseSpeedCap = 7.5; 
             glider = {
                 x: canvas.width * 0.2,
                 y: physics.startingAltitude,
                 width: 45,
                 height: 20,
+                forwardAirspeed: physics.startingSpeed, // Combined linear scalar magnitude
                 vx: physics.startingSpeed,
                 vy: 0,
                 pitch: 0,          
                 targetPitch: 0,    
-                isStalling: false  
+                isStalling: false,
+                inThermalUpdraft: false
             };
             fans = [];
             obstacles = [];
@@ -289,6 +293,7 @@
         // --- CONTROL HANDLING ---
         function handleSwipe(deltaY) {
             if (gameState !== 'PLAYING' || !glider) return;
+            // Fixed direction coordinates: Up pitches up (nose skyward), Down pitches down (nose gridward)
             if (deltaY < -swipeThreshold) {
                 glider.targetPitch = Math.max(glider.targetPitch - physics.pitchSpeed, physics.minPitch);
             } else if (deltaY > swipeThreshold) {
@@ -323,30 +328,27 @@
             }
         });
 
-        // --- ENTITY FACTORIES ---
+        // --- ENTITY MANIFEST INFRASTRUCTURE ---
         function spawnEntities() {
-            // Uplift Thermal Columns
             if (fans.length === 0 || fans[fans.length - 1].x < canvas.width - 450) {
                 if (Math.random() < 0.012) {
-                    fans.push({ x: canvas.width + 50, width: 80, height: 50, pulse: 0 });
+                    fans.push({ x: canvas.width + 50, width: 85, height: 50, pulse: 0 });
                 }
             }
 
-            // Rare Golden Boost Items
-            if (boosts.length === 0 || boosts[boosts.length - 1].x < canvas.width - 600) {
-                if (Math.random() < 0.004) { // Highly unique rare spawns
+            if (boosts.length === 0 || boosts[boosts.length - 1].x < canvas.width - 650) {
+                if (Math.random() < 0.004) {
                     boosts.push({
                         x: canvas.width + 50,
-                        y: Math.random() * (canvas.height - 300) + 100,
+                        y: Math.random() * (canvas.height - 320) + 100,
                         size: 14,
                         pulse: 0
                     });
                 }
             }
 
-            // Calibrated Bobbing Obstacles (Substantially lower frequency at start)
-            const initialSpawnCap = 0.0025; // Slashed frequency density down from 0.005
-            const difficultyScale = Math.min(initialSpawnCap + (scoreDistance * 0.0000015), 0.015);
+            const initialSpawnCap = 0.0022; 
+            const difficultyScale = Math.min(initialSpawnCap + (scoreDistance * 0.0000015), 0.014);
             if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < canvas.width - 400) {
                 if (Math.random() < difficultyScale) {
                     obstacles.push({
@@ -361,99 +363,131 @@
             }
         }
 
-        // --- ENGINE COMPUTATIONS ---
+        // --- SYSTEM ENGINE SIMULATION ---
         function updateGame(dt) {
             if (!glider || gameState !== 'PLAYING') return;
 
+            // Base scores run off true grid projection distance traversal rates (vx)
             scoreDistance += glider.vx * dt * 0.1;
             scoreDisplay.innerText = `DISTANCE: ${Math.floor(scoreDistance)}m`;
-            speedDisplay.innerText = `SPEED: ${Math.round(glider.vx * 12)}MPH`;
+            speedDisplay.innerText = `SPEED: ${Math.round(glider.forwardAirspeed * 12)}MPH`;
             
-            // Compare real-time performance against saved benchmark cookie
             updateHighScoreCheck();
 
             if (boostFlashTimer > 0) boostFlashTimer -= dt;
 
+            // Smoothly track structural angle interpolation adjustments
             glider.pitch += (glider.targetPitch - glider.pitch) * 0.12;
 
-            // Highly Forgiving Stall Evaluation Controls
-            if (glider.pitch < -physics.stallPitch || glider.vx < physics.minSpeed) {
+            // Evaluates True Aerodynamic Stall state variables
+            // Stalling occurs when nose is pitched up past threshold and forward speed drops
+            if (glider.pitch < -physics.stallPitch || glider.forwardAirspeed < physics.minSpeed) {
                 glider.isStalling = true;
-                stallWarning.style.display = 'block';
+                // EXCEPTION: Stalling inside a fan is a valid vertical lift collection strategy
+                if (!glider.inThermalUpdraft) {
+                    stallWarning.style.display = 'block';
+                } else {
+                    stallWarning.style.display = 'none'; // Suppress warnings inside active fan
+                }
             } else {
                 glider.isStalling = false;
                 stallWarning.style.display = 'none';
             }
 
+            // DIRECTIONAL FLIGHT MATRIX EQUATIONS
             if (glider.isStalling) {
-                glider.vx = Math.max(glider.vx - 0.025, physics.minSpeed); // Soft drift drag reduction
-                glider.vy += physics.gravity * 1.5;
+                // Drag bleeds off linear velocity
+                glider.forwardAirspeed = Math.max(glider.forwardAirspeed - 0.035, physics.minSpeed);
+                
+                // Break down speed along heading orientation
+                glider.vx = glider.forwardAirspeed * Math.cos(glider.pitch);
+                glider.vy = glider.forwardAirspeed * Math.sin(glider.pitch) + (physics.gravity * 2.0); // Gravity dominates in a stall
+                
+                // Unresponsive safety correction forces nose down to gain speed naturally
                 glider.targetPitch += 0.005; 
             } else {
-                const angleEffect = Math.sin(glider.pitch); 
-                glider.vx += angleEffect * 0.11 - 0.012; // Lower resistance drag coefficient
+                // Acceleration is added in the exact heading direction of the glider
+                // Math.sin(glider.pitch) is negative when pointing down (climbing is positive radians in standard canvas coords)
+                const relativeGravityAcceleration = -Math.sin(glider.pitch) * physics.speedConversion;
                 
-                // Allow dynamic expansion of maximum speed caps based on collected boost nodes
-                const operationalMax = Math.max(physics.maxSpeed, physics.baseSpeedCap + 6);
-                glider.vx = Math.max(physics.minSpeed, Math.min(glider.vx, operationalMax));
+                // Update total linear magnitude energy array values
+                glider.forwardAirspeed += relativeGravityAcceleration - physics.dragBaseline;
+                
+                const currentMaxCap = Math.max(physics.maxSpeed, physics.baseSpeedCap + 6);
+                glider.forwardAirspeed = Math.max(physics.minSpeed, Math.min(glider.forwardAirspeed, currentMaxCap));
 
-                const activeLift = -angleEffect * (glider.vx * 0.18);
-                glider.vy += (physics.gravity - activeLift) * 0.2;
-                glider.vy *= 0.88; 
+                // Deconstruct total velocity scalar onto 2D coordinate space projections
+                // Added strictly in the vector direction the nose points
+                glider.vx = glider.forwardAirspeed * Math.cos(glider.pitch);
+                
+                // Lift opposes gravity based on speed and wing surface geometry profiles
+                const generationLift = Math.cos(glider.pitch) * (glider.forwardAirspeed * physics.liftFactor);
+                glider.vy = (glider.forwardAirspeed * Math.sin(glider.pitch)) + (physics.gravity - generationLift);
             }
 
+            // FAN STRATEGY RESOLUTION: Apply upward environmental thermal forces
+            if (glider.inThermalUpdraft) {
+                glider.vy -= 0.65; // Overrides dive arcs and lifts stall weights upward gracefully
+                glider.forwardAirspeed = Math.min(glider.forwardAirspeed + 0.04, physics.maxSpeed); 
+            }
+
+            // Apply calculated coordinate steps
             glider.y += glider.vy;
 
+            // Sky Ceiling Bounds Check
             if (glider.y < 35) {
                 glider.y = 35;
                 glider.vy = Math.max(0, glider.vy);
             }
 
-            const currentSpeed = glider.vx;
+            const currentScrollSpeed = glider.vx;
 
+            // Parallax Scrollers
             stars.forEach(star => {
-                star.x -= currentSpeed * star.speed;
+                star.x -= currentScrollSpeed * star.speed;
                 if (star.x < 0) star.x = canvas.width;
             });
 
             spawnEntities();
 
-            // Uplift Vectors
+            // Track fan spatial parameters on this step frame loop iteration
+            glider.inThermalUpdraft = false;
+
+            // Handle Fans Column Calculations
             for (let i = fans.length - 1; i >= 0; i--) {
-                fans[i].x -= currentSpeed;
+                fans[i].x -= currentScrollSpeed;
                 fans[i].pulse += 0.08;
+
                 if (glider.x + 10 >= fans[i].x && glider.x - 30 <= fans[i].x + fans[i].width) {
                     if (glider.y < canvas.height - 40) { 
-                        glider.vy -= 0.35; 
-                        glider.vx = Math.min(glider.vx + 0.04, physics.maxSpeed); 
+                        glider.inThermalUpdraft = true; // Caught inside thermal layer matrix area
                     }
                 }
                 if (fans[i].x + fans[i].width < 0) fans.splice(i, 1);
             }
 
-            // Rare Golden Boost Processing Mechanics
+            // Handle Golden Speed Boost Items
             for (let i = boosts.length - 1; i >= 0; i--) {
-                boosts[i].x -= currentSpeed;
+                boosts[i].x -= currentScrollSpeed;
                 boosts[i].pulse += 0.05;
 
-                // Simple Box/Distance Intersection Check
                 const bDx = glider.x - boosts[i].x;
                 const bDy = glider.y - boosts[i].y;
                 const bDist = Math.sqrt(bDx * bDx + bDy * bDy);
 
                 if (bDist < boosts[i].size + 15) {
-                    physics.baseSpeedCap += 0.125; // Permanent operational floor adjustment (+1.5 MPH scale)
-                    glider.vx = Math.min(glider.vx + 2.0, physics.maxSpeed + 4); // Immediate structural burst force
-                    boostFlashTimer = 25; // Trigger bright flash rendering
+                    physics.baseSpeedCap += 0.125; 
+                    glider.forwardAirspeed = Math.min(glider.forwardAirspeed + 2.5, physics.maxSpeed + 4); 
+                    boostFlashTimer = 25; 
                     boosts.splice(i, 1);
                     continue;
                 }
                 if (boosts[i].x + boosts[i].size * 2 < 0) boosts.splice(i, 1);
             }
 
-            // Hazard Mine Units
+            // Handle Cyber Hazards Obstacles
             for (let i = obstacles.length - 1; i >= 0; i--) {
-                obstacles[i].x -= currentSpeed;
+                obstacles[i].x -= currentScrollSpeed;
                 obstacles[i].angle += obstacles[i].bobSpeed;
                 obstacles[i].y = obstacles[i].baseY + Math.sin(obstacles[i].angle) * obstacles[i].bobRange;
 
@@ -468,8 +502,8 @@
                 if (obstacles[i].x + obstacles[i].radius * 2 < 0) obstacles.splice(i, 1);
             }
 
-            // Base Terrain Scrolling
-            terrainPoints.forEach(p => { p.x -= currentSpeed; });
+            // Grid Floor Scrollers
+            terrainPoints.forEach(p => { p.x -= currentScrollSpeed; });
             if (terrainPoints[0].x <= -40) {
                 let shifted = terrainPoints.shift();
                 shifted.x = terrainPoints[terrainPoints.length - 1].x + 40;
@@ -484,17 +518,17 @@
             stallWarning.style.display = 'none';
             uiLayer.style.display = 'none'; 
             menuTitle.innerText = "MATRIX CRASH";
-            menuDesc.innerHTML = `Sector complete. Final Distance Recorded: <span style="color:#ff00ff">${Math.floor(scoreDistance)}m</span><br><span style="color:#ffcc00">Cookie Saved High Score: ${globalHighScore}m</span>`;
+            menuDesc.innerHTML = `Sector complete. Distance Traveled: <span style="color:#ff00ff">${Math.floor(scoreDistance)}m</span><br><span style="color:#ffcc00">High Score: ${globalHighScore}m</span>`;
             actionBtn.innerText = "REBOOT GLIDE";
             screenOverlay.style.display = 'flex';
         }
 
-        // --- GRAPHICS RENDERING LAYER ---
+        // --- CANVAS GRAPHICS RENDER CHANNELS ---
         function draw() {
             ctx.fillStyle = '#05030a';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Background Starfield
+            // Stars
             const scrollSpeed = (gameState === 'PLAYING' && glider) ? glider.vx : 1.5; 
             stars.forEach(star => {
                 if (gameState !== 'PLAYING') {
@@ -505,7 +539,7 @@
                 ctx.fillRect(star.x, star.y, star.size, star.size);
             });
 
-            // Uplift Vectors
+            // Active Updraft Fans Columns
             fans.forEach(fan => {
                 ctx.strokeStyle = '#00ffcc';
                 ctx.lineWidth = 3;
@@ -532,7 +566,7 @@
                 ctx.restore();
             });
 
-            // Render Rare Golden Boost Arrays
+            // Golden Speed Matrices Boosts
             boosts.forEach(bst => {
                 ctx.save();
                 ctx.translate(bst.x, bst.y);
@@ -542,20 +576,14 @@
                 ctx.strokeStyle = '#ffcc00';
                 ctx.fillStyle = 'rgba(255, 204, 0, 0.15)';
                 ctx.lineWidth = 3;
-
-                // Diamond matrix topology shape drawing
                 ctx.beginPath();
-                ctx.moveTo(0, -bst.size);
-                ctx.lineTo(bst.size, 0);
-                ctx.lineTo(0, bst.size);
-                ctx.lineTo(-bst.size, 0);
+                ctx.moveTo(0, -bst.size); ctx.lineTo(bst.size, 0); ctx.lineTo(0, bst.size); ctx.lineTo(-bst.size, 0);
                 ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
+                ctx.fill(); ctx.stroke();
                 ctx.restore();
             });
 
-            // Cyber-Mines
+            // Hazards Cyber Mines
             obstacles.forEach(obs => {
                 ctx.save();
                 ctx.shadowBlur = 10;
@@ -565,12 +593,11 @@
                 ctx.lineWidth = 3;
                 ctx.beginPath();
                 ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.stroke();
+                ctx.fill(); ctx.stroke();
                 ctx.restore();
             });
 
-            // Base Grid Matrix Floor Line Arrays
+            // Perspective Grid Floor Lines
             ctx.strokeStyle = '#ff00ff';
             ctx.lineWidth = 4;
             ctx.shadowBlur = 12;
@@ -589,7 +616,7 @@
             ctx.stroke();
             ctx.shadowBlur = 0;
 
-            // Perspective Grid Accents
+            // Perspective Accents
             ctx.strokeStyle = 'rgba(255, 0, 255, 0.2)';
             ctx.lineWidth = 1;
             terrainPoints.forEach((p) => {
@@ -599,14 +626,13 @@
                 ctx.stroke();
             });
 
-            // Glider Ship
+            // Player Glider asset
             if (gameState === 'PLAYING' && glider) {
                 ctx.save();
                 ctx.translate(glider.x, glider.y);
                 ctx.rotate(glider.pitch);
 
                 ctx.shadowBlur = 15;
-                // Structural aesthetic changes colors if player holds hot golden tracking state variables
                 let shipColor = glider.isStalling ? '#ff0055' : (boostFlashTimer > 0 ? '#ffcc00' : '#00ffcc');
                 ctx.shadowColor = shipColor;
                 ctx.strokeStyle = shipColor;
@@ -621,16 +647,15 @@
                 ctx.lineTo(-10, 5);      
                 ctx.lineTo(-20, 16);     
                 ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
+                ctx.fill(); ctx.stroke();
 
-                // Propulsion System Trail Colors
+                // Thrust Engine Tail Output line rendering
                 ctx.shadowColor = boostFlashTimer > 0 ? '#ffcc00' : '#ff00ff';
                 ctx.strokeStyle = boostFlashTimer > 0 ? '#ffcc00' : '#ff00ff';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.moveTo(-22, 0);
-                const trailLength = glider.isStalling ? 8 : 25 + (glider.vx * 2);
+                const trailLength = glider.isStalling ? 6 : 22 + (glider.forwardAirspeed * 2);
                 ctx.lineTo(-trailLength, (Math.random() * 4) - 2);
                 ctx.stroke();
 
@@ -638,7 +663,7 @@
             }
         }
 
-        // --- APP LIFE CYCLE INITIALIZATION LOOP ---
+        // --- LIFE CYCLE LOOP TICKER ---
         function loop(timestamp) {
             let dt = (timestamp - lastTime) / 16.666;
             if (dt > 4) dt = 4; 
@@ -649,7 +674,6 @@
             requestAnimationFrame(loop);
         }
 
-        // Prefetch scores on document load safely
         loadHighScore();
         resize();
         requestAnimationFrame(loop);
