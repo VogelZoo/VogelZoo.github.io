@@ -140,7 +140,7 @@
 
     <div id="screen-overlay">
         <h1 id="menu-title">NEON GLIDE</h1>
-        <p id="menu-desc">Swipe UP to pitch up. Swipe DOWN to dive.<br>Coasting level bleeds energy rapidly! You must dive to build and maintain air speed.</p>
+        <p id="menu-desc">Swipe UP to pitch up. Swipe DOWN to dive.<br>First 500m is a clear safety zone! Learn to catch air, because mines spawn slowly after 500m.</p>
         <button id="action-btn">INITIALIZE GLIDE</button>
     </div>
 
@@ -164,23 +164,22 @@
         let gameState = 'START'; 
         let scoreDistance = 0;
         let globalHighScore = 0;
-        let globalTopSpeed = 0; // Saved Max MPH historical profile
+        let globalTopSpeed = 0; 
         let lastTime = 0;
         let boostFlashTimer = 0; 
 
-        // Aggressive Energy-Loss Flight Dynamics
+        // Aerodynamic Settings
         const physics = {
             gravity: 0.12,             
-            minPitch: -Math.PI / 3.8,  // Climb ceiling limits
-            maxPitch: Math.PI / 3.0,   // Dive floor limits
-            stallPitchThreshold: -0.15,// Flat/Upward angles trigger stalls quickly if slow
+            minPitch: -Math.PI / 3.8,  
+            maxPitch: Math.PI / 3.0,   
+            stallPitchThreshold: -0.15,
             pitchSpeed: 0.07,          
             
-            // Re-calibrated Aerodynamic Penalty Matrix
-            parasiteDragBaseline: 0.015, // Constant air friction loss floor
-            cubicDragCoeff: 0.00012,     // Velocity-cubed (v^3) drag wall to stop level coasting
-            inducedDragCoeff: 0.065,     // Heavy drag cost for holding pulling-up configurations
-            speedConversion: 0.28,       // Kinetic returns from diving steep slopes
+            parasiteDragBaseline: 0.015, 
+            cubicDragCoeff: 0.00012,     
+            inducedDragCoeff: 0.065,     
+            speedConversion: 0.28,       
             liftFactor: 0.14,            
             
             minSpeed: 1.2,             
@@ -202,7 +201,7 @@
         let touchStartY = 0;
         const swipeThreshold = 5;
 
-        // --- HISTORICAL SCORE REGISTRATION ENGINE ---
+        // --- HISTORICAL STORAGE ---
         function setCookie(name, value, days) {
             const date = new Date();
             date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
@@ -255,7 +254,7 @@
         }
         window.addEventListener('resize', resize);
 
-        // --- ENVIRONMENT BACKGROUNDS ---
+        // --- BACKGROUND GRAPHICS ---
         function initStars() {
             stars = [];
             const layers = [
@@ -310,7 +309,7 @@
             stallWarning.style.display = 'none';
         }
 
-        // --- TOUCH/MOUSE INTERACTION CORE ---
+        // --- CONTROL HANDLING ---
         function handleSwipe(deltaY) {
             if (gameState !== 'PLAYING' || !glider) return;
             if (deltaY < -swipeThreshold) {
@@ -349,6 +348,7 @@
 
         // --- ENTITY SPAWN SYSTEMS ---
         function spawnEntities() {
+            // Support utilities spawn continuously from launch
             if (fans.length === 0 || fans[fans.length - 1].x < canvas.width - 450) {
                 if (Math.random() < 0.012) {
                     fans.push({ x: canvas.width + 50, width: 85, height: 50, pulse: 0 });
@@ -366,23 +366,32 @@
                 }
             }
 
-            const initialSpawnCap = 0.0022; 
-            const difficultyScale = Math.min(initialSpawnCap + (scoreDistance * 0.0000015), 0.014);
-            if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < canvas.width - 400) {
-                if (Math.random() < difficultyScale) {
-                    obstacles.push({
-                        x: canvas.width + 50,
-                        baseY: Math.random() * (canvas.height - 260) + 80, 
-                        radius: 15,
-                        bobSpeed: 0.018 + Math.random() * 0.02,
-                        bobRange: 25 + Math.random() * 35,
-                        angle: Math.random() * Math.PI
-                    });
+            // CRITICAL: Mine spawn conditions managed dynamically by distance threshold
+            if (scoreDistance > 500) {
+                // Calculates distance traveled past the 500m checkpoint
+                const distancePastSafeZone = scoreDistance - 500;
+                
+                // Starts exceptionally tiny (e.g., 0.0005) and increases slowly per meter traveled
+                const minSpawnChance = 0.0005;
+                const incrementalScaling = distancePastSafeZone * 0.0000012;
+                const dynamicSpawnRate = Math.min(minSpawnChance + incrementalScaling, 0.014);
+
+                if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < canvas.width - 380) {
+                    if (Math.random() < dynamicSpawnRate) {
+                        obstacles.push({
+                            x: canvas.width + 50,
+                            baseY: Math.random() * (canvas.height - 260) + 80, 
+                            radius: 15,
+                            bobSpeed: 0.018 + Math.random() * 0.02,
+                            bobRange: 25 + Math.random() * 35,
+                            angle: Math.random() * Math.PI
+                        });
+                    }
                 }
             }
         }
 
-        // --- ENGINE SIMULATION STEP ---
+        // --- CORE PHYSICS GAME ENGINE LOOP ---
         function updateGame(dt) {
             if (!glider || gameState !== 'PLAYING') return;
 
@@ -396,7 +405,6 @@
 
             glider.pitch += (glider.targetPitch - glider.pitch) * 0.12;
 
-            // Evaluates Stall parameters: Triggered if speed drops while nose is above horizontal tracking angles
             if (glider.pitch < physics.stallPitchThreshold && glider.forwardAirspeed < 4.0) {
                 glider.isStalling = true;
                 if (!glider.inThermalUpdraft) {
@@ -409,44 +417,35 @@
                 stallWarning.style.display = 'none';
             }
 
-            // CORE VECTOR FLIGHT MATH MATRIX WITH RE-ENGINEERED ENERGY DECUPLES
+            // ENHANCED VELOCITY COEFFICIENTS 
             if (glider.isStalling) {
                 glider.forwardAirspeed = Math.max(glider.forwardAirspeed - 0.1 * dt, physics.minSpeed);
                 glider.vx = glider.forwardAirspeed * Math.cos(glider.pitch);
                 glider.vy += physics.gravity * 1.8 * dt; 
                 glider.targetPitch += 0.015 * dt; 
             } else {
-                // 1. GRAVITATIONAL MOMENTUM WORK (positive pitch = pointing down to grid floor)
                 const gravityWork = Math.sin(glider.pitch) * physics.speedConversion;
-                
-                // 2. PARASITE DRAG (quadratic friction floor)
                 const parasiteDrag = Math.pow(glider.forwardAirspeed, 2) * 0.0005;
                 
-                // 3. COUPLING CUBIC DRAG (Prevents holding indefinite horizontal speed locks like 14MPH)
-                // Scales directly with cos(pitch), making level flat glide angles bleed energy heavily at speed
                 const levelGlideFrictionFactor = Math.cos(glider.pitch);
                 const cubicLevelDrag = Math.pow(glider.forwardAirspeed, 3) * physics.cubicDragCoeff * levelGlideFrictionFactor;
                 
-                // 4. INDUCED PROFILE DRAG (Heavy price paid for turning momentum into climbs)
                 let inducedDrag = 0;
                 if (glider.pitch < 0) { 
                     inducedDrag = Math.abs(glider.pitch) * physics.inducedDragCoeff;
                 }
 
-                // Apply total drag decay onto total airspeed magnitude vector scalar
                 glider.forwardAirspeed += (gravityWork - physics.parasiteDragBaseline - parasiteDrag - cubicLevelDrag - inducedDrag) * dt;
                 
                 const currentMaxCap = Math.max(physics.maxSpeed, physics.baseSpeedCap + 6);
                 glider.forwardAirspeed = Math.max(physics.minSpeed, Math.min(glider.forwardAirspeed, currentMaxCap));
 
-                // Project scalar force directly down exact nose directional heading
                 glider.vx = glider.forwardAirspeed * Math.cos(glider.pitch);
                 
                 const liftGeneration = Math.cos(glider.pitch) * (glider.forwardAirspeed * physics.liftFactor);
                 glider.vy = (glider.forwardAirspeed * Math.sin(glider.pitch)) + (physics.gravity - liftGeneration);
             }
 
-            // Updraft Columns Interaction
             if (glider.inThermalUpdraft) {
                 glider.vy -= 0.85 * dt; 
                 glider.forwardAirspeed = Math.min(glider.forwardAirspeed + 0.06 * dt, physics.maxSpeed);
@@ -469,7 +468,7 @@
             spawnEntities();
             glider.inThermalUpdraft = false;
 
-            // Thermal Fans
+            // Thermal Updraft Zones
             for (let i = fans.length - 1; i >= 0; i--) {
                 fans[i].x -= currentScrollSpeed * dt;
                 fans[i].pulse += 0.08 * dt;
@@ -482,7 +481,7 @@
                 if (fans[i].x + fans[i].width < 0) fans.splice(i, 1);
             }
 
-            // Golden Boost Nodes Intersections
+            // Speed Crystal Collections
             for (let i = boosts.length - 1; i >= 0; i--) {
                 boosts[i].x -= currentScrollSpeed * dt;
                 boosts[i].pulse += 0.05 * dt;
@@ -501,7 +500,7 @@
                 if (boosts[i].x + boosts[i].size * 2 < 0) boosts.splice(i, 1);
             }
 
-            // Hazards Cyber Mines
+            // Obstacle Processing Loops
             for (let i = obstacles.length - 1; i >= 0; i--) {
                 obstacles[i].x -= currentScrollSpeed * dt;
                 obstacles[i].angle += obstacles[i].bobSpeed * dt;
@@ -518,7 +517,7 @@
                 if (obstacles[i].x + obstacles[i].radius * 2 < 0) obstacles.splice(i, 1);
             }
 
-            // Grid Line Floor Movements
+            // Floor Relocations
             terrainPoints.forEach(p => { p.x -= currentScrollSpeed * dt; });
             if (terrainPoints[0].x <= -40) {
                 let shifted = terrainPoints.shift();
@@ -539,7 +538,7 @@
             screenOverlay.style.display = 'flex';
         }
 
-        // --- GRAPH CORE LAYERS ---
+        // --- GRAPH CORE RENDERING CHANNELS ---
         function draw() {
             ctx.fillStyle = '#05030a';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -554,7 +553,7 @@
                 ctx.fillRect(star.x, star.y, star.size, star.size);
             });
 
-            // Uplift column systems
+            // Updraft Fans
             fans.forEach(fan => {
                 ctx.strokeStyle = '#00ffcc';
                 ctx.lineWidth = 3;
@@ -598,7 +597,7 @@
                 ctx.restore();
             });
 
-            // Cyber Mines Hazards
+            // Cyber Mines
             obstacles.forEach(obs => {
                 ctx.save();
                 ctx.shadowBlur = 10;
@@ -612,7 +611,7 @@
                 ctx.restore();
             });
 
-            // Floor matrix tracks
+            // Floor Grid Lines
             ctx.strokeStyle = '#ff00ff';
             ctx.lineWidth = 4;
             ctx.shadowBlur = 12;
@@ -631,7 +630,7 @@
             ctx.stroke();
             ctx.shadowBlur = 0;
 
-            // Spatial Grid Accent Drops
+            // Perspective Grid Accents
             ctx.strokeStyle = 'rgba(255, 0, 255, 0.2)';
             ctx.lineWidth = 1;
             terrainPoints.forEach((p) => {
@@ -641,7 +640,7 @@
                 ctx.stroke();
             });
 
-            // Glider Ship Asset Elements
+            // Glider Ship Graphic
             if (gameState === 'PLAYING' && glider) {
                 ctx.save();
                 ctx.translate(glider.x, glider.y);
@@ -664,7 +663,7 @@
                 ctx.closePath();
                 ctx.fill(); ctx.stroke();
 
-                // Dynamic Tail Exhaust line width allocations
+                // Engine Trail line
                 ctx.shadowColor = boostFlashTimer > 0 ? '#ffcc00' : '#ff00ff';
                 ctx.strokeStyle = boostFlashTimer > 0 ? '#ffcc00' : '#ff00ff';
                 ctx.lineWidth = 2;
@@ -678,7 +677,7 @@
             }
         }
 
-        // --- LIFE TIMESTAMPS ---
+        // --- EXECUTION WINDOW FRAME TIMINGS ---
         function loop(timestamp) {
             let dt = (timestamp - lastTime) / 16.666;
             if (dt > 4) dt = 4; 
