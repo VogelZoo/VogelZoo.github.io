@@ -52,6 +52,28 @@
             letter-spacing: 2px;
             text-shadow: 0 0 10px rgba(0, 255, 204, 0.6);
         }
+        
+        /* Audio Control Button Styles */
+        #mute-btn {
+            background: rgba(13, 5, 20, 0.6);
+            border: 2px solid #ff00ff;
+            color: #ff00ff;
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            cursor: pointer;
+            pointer-events: auto; /* Required to bypass UI layer pass-through blocker */
+            box-shadow: 0 0 10px rgba(255, 0, 255, 0.2);
+            margin-top: 8px;
+            transition: all 0.2s ease;
+        }
+        #mute-btn.unmuted {
+            border-color: #00ffcc;
+            color: #00ffcc;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
+        }
+
         #stall-warning {
             position: absolute;
             top: 30%;
@@ -133,6 +155,7 @@
             <div style="text-align: right;">
                 <div id="speed-display" class="hud-text" style="color: #ff00ff; text-shadow: 0 0 10px rgba(255, 0, 255, 0.6);">SPEED: 0MPH</div>
                 <div id="topspeed-display" class="hud-text" style="color: #ff0055; font-size: 14px; text-shadow: 0 0 6px rgba(255,0,85,0.4);">MAX RECORDED: 0MPH</div>
+                <button id="mute-btn">AUDIO: MUTED</button>
             </div>
         </div>
         <div id="stall-warning">CRITICAL STALL</div>
@@ -140,7 +163,7 @@
 
     <div id="screen-overlay">
         <h1 id="menu-title">NEON GLIDE</h1>
-        <p id="menu-desc">Swipe UP to pitch up. Swipe DOWN to dive.<br>Gravity is re-balanced! Level coasting will bleed your speed down to zero if you don't track downward.</p>
+        <p id="menu-desc">Swipe UP to pitch up. Swipe DOWN to dive.<br>Level coasting bleeds your speed down to zero if you don't dive!</p>
         <button id="action-btn">INITIALIZE GLIDE</button>
     </div>
 
@@ -154,6 +177,7 @@
         const highscoreDisplay = document.getElementById('highscore-display');
         const speedDisplay = document.getElementById('speed-display');
         const topspeedDisplay = document.getElementById('topspeed-display');
+        const muteBtn = document.getElementById('mute-btn');
         const stallWarning = document.getElementById('stall-warning');
         const screenOverlay = document.getElementById('screen-overlay');
         const menuTitle = document.getElementById('menu-title');
@@ -166,23 +190,35 @@
         let globalHighScore = 0;
         let globalTopSpeed = 0; 
         let lastTime = 0;
-        let boostFlashTimer = 0; 
+        let boostFlashTimer = 0;
 
-        // Balanced Smooth Physics Configuration
+        // --- AUDIO ENGINE VARIABLES ---
+        let audioInitialized = false;
+        let isMuted = true; // Defaulting to muted as requested
+        let currentTrackIndex = 0;
+        let audioPlaylist = [];
+
+        // Replace these URLs with your actual track files (mp3/ogg)
+        const trackSources = [
+            'https://actions.google.com/sounds/v1/ambiences/synth_loop.ogg', 
+            'https://actions.google.com/sounds/v1/ambiences/tech_glitch_loop.ogg'
+        ];
+
+        // Advanced Physics Constants Matrices
         const physics = {
-            gravity: 0.075,            // Decreased gravity for smoother dive curves
+            gravity: 0.075,            
             minPitch: -Math.PI / 4.0,  
             maxPitch: Math.PI / 3.0,   
-            stallPitchThreshold: -0.05,// Stalls trigger closer to flat vectors if speed dies
-            pitchSpeed: 0.055,         // Adjusted response handling
+            stallPitchThreshold: -0.05,
+            pitchSpeed: 0.055,         
             
-            parasiteDragBaseline: 0.022, // Constant drag component
-            quadraticDragCoeff: 0.0008,  // Clean resistance pacing 
-            inducedDragCoeff: 0.040,     // Climbing tax
-            speedConversion: 0.17,       // Smooth gravity trade back into energy
+            parasiteDragBaseline: 0.022, 
+            quadraticDragCoeff: 0.0008,  
+            inducedDragCoeff: 0.040,     
+            speedConversion: 0.17,       
             liftFactor: 0.165,            
             
-            minSpeed: 0.0,               // Real-Aero Fix: Speed can now bleed down to 0
+            minSpeed: 0.0,               
             maxSpeed: 24.0,
             startingSpeed: 9.0,      
             startingAltitude: 220,
@@ -201,7 +237,75 @@
         let touchStartY = 0;
         const swipeThreshold = 5;
 
-        // --- HISTORICAL STORAGE ---
+        // --- BACKGROUND AUDIO CONTROLLER METHODS ---
+        function initAudioEngine() {
+            if (audioInitialized) return;
+            
+            // Build the core audio DOM chain from configurations
+            trackSources.forEach((src, idx) => {
+                const audio = new Audio(src);
+                audio.volume = isMuted ? 0.0 : 0.4;
+                audio.preload = 'auto';
+                
+                // When current song runs out of stream buffers, chain directly into next element
+                audio.addEventListener('ended', () => {
+                    playNextTrack();
+                });
+                
+                audioPlaylist.push(audio);
+            });
+
+            audioInitialized = true;
+            startPlaylistTrack(0);
+        }
+
+        function startPlaylistTrack(index) {
+            if (audioPlaylist.length === 0) return;
+            
+            // Halt current running music buffers safely
+            audioPlaylist.forEach(track => {
+                track.pause();
+                track.currentTime = 0;
+            });
+
+            currentTrackIndex = index % audioPlaylist.length;
+            const currentTrack = audioPlaylist[currentTrackIndex];
+            
+            currentTrack.volume = isMuted ? 0.0 : 0.4;
+            
+            // Handle cross-browser play promises seamlessly
+            currentTrack.play().catch(err => {
+                console.log("Audio playback deferred pending interaction updates: ", err);
+            });
+        }
+
+        function playNextTrack() {
+            let nextIndex = (currentTrackIndex + 1) % audioPlaylist.length;
+            startPlaylistTrack(nextIndex);
+        }
+
+        // Toggle button handler
+        muteBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Avoid triggering gesture matrices underneath buttons
+            isMuted = !isMuted;
+            
+            if (isMuted) {
+                muteBtn.innerText = "AUDIO: MUTED";
+                muteBtn.classList.remove('unmuted');
+                if (audioPlaylist[currentTrackIndex]) audioPlaylist[currentTrackIndex].volume = 0.0;
+            } else {
+                muteBtn.innerText = "AUDIO: ON";
+                muteBtn.classList.add('unmuted');
+                if (audioPlaylist[currentTrackIndex]) audioPlaylist[currentTrackIndex].volume = 0.4;
+                
+                // Fallback catch if tracks stopped streaming during silent states
+                if (audioPlaylist[currentTrackIndex] && audioPlaylist[currentTrackIndex].paused) {
+                    audioPlaylist[currentTrackIndex].play().catch(() => {});
+                }
+            }
+        });
+
+        // --- COOKIE MATRIX HISTORICAL TRACKING ---
         function setCookie(name, value, days) {
             const date = new Date();
             date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
@@ -254,7 +358,7 @@
         }
         window.addEventListener('resize', resize);
 
-        // --- BACKGROUND GRAPHICS ---
+        // --- ENVIRONMENT BACKGROUNDS ---
         function initStars() {
             stars = [];
             const layers = [
@@ -309,7 +413,7 @@
             stallWarning.style.display = 'none';
         }
 
-        // --- CONTROL HANDLING ---
+        // --- CONTROL COUPLINGS ---
         function handleSwipe(deltaY) {
             if (gameState !== 'PLAYING' || !glider) return;
             if (deltaY < -swipeThreshold) {
@@ -338,6 +442,9 @@
         window.addEventListener('mouseup', () => isMouseDown = false);
 
         actionBtn.addEventListener('click', () => {
+            // Unlocks and starts audio loop safely behind user click callback
+            initAudioEngine();
+
             if (gameState === 'START' || gameState === 'GAMEOVER') {
                 resetGame();
                 gameState = 'PLAYING';
@@ -346,7 +453,7 @@
             }
         });
 
-        // --- ENTITY SPAWN SYSTEMS ---
+        // --- HAZARDS MANAGER SYSTEM ---
         function spawnEntities() {
             if (fans.length === 0 || fans[fans.length - 1].x < canvas.width - 450) {
                 if (Math.random() < 0.012) {
@@ -390,7 +497,6 @@
         function updateGame(dt) {
             if (!glider || gameState !== 'PLAYING') return;
 
-            // Only score forward distance if the glider actually has horizontal velocity
             if (glider.vx > 0.05) {
                 scoreDistance += glider.vx * dt * 0.1;
             }
@@ -403,7 +509,6 @@
 
             glider.pitch += (glider.targetPitch - glider.pitch) * 0.12;
 
-            // Dynamic Pitch Stall Evaluation (Triggered if speed falls too low at flat/high alpha)
             if (glider.forwardAirspeed < 3.2 && glider.pitch <= physics.stallPitchThreshold) {
                 glider.isStalling = true;
                 if (!glider.inThermalUpdraft) {
@@ -416,55 +521,42 @@
                 stallWarning.style.display = 'none';
             }
 
-            // CORE GRADIENT MATH CHANNELS
+            // CORE GRADIENT DECAY MATRIX
             if (glider.isStalling) {
-                // High-drag baseline drops forward energy down rapidly
                 glider.forwardAirspeed = Math.max(glider.forwardAirspeed - 0.07 * dt, 0);
                 glider.vx = glider.forwardAirspeed * Math.cos(glider.pitch);
-                
-                // Nose drops mechanically as air foils slip down out of lift tracking
                 glider.vy += physics.gravity * 1.5 * dt;
-                glider.targetPitch += 0.025 * dt; // Rapid gravity-induced recovery correction
+                glider.targetPitch += 0.025 * dt; 
             } else {
-                // 1. DIVE ACCELERATION WORK (positive pitch = down)
                 const gravityWork = Math.sin(glider.pitch) * physics.speedConversion;
-                
-                // 2. STABLE PARASITE DRAG (quadratic air resistance)
                 const parasiteDrag = Math.pow(glider.forwardAirspeed, 2) * physics.quadraticDragCoeff;
                 
-                // 3. LEVEL DRAG DECAY: Heavy penalty added when horizontal to drain velocity down to zero
                 const levelEfficiency = Math.max(0, Math.cos(glider.pitch));
                 const levelBleedForce = (physics.parasiteDragBaseline * levelEfficiency);
                 
-                // 4. INDUCED CLIMBING DRAG
                 let inducedDrag = 0;
                 if (glider.pitch < 0) { 
                     inducedDrag = Math.abs(glider.pitch) * physics.inducedDragCoeff;
                 }
 
-                // Energy processing sequence step
                 glider.forwardAirspeed += (gravityWork - levelBleedForce - parasiteDrag - inducedDrag) * dt;
                 
                 const currentMaxCap = Math.max(physics.maxSpeed, physics.baseSpeedCap + 6);
                 glider.forwardAirspeed = Math.max(physics.minSpeed, Math.min(glider.forwardAirspeed, currentMaxCap));
 
-                // Project forward components
                 glider.vx = glider.forwardAirspeed * Math.cos(glider.pitch);
                 
-                // Generate relative wing profile lift coefficient metrics
                 const liftGeneration = Math.cos(glider.pitch) * (glider.forwardAirspeed * physics.liftFactor);
                 glider.vy = (glider.forwardAirspeed * Math.sin(glider.pitch)) + (physics.gravity - liftGeneration);
             }
 
-            // Updraft Vent Capture Models
             if (glider.inThermalUpdraft) {
-                glider.vy -= 0.65 * dt; // Lift pushes up cleanly without feeling too sudden
+                glider.vy -= 0.65 * dt; 
                 glider.forwardAirspeed = Math.min(glider.forwardAirspeed + 0.04 * dt, physics.maxSpeed);
             }
 
             glider.y += glider.vy * dt;
 
-            // Sky Boundary Blockers
             if (glider.y < 35) {
                 glider.y = 35;
                 glider.vy = Math.max(0, glider.vy);
@@ -480,7 +572,7 @@
             spawnEntities();
             glider.inThermalUpdraft = false;
 
-            // Updraft Columns
+            // Thermal Updraft Vents
             for (let i = fans.length - 1; i >= 0; i--) {
                 fans[i].x -= currentScrollSpeed * dt;
                 fans[i].pulse += 0.08 * dt;
@@ -529,7 +621,7 @@
                 if (obstacles[i].x + obstacles[i].radius * 2 < 0) obstacles.splice(i, 1);
             }
 
-            // Floor Movement Re-calculations
+            // Floor Relocations
             terrainPoints.forEach(p => { p.x -= currentScrollSpeed * dt; });
             if (terrainPoints[0].x <= -40) {
                 let shifted = terrainPoints.shift();
