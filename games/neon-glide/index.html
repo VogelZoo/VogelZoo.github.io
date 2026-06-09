@@ -57,8 +57,7 @@
             font-weight: 900;
             letter-spacing: 4px;
             text-shadow: 0 0 15px rgba(255, 0, 85, 0.8);
-            opacity: 0;
-            transition: opacity 0.1s ease;
+            display: none; /* Default completely hidden */
             animation: blink 0.4s infinite alternate;
         }
         @keyframes blink {
@@ -122,7 +121,7 @@
 
     <div id="ui-layer">
         <div style="display: flex; justify-content: space-between; width: 100%;">
-            <div id="score-display" class="hud-text">TIME: 0.0s</div>
+            <div id="score-display" class="hud-text">DISTANCE: 0m</div>
             <div id="speed-display" class="hud-text" style="color: #ff00ff; text-shadow: 0 0 10px rgba(255, 0, 255, 0.6);">SPEED: 0MPH</div>
         </div>
         <div id="stall-warning">CRITICAL STALL</div>
@@ -130,7 +129,7 @@
 
     <div id="screen-overlay">
         <h1 id="menu-title">NEON GLIDE</h1>
-        <p id="menu-desc">Swipe UP to pitch nose up (gains altitude, loses speed).<br>Swipe DOWN to pitch nose down (gains speed, loses altitude).<br>Maintain stable airspeed to avoid stalling out!</p>
+        <p id="menu-desc">Swipe UP to pitch nose up (gains altitude, loses speed).<br>Swipe DOWN to pitch nose down (gains speed, loses altitude).<br>Avoid floating cyber-mines and maintain airspeed to prevent stalling!</p>
         <button id="action-btn">INITIALIZE GLIDE</button>
     </div>
 
@@ -150,16 +149,16 @@
 
         // Game State
         let gameState = 'START'; 
-        let score = 0;
+        let scoreDistance = 0;
         let lastTime = 0;
 
         // Tuned Physics System for Graceful Flight
         const physics = {
-            gravity: 0.08,             // Lighter gravity for floats
-            minPitch: -Math.PI / 5,    // Max down pitch (-36 deg)
-            maxPitch: Math.PI / 4,     // Max up pitch (+45 deg)
-            stallPitch: Math.PI / 7,   // Critical pitch ceiling
-            pitchSpeed: 0.07,          // Balanced control responsiveness
+            gravity: 0.08,             
+            minPitch: -Math.PI / 5,    
+            maxPitch: Math.PI / 4,     
+            stallPitch: Math.PI / 5.5, // Made more forgiving (was PI / 7)
+            pitchSpeed: 0.07,          
             minSpeed: 2.0,
             maxSpeed: 14.0,
             startingSpeed: 7.5,      
@@ -170,6 +169,7 @@
         let glider = null; 
         let stars = [];
         let fans = [];
+        let obstacles = [];
         let terrainPoints = [];
         
         // Controls
@@ -228,16 +228,17 @@
                 isStalling: false  
             };
             fans = [];
-            score = 0;
+            obstacles = [];
+            scoreDistance = 0;
             initTerrain();
             lastTime = performance.now();
+            stallWarning.style.display = 'none'; // Ensure clear display reset
         }
 
         // --- CONTROLS ---
         function handleSwipe(deltaY) {
             if (gameState !== 'PLAYING' || !glider) return;
 
-            // FIXED DIRECTION: Swiping UP now cleanly tilts the pitch target UPWARDS (negative radian coordinate space)
             if (deltaY < -swipeThreshold) {
                 glider.targetPitch = Math.max(glider.targetPitch - physics.pitchSpeed, physics.minPitch);
             } else if (deltaY > swipeThreshold) {
@@ -273,7 +274,8 @@
         });
 
         // --- GAME LOGIC ---
-        function spawnFans() {
+        function spawnEntities() {
+            // Spawn Uplift Fans
             if (fans.length === 0 || fans[fans.length - 1].x < canvas.width - 450) {
                 if (Math.random() < 0.012) {
                     fans.push({
@@ -284,50 +286,59 @@
                     });
                 }
             }
+
+            // Spawn Bobbing Obstacles (Infrequent spawning based on distance covered)
+            // Baseline probability scales slightly up as player travels further
+            const spawnRate = Math.min(0.005 + (scoreDistance * 0.000002), 0.018);
+            if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < canvas.width - 350) {
+                if (Math.random() < spawnRate) {
+                    obstacles.push({
+                        x: canvas.width + 50,
+                        baseY: Math.random() * (canvas.height - 250) + 80, // Safe mid-air bands
+                        radius: 16,
+                        bobSpeed: 0.02 + Math.random() * 0.03,
+                        bobRange: 30 + Math.random() * 40,
+                        angle: Math.random() * Math.PI
+                    });
+                }
+            }
         }
 
         function updateGame(dt) {
             if (!glider || gameState !== 'PLAYING') return;
 
-            // Keep tracking score only while actively playing
-            score += dt * 0.0166; 
-            scoreDisplay.innerText = `TIME: ${score.toFixed(1)}s`;
+            // Updated Score to run off distance generated via horizontal velocity vector
+            scoreDistance += glider.vx * dt * 0.1;
+            scoreDisplay.innerText = `DISTANCE: ${Math.floor(scoreDistance)}m`;
             speedDisplay.innerText = `SPEED: ${Math.round(glider.vx * 12)}MPH`;
 
-            // Elastic structural easing for pitch maneuvers
             glider.pitch += (glider.targetPitch - glider.pitch) * 0.12;
 
-            // Evaluates Stall Conditions (Nose pointed too high up relative to low air velocity speeds)
-            if (glider.pitch < -physics.stallPitch || glider.vx < 2.5) {
+            // Evaluates Stall Conditions (More forgiving threshold limits)
+            if (glider.pitch < -physics.stallPitch || glider.vx < 2.2) {
                 glider.isStalling = true;
-                stallWarning.style.opacity = '1';
+                stallWarning.style.display = 'block'; // Clean inline display toggling
             } else {
                 glider.isStalling = false;
-                stallWarning.style.opacity = '0';
+                stallWarning.style.display = 'none';
             }
 
             if (glider.isStalling) {
-                // Drag mechanics in a stall drops forward velocity and dips nose down elegantly
-                glider.vx = Math.max(glider.vx - 0.05, physics.minSpeed);
+                glider.vx = Math.max(glider.vx - 0.035, physics.minSpeed); // Softened stall bleed drop rate
                 glider.vy += physics.gravity * 1.8;
-                glider.targetPitch += 0.008; // Forces nose down toward level flight
+                glider.targetPitch += 0.006; 
             } else {
-                // Graceful Lift-to-Drag Gliding Physics Model
-                const angleEffect = Math.sin(glider.pitch); // Upward pitch is negative angleEffect
-                
-                // Exchanging kinetic speed for structural lift
-                glider.vx += angleEffect * 0.12 - 0.015; // Natural baseline friction drag
+                const angleEffect = Math.sin(glider.pitch); 
+                glider.vx += angleEffect * 0.12 - 0.015; 
                 glider.vx = Math.max(physics.minSpeed, Math.min(glider.vx, physics.maxSpeed));
 
-                // Vertical translation calculation reflecting lift output from velocity
                 const activeLift = -angleEffect * (glider.vx * 0.18);
                 glider.vy += (physics.gravity - activeLift) * 0.2;
-                glider.vy *= 0.88; // Air resistance dampening factor
+                glider.vy *= 0.88; 
             }
 
             glider.y += glider.vy;
 
-            // Ceiling Boundary Clamp
             if (glider.y < 35) {
                 glider.y = 35;
                 glider.vy = Math.max(0, glider.vy);
@@ -335,29 +346,47 @@
 
             const currentSpeed = glider.vx;
 
-            // Move Starfield Layer
             stars.forEach(star => {
                 star.x -= currentSpeed * star.speed;
                 if (star.x < 0) star.x = canvas.width;
             });
 
-            // Handle Fans & Thermal Updraft Collision
-            spawnFans();
+            // Process Spawns
+            spawnEntities();
+
+            // Handle Uplift Fans Column Updraft
             for (let i = fans.length - 1; i >= 0; i--) {
                 fans[i].x -= currentSpeed;
                 fans[i].pulse += 0.08;
 
-                // Detect if glider is passing through the fan's thermal column
                 if (glider.x + 10 >= fans[i].x && glider.x - 30 <= fans[i].x + fans[i].width) {
                     if (glider.y < canvas.height - 40) { 
-                        glider.vy -= 0.35; // Clean updraft pushing upward vector gracefully
-                        glider.vx = Math.min(glider.vx + 0.04, physics.maxSpeed); // Thermal energy feeds air velocity
+                        glider.vy -= 0.35; 
+                        glider.vx = Math.min(glider.vx + 0.04, physics.maxSpeed); 
                     }
                 }
+                if (fans[i].x + fans[i].width < 0) fans.splice(i, 1);
+            }
 
-                if (fans[i].x + fans[i].width < 0) {
-                    fans.splice(i, 1);
+            // Handle Floating Bobbing Hazards
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                obstacles[i].x -= currentSpeed;
+                obstacles[i].angle += obstacles[i].bobSpeed;
+                
+                // Track dynamic sine pattern height position
+                obstacles[i].y = obstacles[i].baseY + Math.sin(obstacles[i].angle) * obstacles[i].bobRange;
+
+                // Circular Collision Test with Glider Core Location
+                const dx = glider.x - obstacles[i].x;
+                const dy = glider.y - obstacles[i].y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < obstacles[i].radius + 12) {
+                    endGame();
+                    return;
                 }
+
+                if (obstacles[i].x + obstacles[i].radius * 2 < 0) obstacles.splice(i, 1);
             }
 
             // Move Ground Lines
@@ -375,11 +404,11 @@
         }
 
         function endGame() {
-            gameState = 'GAMEOVER'; // Halts timer execution loops safely
-            stallWarning.style.opacity = '0';
+            gameState = 'GAMEOVER'; 
+            stallWarning.style.display = 'none';
             uiLayer.style.display = 'none'; 
             menuTitle.innerText = "MATRIX CRASH";
-            menuDesc.innerHTML = `System crashed. Final Flight Duration: <span style="color:#ff00ff">${score.toFixed(1)}s</span>`;
+            menuDesc.innerHTML = `System offline. Sector Distance Cleared: <span style="color:#ff00ff">${Math.floor(scoreDistance)}m</span>`;
             actionBtn.innerText = "REBOOT GLIDE";
             screenOverlay.style.display = 'flex';
         }
@@ -424,6 +453,32 @@
                     ctx.lineTo(fan.x + fan.width + offset, h);
                     ctx.stroke();
                 }
+                ctx.restore();
+            });
+
+            // Render Floating Bobbing Obstacles
+            obstacles.forEach(obs => {
+                ctx.save();
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#ff0055';
+                ctx.strokeStyle = '#ff0055';
+                ctx.fillStyle = '#14050f';
+                ctx.lineWidth = 3;
+
+                // Draw Cyber Spiked Core Mine Unit
+                ctx.beginPath();
+                ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Crosshair tech indicators
+                ctx.strokeStyle = 'rgba(255, 0, 85, 0.4)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(obs.x - obs.radius - 6, obs.y); ctx.lineTo(obs.x + obs.radius + 6, obs.y);
+                ctx.moveTo(obs.x, obs.y - obs.radius - 6); ctx.lineTo(obs.x, obs.y + obs.radius + 6);
+                ctx.stroke();
+
                 ctx.restore();
             });
 
