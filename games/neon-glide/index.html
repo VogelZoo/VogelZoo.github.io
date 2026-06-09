@@ -4,10 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Neon Glide</title>
-    <link rel="stylesheet" href="styles/neon-glide.css">
+    <link rel="stylesheet" href="styles/neon_glide.css">
 </head>
 <body>
+    <div id="startScreen" class="screen">
+        <h1>Neon Glide</h1>
+        <button id="startButton">Start Game</button>
+    </div>
+    
     <canvas id="gameCanvas"></canvas>
-    <script src="scripts/neon-glide.js"></script>
+
+    <div id="gameOverScreen" class="screen hidden">
+        <h1>Game Over</h1>
+        <p id="finalScore">Score: 0</p>
+        <button id="restartButton">Restart</button>
+    </div>
+
+    <script src="scripts/neon_glide.js"></script>
 </body>
 </html>
