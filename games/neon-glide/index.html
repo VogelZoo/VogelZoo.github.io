@@ -38,6 +38,8 @@
             justify-content: space-between;
             padding: 20px;
             box-sizing: border-box;
+            /* Hidden until the player presses start */
+            display: none; 
         }
         .hud-text {
             color: #00ffcc;
@@ -139,6 +141,7 @@
         const ctx = canvas.getContext('2d');
         
         // UI Elements
+        const uiLayer = document.getElementById('ui-layer');
         const scoreDisplay = document.getElementById('score-display');
         const speedDisplay = document.getElementById('speed-display');
         const stallWarning = document.getElementById('stall-warning');
@@ -162,14 +165,14 @@
             minSpeed: 1.5,
             maxSpeed: 18,
             
-            // CONFIGURE STABLE START PARAMETERS HERE
-            startingSpeed: 8.0,      // Cruising speed to ensure clean initial flight
-            startingAltitude: 200,   // Spawns smoothly in the upper layer of the screen
+            // STABLE START PARAMETERS
+            startingSpeed: 8.0,      
+            startingAltitude: 200,   
             baseSpeed: 8
         };
 
         // Entities
-        let glider;
+        let glider = null; // Stays null until game starts
         let stars = [];
         let fans = [];
         let terrainPoints = [];
@@ -223,7 +226,7 @@
         }
 
         function resetGame() {
-            // Spawns flat, moving forward, perfectly stable
+            // Instantiate the glider entity safely
             glider = {
                 x: canvas.width * 0.2,
                 y: physics.startingAltitude,
@@ -231,9 +234,9 @@
                 height: 20,
                 vx: physics.startingSpeed,
                 vy: 0,
-                pitch: 0,          // Level pitch
-                targetPitch: 0,    // Level target
-                isStalling: false  // Clean start
+                pitch: 0,          
+                targetPitch: 0,    
+                isStalling: false  
             };
             fans = [];
             score = 0;
@@ -243,13 +246,11 @@
 
         // --- CONTROLS ---
         function handleSwipe(deltaY) {
-            if (gameState !== 'PLAYING') return;
+            if (gameState !== 'PLAYING' || !glider) return;
 
             if (deltaY < -swipeThreshold) {
-                // Swiped Up -> Pitch Up
                 glider.targetPitch = Math.min(glider.targetPitch + physics.pitchSpeed, physics.maxPitch);
             } else if (deltaY > swipeThreshold) {
-                // Swiped Down -> Pitch Down
                 glider.targetPitch = Math.max(glider.targetPitch - physics.pitchSpeed, physics.minPitch);
             }
         }
@@ -286,6 +287,7 @@
                 resetGame();
                 gameState = 'PLAYING';
                 screenOverlay.style.display = 'none';
+                uiLayer.style.display = 'flex'; // Make HUD text look active
             }
         });
 
@@ -304,14 +306,14 @@
         }
 
         function updateGame(dt) {
+            if (!glider) return;
+
             score += dt;
             scoreDisplay.innerText = `TIME: ${(score).toFixed(1)}s`;
             speedDisplay.innerText = `SPEED: ${Math.round(glider.vx * 10)}MPH`;
 
-            // Smooth pitch shifts
             glider.pitch += (glider.targetPitch - glider.pitch) * 0.1;
 
-            // Stall Conditions Evaluation
             if (glider.pitch > physics.stallPitch || glider.vx < 3.0) {
                 glider.isStalling = true;
                 stallWarning.style.opacity = '1';
@@ -321,34 +323,26 @@
             }
 
             if (glider.isStalling) {
-                // Stall state mechanics
                 glider.vx = Math.max(glider.vx - 0.08, physics.minSpeed);
                 glider.vy += physics.gravity * 2.2;
-                
-                // Forces nose down if pilot is unresponsive
                 if (glider.targetPitch > 0) {
                     glider.targetPitch -= 0.005; 
                 }
             } else {
-                // Stable glide physics calculations
                 const pitchFactor = Math.sin(glider.pitch);
                 glider.vx -= pitchFactor * 0.22;
 
                 if (glider.pitch < 0) {
-                    // Diving generates velocity acceleration
                     glider.vx = Math.min(glider.vx + 0.1, physics.maxSpeed);
                 } else {
                     glider.vx = Math.max(glider.vx, physics.minSpeed);
                 }
 
-                // Balanced aerodynamic lift output
                 glider.vy = (physics.gravity * 2.5) - (glider.vx * Math.sin(glider.pitch) * 0.85);
             }
 
-            // Apply calculated vertical adjustments
             glider.y += glider.vy;
 
-            // Ceiling Clamp
             if (glider.y < 30) {
                 glider.y = 30;
                 glider.vy = Math.max(0, glider.vy);
@@ -356,19 +350,16 @@
 
             const currentSpeed = glider.vx;
 
-            // Parallax Starfields
             stars.forEach(star => {
                 star.x -= currentSpeed * star.speed;
                 if (star.x < 0) star.x = canvas.width;
             });
 
-            // Vector Updraft Fan Handling
             spawnFans();
             for (let i = fans.length - 1; i >= 0; i--) {
                 fans[i].x -= currentSpeed;
                 fans[i].pulse += 0.1;
 
-                // Collisions check
                 if (glider.x + glider.width/2 >= fans[i].x && glider.x - glider.width/2 <= fans[i].x + fans[i].width) {
                     if (glider.y < canvas.height - 40) { 
                         glider.vy -= 1.4; 
@@ -382,7 +373,6 @@
                 }
             }
 
-            // Ground Line Matrix Scroller
             terrainPoints.forEach(p => { p.x -= currentSpeed; });
             if (terrainPoints[0].x <= -40) {
                 let shifted = terrainPoints.shift();
@@ -390,7 +380,6 @@
                 terrainPoints.push(shifted);
             }
 
-            // Defeat Collision Evaluation
             if (glider.y + glider.height / 2 >= canvas.height - 40) {
                 endGame();
             }
@@ -399,6 +388,7 @@
         function endGame() {
             gameState = 'GAMEOVER';
             stallWarning.style.opacity = '0';
+            uiLayer.style.display = 'none'; // Hide metrics overlay on loss screen
             menuTitle.innerText = "MATRIX CRASH";
             menuDesc.innerHTML = `You survived for <span style="color:#ff00ff">${(score).toFixed(1)}</span> seconds before impacting the grid.`;
             actionBtn.innerText = "REBOOT GLIDE";
@@ -410,8 +400,13 @@
             ctx.fillStyle = '#05030a';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Stars
+            // Background Stars
+            const scrollSpeed = (gameState === 'PLAYING' && glider) ? glider.vx : 2; 
             stars.forEach(star => {
+                if (gameState !== 'PLAYING') {
+                    star.x -= scrollSpeed * star.speed; // Keep background animated on menu
+                    if (star.x < 0) star.x = canvas.width;
+                }
                 ctx.fillStyle = star.color;
                 ctx.fillRect(star.x, star.y, star.size, star.size);
             });
@@ -450,9 +445,17 @@
             ctx.shadowColor = '#ff00ff';
             ctx.beginPath();
             terrainPoints.forEach((p, idx) => {
+                if (gameState !== 'PLAYING') {
+                    p.x -= scrollSpeed; // Animate terrain on menu screens
+                }
                 if (idx === 0) ctx.moveTo(p.x, p.y);
                 else ctx.lineTo(p.x, p.y);
             });
+            if (terrainPoints[0] && terrainPoints[0].x <= -40 && gameState !== 'PLAYING') {
+                let shifted = terrainPoints.shift();
+                shifted.x = terrainPoints[terrainPoints.length - 1].x + 40;
+                terrainPoints.push(shifted);
+            }
             ctx.stroke();
             ctx.shadowBlur = 0;
 
@@ -466,39 +469,41 @@
                 ctx.stroke();
             });
 
-            // Neon Glider Asset Rendering
-            ctx.save();
-            ctx.translate(glider.x, glider.y);
-            ctx.rotate(glider.pitch);
+            // Neon Glider Asset Rendering (Only render if game active and object initialized)
+            if (gameState === 'PLAYING' && glider) {
+                ctx.save();
+                ctx.translate(glider.x, glider.y);
+                ctx.rotate(glider.pitch);
 
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = glider.isStalling ? '#ff0055' : '#00ffcc';
-            ctx.strokeStyle = glider.isStalling ? '#ff0055' : '#00ffcc';
-            ctx.lineWidth = 3;
-            ctx.fillStyle = '#05030a';
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = glider.isStalling ? '#ff0055' : '#00ffcc';
+                ctx.strokeStyle = glider.isStalling ? '#ff0055' : '#00ffcc';
+                ctx.lineWidth = 3;
+                ctx.fillStyle = '#05030a';
 
-            ctx.beginPath();
-            ctx.moveTo(25, 0);       
-            ctx.lineTo(-20, -18);    
-            ctx.lineTo(-10, -5);     
-            ctx.lineTo(-22, 0);      
-            ctx.lineTo(-10, 5);      
-            ctx.lineTo(-20, 18);     
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(25, 0);       
+                ctx.lineTo(-20, -18);    
+                ctx.lineTo(-10, -5);     
+                ctx.lineTo(-22, 0);      
+                ctx.lineTo(-10, 5);      
+                ctx.lineTo(-20, 18);     
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
 
-            // Dynamic thrust trail scaling with velocity
-            ctx.shadowColor = '#ff00ff';
-            ctx.strokeStyle = '#ff00ff';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(-22, 0);
-            const trailLength = glider.isStalling ? 10 : 35 + (glider.vx * 1.5);
-            ctx.lineTo(-trailLength, (Math.random() * 4) - 2);
-            ctx.stroke();
+                // Dynamic thrust trail scaling with velocity
+                ctx.shadowColor = '#ff00ff';
+                ctx.strokeStyle = '#ff00ff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(-22, 0);
+                const trailLength = glider.isStalling ? 10 : 35 + (glider.vx * 1.5);
+                ctx.lineTo(-trailLength, (Math.random() * 4) - 2);
+                ctx.stroke();
 
-            ctx.restore();
+                ctx.restore();
+            }
         }
 
         // --- CORE LOOP ---
@@ -507,10 +512,7 @@
             if (dt > 4) dt = 4; 
             lastTime = timestamp;
 
-            if (gameState === 'PLAYING') {
-                updateGame(dt);
-            }
-            
+            updateGame(dt);
             draw();
             requestAnimationFrame(loop);
         }
