@@ -5,156 +5,59 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Neon Glide</title>
     <style>
-        * {
-            box-sizing: border-box;
-            user-select: none;
-            -webkit-user-select: none;
-            margin: 0;
-            padding: 0;
-        }
-        body, html {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #05030a;
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            position: fixed;
-            touch-action: none;
-        }
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; margin: 0; padding: 0; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background-color: #05030a; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; position: fixed; touch-action: none; }
+        canvas { display: block; width: 100%; height: 100%; }
         #ui-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            display: none; 
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 20px;
-            box-sizing: border-box;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; display: none;
+            flex-direction: column; justify-content: space-between;
+            padding: 20px; box-sizing: border-box;
         }
-        .hud-wrapper {
-            display: flex;
-            justify-content: space-between;
-            width: 100%;
-        }
-        .hud-text {
-            color: #00ffcc;
-            font-size: 22px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            text-shadow: 0 0 10px rgba(0, 255, 204, 0.6);
-        }
-        
-        /* Audio Control Button Styles */
+        .hud-wrapper { display: flex; justify-content: space-between; width: 100%; }
+        .hud-text { color: #00ffcc; font-size: 22px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px rgba(0,255,204,0.6); }
         #mute-btn {
-            background: rgba(13, 5, 20, 0.6);
-            border: 2px solid #ff00ff;
-            color: #ff00ff;
-            padding: 6px 14px;
-            font-size: 12px;
-            font-weight: bold;
-            letter-spacing: 2px;
-            cursor: pointer;
-            pointer-events: auto; /* Required to bypass UI layer pass-through blocker */
-            box-shadow: 0 0 10px rgba(255, 0, 255, 0.2);
-            margin-top: 8px;
-            transition: all 0.2s ease;
+            background: rgba(13,5,20,0.6); border: 2px solid #ff00ff; color: #ff00ff;
+            padding: 6px 14px; font-size: 12px; font-weight: bold; letter-spacing: 2px;
+            cursor: pointer; pointer-events: auto; box-shadow: 0 0 10px rgba(255,0,255,0.2);
+            margin-top: 8px; transition: all 0.2s ease;
         }
-        #mute-btn.unmuted {
-            border-color: #00ffcc;
-            color: #00ffcc;
-            box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
-        }
-
+        #mute-btn.unmuted { border-color: #00ffcc; color: #00ffcc; box-shadow: 0 0 10px rgba(0,255,204,0.2); }
         #stall-warning {
-            position: absolute;
-            top: 30%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #ff0055;
-            font-size: 32px;
-            font-weight: 900;
-            letter-spacing: 4px;
-            text-shadow: 0 0 15px rgba(255, 0, 85, 0.8);
-            display: none;
+            position: absolute; top: 30%; left: 50%; transform: translate(-50%,-50%);
+            color: #ff0055; font-size: 32px; font-weight: 900; letter-spacing: 4px;
+            text-shadow: 0 0 15px rgba(255,0,85,0.8); display: none;
             animation: blink 0.4s infinite alternate;
         }
-        @keyframes blink {
-            from { opacity: 0.2; }
-            to { opacity: 1; }
-        }
+        @keyframes blink { from { opacity: 0.2; } to { opacity: 1; } }
         #screen-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(5, 3, 10, 0.85);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            pointer-events: auto;
-            z-index: 10;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5,3,10,0.85); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; pointer-events: auto; z-index: 10;
         }
-        h1 {
-            color: #ff00ff;
-            font-size: 48px;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            letter-spacing: 6px;
-            text-shadow: 0 0 20px rgba(255, 0, 255, 0.7);
-        }
-        p {
-            color: #00ffcc;
-            font-size: 16px;
-            margin-bottom: 30px;
-            text-align: center;
-            max-width: 80%;
-            line-height: 1.5;
-            text-shadow: 0 0 8px rgba(0, 255, 204, 0.4);
-        }
+        h1 { color: #ff00ff; font-size: 48px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 6px; text-shadow: 0 0 20px rgba(255,0,255,0.7); }
+        p { color: #00ffcc; font-size: 16px; margin-bottom: 30px; text-align: center; max-width: 80%; line-height: 1.5; text-shadow: 0 0 8px rgba(0,255,204,0.4); }
         button {
-            background: transparent;
-            border: 2px solid #ff00ff;
-            color: #ff00ff;
-            padding: 12px 30px;
-            font-size: 20px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            cursor: pointer;
-            box-shadow: 0 0 15px rgba(255, 0, 255, 0.3);
-            transition: all 0.2s ease;
+            background: transparent; border: 2px solid #ff00ff; color: #ff00ff;
+            padding: 12px 30px; font-size: 20px; font-weight: bold;
+            text-transform: uppercase; letter-spacing: 3px; cursor: pointer;
+            box-shadow: 0 0 15px rgba(255,0,255,0.3); transition: all 0.2s ease;
         }
-        button:hover, button:active {
-            background: #ff00ff;
-            color: #05030a;
-            box-shadow: 0 0 25px rgba(255, 0, 255, 0.8);
-        }
+        button:hover, button:active { background: #ff00ff; color: #05030a; box-shadow: 0 0 25px rgba(255,0,255,0.8); }
     </style>
 </head>
 <body>
-
     <canvas id="gameCanvas"></canvas>
 
     <div id="ui-layer">
         <div class="hud-wrapper">
             <div>
                 <div id="score-display" class="hud-text">DISTANCE: 0m</div>
-                <div id="highscore-display" class="hud-text" style="color: #ffcc00; font-size: 16px; text-shadow: 0 0 8px rgba(255,204,0,0.5);">BEST: 0m</div>
+                <div id="highscore-display" class="hud-text" style="color:#ffcc00;font-size:16px;text-shadow:0 0 8px rgba(255,204,0,0.5);">BEST: 0m</div>
             </div>
-            <div style="text-align: right;">
-                <div id="speed-display" class="hud-text" style="color: #ff00ff; text-shadow: 0 0 10px rgba(255, 0, 255, 0.6);">SPEED: 0MPH</div>
-                <div id="topspeed-display" class="hud-text" style="color: #ff0055; font-size: 14px; text-shadow: 0 0 6px rgba(255,0,85,0.4);">MAX RECORDED: 0MPH</div>
+            <div style="text-align:right;">
+                <div id="speed-display" class="hud-text" style="color:#ff00ff;text-shadow:0 0 10px rgba(255,0,255,0.6);">SPEED: 0MPH</div>
+                <div id="topspeed-display" class="hud-text" style="color:#ff0055;font-size:14px;text-shadow:0 0 6px rgba(255,0,85,0.4);">MAX RECORDED: 0MPH</div>
                 <button id="mute-btn">AUDIO: MUTED</button>
             </div>
         </div>
@@ -163,641 +66,603 @@
 
     <div id="screen-overlay">
         <h1 id="menu-title">NEON GLIDE</h1>
-        <p id="menu-desc">Swipe UP to pitch up. Swipe DOWN to dive.<br>Level coasting bleeds your speed down to zero if you don't dive!</p>
+        <p id="menu-desc">Swipe UP to pitch up. Swipe DOWN to dive.<br>Dive to gain speed. Pitch up too steeply and you'll stall — nose drops, only a dive recovers you.</p>
         <button id="action-btn">INITIALIZE GLIDE</button>
     </div>
 
-    <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        
-        // UI Layers
-        const uiLayer = document.getElementById('ui-layer');
-        const scoreDisplay = document.getElementById('score-display');
-        const highscoreDisplay = document.getElementById('highscore-display');
-        const speedDisplay = document.getElementById('speed-display');
-        const topspeedDisplay = document.getElementById('topspeed-display');
-        const muteBtn = document.getElementById('mute-btn');
-        const stallWarning = document.getElementById('stall-warning');
-        const screenOverlay = document.getElementById('screen-overlay');
-        const menuTitle = document.getElementById('menu-title');
-        const menuDesc = document.getElementById('menu-desc');
-        const actionBtn = document.getElementById('action-btn');
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
 
-        // Game State Variables
-        let gameState = 'START'; 
-        let scoreDistance = 0;
-        let globalHighScore = 0;
-        let globalTopSpeed = 0; 
-        let lastTime = 0;
-        let boostFlashTimer = 0;
+const uiLayer       = document.getElementById('ui-layer');
+const scoreDisplay  = document.getElementById('score-display');
+const highscoreDisplay = document.getElementById('highscore-display');
+const speedDisplay  = document.getElementById('speed-display');
+const topspeedDisplay  = document.getElementById('topspeed-display');
+const muteBtn       = document.getElementById('mute-btn');
+const stallWarning  = document.getElementById('stall-warning');
+const screenOverlay = document.getElementById('screen-overlay');
+const menuTitle     = document.getElementById('menu-title');
+const menuDesc      = document.getElementById('menu-desc');
+const actionBtn     = document.getElementById('action-btn');
 
-        // --- AUDIO ENGINE VARIABLES ---
-        let audioInitialized = false;
-        let isMuted = true; // Defaulting to muted as requested
-        let currentTrackIndex = 0;
-        let audioPlaylist = [];
+// ── Game state ──────────────────────────────────────────────────────────────
+let gameState = 'START';
+let scoreDistance = 0;
+let globalHighScore = 0;
+let globalTopSpeed  = 0;
+let lastTime = 0;
+let boostFlashTimer = 0;
 
-        // Replace these URLs with your actual track files (mp3/ogg)
-        const trackSources = [
-            'https://actions.google.com/sounds/v1/ambiences/synth_loop.ogg', 
-            'https://actions.google.com/sounds/v1/ambiences/tech_glitch_loop.ogg'
-        ];
+// ── Audio ────────────────────────────────────────────────────────────────────
+let audioInitialized = false, isMuted = true, currentTrackIndex = 0, audioPlaylist = [];
+const trackSources = [
+    'https://actions.google.com/sounds/v1/ambiences/synth_loop.ogg',
+    'https://actions.google.com/sounds/v1/ambiences/tech_glitch_loop.ogg'
+];
 
-        // Advanced Physics Constants Matrices
-        const physics = {
-            gravity: 0.075,            
-            minPitch: -Math.PI / 4.0,  
-            maxPitch: Math.PI / 3.0,   
-            stallPitchThreshold: -0.05,
-            pitchSpeed: 0.055,         
-            
-            parasiteDragBaseline: 0.022, 
-            quadraticDragCoeff: 0.0008,  
-            inducedDragCoeff: 0.040,     
-            speedConversion: 0.17,       
-            liftFactor: 0.165,            
-            
-            minSpeed: 0.0,               
-            maxSpeed: 24.0,
-            startingSpeed: 9.0,      
-            startingAltitude: 220,
-            baseSpeedCap: 9.0          
-        };
+function initAudioEngine() {
+    if (audioInitialized) return;
+    trackSources.forEach(src => {
+        const a = new Audio(src);
+        a.volume = isMuted ? 0 : 0.4;
+        a.preload = 'auto';
+        a.addEventListener('ended', playNextTrack);
+        audioPlaylist.push(a);
+    });
+    audioInitialized = true;
+    startPlaylistTrack(0);
+}
+function startPlaylistTrack(idx) {
+    if (!audioPlaylist.length) return;
+    audioPlaylist.forEach(t => { t.pause(); t.currentTime = 0; });
+    currentTrackIndex = idx % audioPlaylist.length;
+    audioPlaylist[currentTrackIndex].volume = isMuted ? 0 : 0.4;
+    audioPlaylist[currentTrackIndex].play().catch(() => {});
+}
+function playNextTrack() { startPlaylistTrack((currentTrackIndex + 1) % audioPlaylist.length); }
+muteBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    isMuted = !isMuted;
+    if (isMuted) {
+        muteBtn.innerText = 'AUDIO: MUTED'; muteBtn.classList.remove('unmuted');
+        if (audioPlaylist[currentTrackIndex]) audioPlaylist[currentTrackIndex].volume = 0;
+    } else {
+        muteBtn.innerText = 'AUDIO: ON'; muteBtn.classList.add('unmuted');
+        if (audioPlaylist[currentTrackIndex]) {
+            audioPlaylist[currentTrackIndex].volume = 0.4;
+            if (audioPlaylist[currentTrackIndex].paused) audioPlaylist[currentTrackIndex].play().catch(() => {});
+        }
+    }
+});
 
-        // Entities
-        let glider = null; 
-        let stars = [];
-        let fans = [];
-        let obstacles = [];
-        let boosts = [];
-        let terrainPoints = [];
-        
-        // Controls Input Configurations
-        let touchStartY = 0;
-        const swipeThreshold = 5;
+// ── Persistence ──────────────────────────────────────────────────────────────
+function setCookie(n,v,d) { const e=new Date(); e.setTime(e.getTime()+d*86400000); document.cookie=n+'='+v+';expires='+e.toUTCString()+';path=/;SameSite=Strict'; }
+function getCookie(n) { const c=n+'=',dc=decodeURIComponent(document.cookie).split(';'); for(let i=0;i<dc.length;i++){let s=dc[i].trim();if(s.indexOf(c)===0)return s.substring(c.length);} return ''; }
+function loadSavedRecords() {
+    const hs=getCookie('neonglide_highscore'); globalHighScore=hs!==''?parseInt(hs,10):0;
+    highscoreDisplay.innerText=`BEST: ${globalHighScore}m`;
+    const ts=getCookie('neonglide_topspeed');  globalTopSpeed=ts!==''?parseInt(ts,10):0;
+    topspeedDisplay.innerText=`MAX RECORDED: ${globalTopSpeed}MPH`;
+}
+function verifyMilestones() {
+    if (Math.floor(scoreDistance) > globalHighScore) {
+        globalHighScore = Math.floor(scoreDistance);
+        setCookie('neonglide_highscore', globalHighScore, 365);
+        highscoreDisplay.innerText = `BEST: ${globalHighScore}m`;
+    }
+    const mph = Math.round(glider.speed * 12);
+    if (mph > globalTopSpeed) {
+        globalTopSpeed = mph;
+        setCookie('neonglide_topspeed', globalTopSpeed, 365);
+        topspeedDisplay.innerText = `MAX RECORDED: ${globalTopSpeed}MPH`;
+    }
+}
 
-        // --- BACKGROUND AUDIO CONTROLLER METHODS ---
-        function initAudioEngine() {
-            if (audioInitialized) return;
-            
-            // Build the core audio DOM chain from configurations
-            trackSources.forEach((src, idx) => {
-                const audio = new Audio(src);
-                audio.volume = isMuted ? 0.0 : 0.4;
-                audio.preload = 'auto';
-                
-                // When current song runs out of stream buffers, chain directly into next element
-                audio.addEventListener('ended', () => {
-                    playNextTrack();
+// ── Physics constants ────────────────────────────────────────────────────────
+// All tuned so the glider feels weighty but readable on a typical screen
+const PHY = {
+    // World
+    gravity:      0.30,     // px/frame² (applied per dt unit)
+
+    // Aero
+    liftSlope:    0.18,     // CL per radian of AoA — how much lift angle buys
+    stallAoA:     0.42,     // ~24° — AoA at which lift peaks (radians)
+    postStallLiftMult: 0.25,// CL multiplier once stalled
+    dragBase:     0.012,    // parasitic drag coefficient
+    inducedDragK: 0.040,    // k in CD_i = k * CL²
+    dragStall:    0.22,     // extra drag coefficient when stalled
+
+    // Control
+    pitchRate:    0.050,    // max pitch change per dt unit (player input rate)
+    pitchDamp:    0.10,     // how fast pitch chases target (fraction per dt)
+
+    // Stall recovery
+    stallNoseDropRate: 0.018, // nose pitches down per dt when stalled (gravity of pitch)
+    recoveryAoA:       0.20,  // AoA below which stall clears (~11°)
+
+    // Speed / limits
+    minSpeed:     0.0,
+    maxSpeed:     26.0,
+    startSpeed:   9.0,
+    startAlt:     220,
+    baseSpeedCap: 9.0,
+
+    // Display
+    speedToMPH:   12,       // multiply internal speed to get display MPH
+};
+
+// ── Scene objects ─────────────────────────────────────────────────────────────
+let glider = null;
+let stars = [], fans = [], obstacles = [], boosts = [], terrainPoints = [];
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+let touchStartY = 0;
+const SWIPE_THRESHOLD = 5;
+
+function handleSwipe(deltaY) {
+    if (gameState !== 'PLAYING' || !glider) return;
+    // Swipe up (deltaY < 0) = pitch nose up; swipe down (deltaY > 0) = dive
+    if (deltaY < -SWIPE_THRESHOLD) {
+        glider.targetPitch = Math.min(glider.targetPitch + PHY.pitchRate,  Math.PI / 3.0);
+    } else if (deltaY > SWIPE_THRESHOLD) {
+        glider.targetPitch = Math.max(glider.targetPitch - PHY.pitchRate, -Math.PI / 3.5);
+    }
+}
+
+window.addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; }, { passive: true });
+window.addEventListener('touchmove',  e => {
+    const dy = e.touches[0].clientY - touchStartY;
+    handleSwipe(dy);
+    touchStartY = e.touches[0].clientY;
+}, { passive: true });
+
+let isMouseDown = false;
+window.addEventListener('mousedown', e => { touchStartY = e.clientY; isMouseDown = true; });
+window.addEventListener('mousemove', e => {
+    if (!isMouseDown) return;
+    handleSwipe(e.clientY - touchStartY);
+    touchStartY = e.clientY;
+});
+window.addEventListener('mouseup', () => isMouseDown = false);
+
+actionBtn.addEventListener('click', () => {
+    initAudioEngine();
+    if (gameState === 'START' || gameState === 'GAMEOVER') {
+        resetGame();
+        gameState = 'PLAYING';
+        screenOverlay.style.display = 'none';
+        uiLayer.style.display = 'flex';
+    }
+});
+
+// ── Init helpers ───────────────────────────────────────────────────────────────
+function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    initStars();
+    if (gameState === 'START') initTerrain();
+}
+window.addEventListener('resize', resize);
+
+function initStars() {
+    stars = [];
+    [
+        { count: 60, speed: 0.10, size: 1.5, color: '#443366' },
+        { count: 40, speed: 0.30, size: 2.0, color: '#00ffff' },
+        { count: 15, speed: 0.60, size: 2.5, color: '#ff00ff' }
+    ].forEach(l => {
+        for (let i = 0; i < l.count; i++)
+            stars.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, speed: l.speed, size: l.size, color: l.color });
+    });
+}
+
+function initTerrain() {
+    terrainPoints = [];
+    const segs = Math.ceil(canvas.width / 40) + 2;
+    for (let i = 0; i < segs; i++) terrainPoints.push({ x: i * 40, y: canvas.height - 40 });
+}
+
+function resetGame() {
+    PHY.baseSpeedCap = 9.0;
+
+    // ── Glider state uses a proper velocity vector ──────────────────────────
+    // pitch  = nose angle (radians, + = nose up)
+    // vx, vy = world-space velocity (vy + = downward)
+    // speed  = |v| = sqrt(vx²+vy²)
+    // flightAngle = atan2(-vy, vx)  (+ = climbing)
+    // AoA   = pitch - flightAngle   (angle between chord and relative wind)
+    glider = {
+        x: canvas.width * 0.2,
+        y: PHY.startAlt,
+        pitch: 0,
+        targetPitch: 0,
+        vx: PHY.startSpeed,
+        vy: 0,
+        speed: PHY.startSpeed,
+        isStalled: false,
+        inThermal: false,
+    };
+
+    fans = []; obstacles = []; boosts = [];
+    scoreDistance = 0;
+    boostFlashTimer = 0;
+    initTerrain();
+    loadSavedRecords();
+    lastTime = performance.now();
+    stallWarning.style.display = 'none';
+}
+
+// ── Entity spawning ────────────────────────────────────────────────────────────
+function spawnEntities() {
+    if (fans.length === 0 || fans[fans.length-1].x < canvas.width - 450)
+        if (Math.random() < 0.012)
+            fans.push({ x: canvas.width + 50, width: 85, height: 50, pulse: 0 });
+
+    if (boosts.length === 0 || boosts[boosts.length-1].x < canvas.width - 650)
+        if (Math.random() < 0.004)
+            boosts.push({ x: canvas.width+50, y: Math.random()*(canvas.height-320)+100, size: 14, pulse: 0 });
+
+    if (scoreDistance > 500) {
+        const rate = Math.min(0.0005 + (scoreDistance-500)*0.0000012, 0.014);
+        if (obstacles.length === 0 || obstacles[obstacles.length-1].x < canvas.width - 380)
+            if (Math.random() < rate)
+                obstacles.push({
+                    x: canvas.width+50,
+                    baseY: Math.random()*(canvas.height-260)+80,
+                    radius: 15,
+                    bobSpeed: 0.018 + Math.random()*0.02,
+                    bobRange: 25 + Math.random()*35,
+                    angle: Math.random()*Math.PI
                 });
-                
-                audioPlaylist.push(audio);
-            });
+    }
+}
 
-            audioInitialized = true;
-            startPlaylistTrack(0);
+// ── Core physics update ────────────────────────────────────────────────────────
+/*
+  PHYSICS MODEL
+  ─────────────
+  We track a true velocity vector (vx, vy).  Every frame:
+
+  1. Compute angle of attack (AoA) = pitch − flight-path angle
+  2. Lift  = ½ ρ v² CL(AoA)   — CL rises with AoA up to stallAoA, then collapses
+  3. Drag  = ½ ρ v² (CD_parasitic + k·CL²) + stall drag
+  4. Lift acts perpendicular to velocity; drag acts antiparallel to velocity
+  5. Gravity acts straight down (+vy)
+  6. Stall: once AoA > stallAoA, lift collapses.  Pitch moment also reverses:
+     nose naturally pitches down (stallNoseDropRate) so the player must dive to
+     build speed — just like a real aircraft.
+  7. Recovery: when AoA falls back below recoveryAoA AND speed is sufficient,
+     stall clears.
+*/
+function updateGame(dt) {
+    if (!glider || gameState !== 'PLAYING') return;
+
+    // Scroll score
+    if (glider.vx > 0.05) scoreDistance += glider.vx * dt * 0.1;
+    scoreDisplay.innerText  = `DISTANCE: ${Math.floor(scoreDistance)}m`;
+    speedDisplay.innerText  = `SPEED: ${Math.round(glider.speed * PHY.speedToMPH)}MPH`;
+    verifyMilestones();
+    if (boostFlashTimer > 0) boostFlashTimer -= dt;
+
+    // ── 1. Pitch control ──────────────────────────────────────────────────
+    // If stalled, player input is sluggish (50%) and nose drifts nose-down
+    const inputMult = glider.isStalled ? 0.5 : 1.0;
+    glider.pitch += (glider.targetPitch - glider.pitch) * PHY.pitchDamp * inputMult * dt;
+
+    if (glider.isStalled) {
+        // Gravity moment: stalled aircraft nose-drops naturally (positive pitch = nose up, so drop = negative)
+        glider.targetPitch = Math.max(glider.targetPitch - PHY.stallNoseDropRate * dt, -Math.PI / 2.5);
+    }
+
+    // ── 2. Kinematics ─────────────────────────────────────────────────────
+    glider.speed = Math.sqrt(glider.vx * glider.vx + glider.vy * glider.vy);
+
+    // Flight path angle in same convention as pitch (+ = nose/path upward)
+    // Screen Y is positive-down, so climbing = negative vy = positive flight angle
+    const flightAngle = (glider.speed > 0.1)
+        ? Math.atan2(-glider.vy, glider.vx)
+        : 0;
+
+    // Angle of Attack: pitch above relative wind
+    let aoa = glider.pitch - flightAngle;
+    // Clamp to ±90° (beyond that the physics degenerate gracefully anyway)
+    aoa = Math.max(-Math.PI/2, Math.min(Math.PI/2, aoa));
+
+    // ── 3. Aerodynamic coefficients ───────────────────────────────────────
+    const stallAoA = PHY.stallAoA;
+    let CL, extraCD;
+
+    if (!glider.isStalled) {
+        if (Math.abs(aoa) <= stallAoA) {
+            CL = PHY.liftSlope * aoa;          // linear pre-stall lift curve
+        } else {
+            // Stall triggered
+            glider.isStalled = true;
+            CL = PHY.liftSlope * stallAoA * PHY.postStallLiftMult * Math.sign(aoa);
         }
+        extraCD = 0;
+    } else {
+        // Already stalled — reduced lift
+        CL = PHY.liftSlope * stallAoA * PHY.postStallLiftMult * Math.sign(aoa);
+        extraCD = PHY.dragStall;
 
-        function startPlaylistTrack(index) {
-            if (audioPlaylist.length === 0) return;
-            
-            // Halt current running music buffers safely
-            audioPlaylist.forEach(track => {
-                track.pause();
-                track.currentTime = 0;
-            });
-
-            currentTrackIndex = index % audioPlaylist.length;
-            const currentTrack = audioPlaylist[currentTrackIndex];
-            
-            currentTrack.volume = isMuted ? 0.0 : 0.4;
-            
-            // Handle cross-browser play promises seamlessly
-            currentTrack.play().catch(err => {
-                console.log("Audio playback deferred pending interaction updates: ", err);
-            });
+        // Recovery: AoA drops back below threshold (dive built up speed & angle)
+        if (Math.abs(aoa) < PHY.recoveryAoA && glider.speed > 3.5) {
+            glider.isStalled = false;
         }
+    }
 
-        function playNextTrack() {
-            let nextIndex = (currentTrackIndex + 1) % audioPlaylist.length;
-            startPlaylistTrack(nextIndex);
-        }
+    const CD = PHY.dragBase + PHY.inducedDragK * CL * CL + extraCD;
 
-        // Toggle button handler
-        muteBtn.addEventListener('click', (e) => {
-            e.stopPropagation(); // Avoid triggering gesture matrices underneath buttons
-            isMuted = !isMuted;
-            
-            if (isMuted) {
-                muteBtn.innerText = "AUDIO: MUTED";
-                muteBtn.classList.remove('unmuted');
-                if (audioPlaylist[currentTrackIndex]) audioPlaylist[currentTrackIndex].volume = 0.0;
-            } else {
-                muteBtn.innerText = "AUDIO: ON";
-                muteBtn.classList.add('unmuted');
-                if (audioPlaylist[currentTrackIndex]) audioPlaylist[currentTrackIndex].volume = 0.4;
-                
-                // Fallback catch if tracks stopped streaming during silent states
-                if (audioPlaylist[currentTrackIndex] && audioPlaylist[currentTrackIndex].paused) {
-                    audioPlaylist[currentTrackIndex].play().catch(() => {});
-                }
-            }
-        });
+    // ── 4. Force decomposition ────────────────────────────────────────────
+    const spd = Math.max(glider.speed, 0.01);   // avoid /0
 
-        // --- COOKIE MATRIX HISTORICAL TRACKING ---
-        function setCookie(name, value, days) {
-            const date = new Date();
-            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-            const expires = "expires=" + date.toUTCString();
-            document.cookie = name + "=" + value + ";" + expires + ";path=/;SameSite=Strict";
-        }
+    // Unit vectors
+    const ux = glider.vx / spd;          // along velocity (forward)
+    const uy = glider.vy / spd;
 
-        function getCookie(name) {
-            const cname = name + "=";
-            const decodedCookie = decodeURIComponent(document.cookie);
-            const ca = decodedCookie.split(';');
-            for(let i = 0; i < ca.length; i++) {
-                let c = ca[i].trim();
-                if (c.indexOf(cname) === 0) return c.substring(cname.length, c.length);
-            }
-            return "";
-        }
+    // Lift is perpendicular to velocity, in the "up" direction relative to it
+    // perpendicular-left of the velocity direction:
+    const liftX = uy;    //  perpendicular to velocity, X component  (+y → +x lift turns nose)
+    const liftY = -ux;   //  perpendicular to velocity, Y component  (upward lift = -vy)
 
-        function loadSavedRecords() {
-            const savedScore = getCookie("neonglide_highscore");
-            globalHighScore = savedScore !== "" ? parseInt(savedScore, 10) : 0;
-            highscoreDisplay.innerText = `BEST: ${globalHighScore}m`;
+    const liftMag = CL * spd * spd * 0.5;
+    const dragMag = CD * spd * spd * 0.5;
 
-            const savedSpeed = getCookie("neonglide_topspeed");
-            globalTopSpeed = savedSpeed !== "" ? parseInt(savedSpeed, 10) : 0;
-            topspeedDisplay.innerText = `MAX RECORDED: ${globalTopSpeed}MPH`;
-        }
+    // Net acceleration components (px/frame², scaled by dt)
+    let ax = liftMag * liftX - dragMag * ux;
+    let ay = liftMag * liftY - dragMag * uy + PHY.gravity;   // gravity adds to +y (downward)
 
-        function verifyMilestones() {
-            let currentFloorScore = Math.floor(scoreDistance);
-            if (currentFloorScore > globalHighScore) {
-                globalHighScore = currentFloorScore;
-                setCookie("neonglide_highscore", globalHighScore, 365); 
-                highscoreDisplay.innerText = `BEST: ${globalHighScore}m`;
-            }
+    // Thermal updraft overrides gravity partially
+    glider.inThermal = false;   // reset; will be set in fan loop below
 
-            let currentMph = Math.round(glider.forwardAirspeed * 12);
-            if (currentMph > globalTopSpeed) {
-                globalTopSpeed = currentMph;
-                setCookie("neonglide_topspeed", globalTopSpeed, 365);
-                topspeedDisplay.innerText = `MAX RECORDED: ${globalTopSpeed}MPH`;
-            }
-        }
+    // ── 5. Integrate velocity ─────────────────────────────────────────────
+    glider.vx += ax * dt;
+    glider.vy += ay * dt;
 
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            initStars();
-            if (gameState === 'START') initTerrain();
-        }
-        window.addEventListener('resize', resize);
+    // Speed caps
+    glider.speed = Math.sqrt(glider.vx * glider.vx + glider.vy * glider.vy);
+    const maxCap = Math.max(PHY.maxSpeed, PHY.baseSpeedCap + 6);
+    if (glider.speed > maxCap) {
+        const scale = maxCap / glider.speed;
+        glider.vx *= scale; glider.vy *= scale;
+        glider.speed = maxCap;
+    }
+    if (glider.speed < PHY.minSpeed) {
+        glider.vx = 0; glider.vy = 0; glider.speed = 0;
+    }
 
-        // --- ENVIRONMENT BACKGROUNDS ---
-        function initStars() {
-            stars = [];
-            const layers = [
-                { count: 60, speed: 0.1, size: 1.5, color: '#443366' },
-                { count: 40, speed: 0.3, size: 2, color: '#00ffff' },
-                { count: 15, speed: 0.6, size: 2.5, color: '#ff00ff' }
-            ];
-            layers.forEach(layer => {
-                for (let i = 0; i < layer.count; i++) {
-                    stars.push({
-                        x: Math.random() * canvas.width,
-                        y: Math.random() * canvas.height,
-                        speed: layer.speed,
-                        size: layer.size,
-                        color: layer.color
-                    });
-                }
-            });
-        }
+    // ── 6. Position ───────────────────────────────────────────────────────
+    glider.y += glider.vy * dt;
+    glider.x += (glider.vx * dt) * 0;  // glider stays horizontally fixed; world scrolls
 
-        function initTerrain() {
-            terrainPoints = [];
-            const segments = Math.ceil(canvas.width / 40) + 2;
-            for (let i = 0; i < segments; i++) {
-                terrainPoints.push({ x: i * 40, y: canvas.height - 40 });
-            }
-        }
+    // Ceiling
+    if (glider.y < 35) {
+        glider.y = 35;
+        if (glider.vy < 0) glider.vy = 0;
+    }
 
-        function resetGame() {
-            physics.baseSpeedCap = 9.0; 
-            glider = {
-                x: canvas.width * 0.2,
-                y: physics.startingAltitude,
-                width: 45,
-                height: 20,
-                forwardAirspeed: physics.startingSpeed, 
-                vx: physics.startingSpeed,
-                vy: 0,
-                pitch: 0,          
-                targetPitch: 0,    
-                isStalling: false,
-                inThermalUpdraft: false
-            };
-            fans = [];
-            obstacles = [];
-            boosts = [];
-            scoreDistance = 0;
-            boostFlashTimer = 0;
-            initTerrain();
-            loadSavedRecords();
-            lastTime = performance.now();
-            stallWarning.style.display = 'none';
-        }
+    // ── 7. HUD warnings ───────────────────────────────────────────────────
+    stallWarning.style.display = (glider.isStalled && !glider.inThermal) ? 'block' : 'none';
 
-        // --- CONTROL COUPLINGS ---
-        function handleSwipe(deltaY) {
-            if (gameState !== 'PLAYING' || !glider) return;
-            if (deltaY < -swipeThreshold) {
-                glider.targetPitch = Math.max(glider.targetPitch - physics.pitchSpeed, physics.minPitch);
-            } else if (deltaY > swipeThreshold) {
-                glider.targetPitch = Math.min(glider.targetPitch + physics.pitchSpeed, physics.maxPitch);
+    // ── 8. World scroll & entities ────────────────────────────────────────
+    const scrollSpeed = Math.max(glider.vx, 0);
+
+    stars.forEach(s => { s.x -= scrollSpeed * s.speed * dt; if (s.x < 0) s.x = canvas.width; });
+
+    spawnEntities();
+
+    // Thermal vents
+    for (let i = fans.length - 1; i >= 0; i--) {
+        fans[i].x -= scrollSpeed * dt;
+        fans[i].pulse += 0.08 * dt;
+        if (glider.x + 10 >= fans[i].x && glider.x - 30 <= fans[i].x + fans[i].width) {
+            if (glider.y < canvas.height - 40) {
+                glider.inThermal = true;
+                glider.vy -= 0.65 * dt;   // upward boost
+                glider.speed = Math.min(glider.speed + 0.04 * dt, PHY.maxSpeed);
+                if (glider.isStalled) glider.isStalled = false; // thermals bail you out
             }
         }
+        if (fans[i].x + fans[i].width < 0) fans.splice(i, 1);
+    }
 
-        window.addEventListener('touchstart', (e) => { touchStartY = e.touches[0].clientY; }, { passive: true });
-        window.addEventListener('touchmove', (e) => {
-            const currentY = e.touches[0].clientY;
-            const deltaY = currentY - touchStartY;
-            handleSwipe(deltaY);
-            touchStartY = currentY; 
-        }, { passive: true });
-
-        let isMouseDown = false;
-        window.addEventListener('mousedown', (e) => { touchStartY = e.clientY; isMouseDown = true; });
-        window.addEventListener('mousemove', (e) => {
-            if (!isMouseDown) return;
-            const deltaY = e.clientY - touchStartY;
-            handleSwipe(deltaY);
-            touchStartY = e.clientY;
-        });
-        window.addEventListener('mouseup', () => isMouseDown = false);
-
-        actionBtn.addEventListener('click', () => {
-            // Unlocks and starts audio loop safely behind user click callback
-            initAudioEngine();
-
-            if (gameState === 'START' || gameState === 'GAMEOVER') {
-                resetGame();
-                gameState = 'PLAYING';
-                screenOverlay.style.display = 'none';
-                uiLayer.style.display = 'flex'; 
-            }
-        });
-
-        // --- HAZARDS MANAGER SYSTEM ---
-        function spawnEntities() {
-            if (fans.length === 0 || fans[fans.length - 1].x < canvas.width - 450) {
-                if (Math.random() < 0.012) {
-                    fans.push({ x: canvas.width + 50, width: 85, height: 50, pulse: 0 });
-                }
-            }
-
-            if (boosts.length === 0 || boosts[boosts.length - 1].x < canvas.width - 650) {
-                if (Math.random() < 0.004) {
-                    boosts.push({
-                        x: canvas.width + 50,
-                        y: Math.random() * (canvas.height - 320) + 100,
-                        size: 14,
-                        pulse: 0
-                    });
-                }
-            }
-
-            if (scoreDistance > 500) {
-                const distancePastSafeZone = scoreDistance - 500;
-                const minSpawnChance = 0.0005;
-                const incrementalScaling = distancePastSafeZone * 0.0000012;
-                const dynamicSpawnRate = Math.min(minSpawnChance + incrementalScaling, 0.014);
-
-                if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < canvas.width - 380) {
-                    if (Math.random() < dynamicSpawnRate) {
-                        obstacles.push({
-                            x: canvas.width + 50,
-                            baseY: Math.random() * (canvas.height - 260) + 80, 
-                            radius: 15,
-                            bobSpeed: 0.018 + Math.random() * 0.02,
-                            bobRange: 25 + Math.random() * 35,
-                            angle: Math.random() * Math.PI
-                        });
-                    }
-                }
-            }
+    // Speed crystals
+    for (let i = boosts.length - 1; i >= 0; i--) {
+        boosts[i].x -= scrollSpeed * dt;
+        boosts[i].pulse += 0.05 * dt;
+        const dx = glider.x - boosts[i].x, dy = glider.y - boosts[i].y;
+        if (Math.sqrt(dx*dx+dy*dy) < boosts[i].size + 15) {
+            PHY.baseSpeedCap += 0.2;
+            // Boost along current velocity direction
+            const dir = glider.speed > 0.1 ? glider.speed : 1;
+            glider.vx += (glider.vx / dir) * 3.0;
+            glider.vy += (glider.vy / dir) * 3.0;
+            boostFlashTimer = 25;
+            boosts.splice(i, 1); continue;
         }
+        if (boosts[i].x + boosts[i].size * 2 < 0) boosts.splice(i, 1);
+    }
 
-        // --- CORE PHYSICS GAME ENGINE LOOP ---
-        function updateGame(dt) {
-            if (!glider || gameState !== 'PLAYING') return;
+    // Mines
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+        obstacles[i].x -= scrollSpeed * dt;
+        obstacles[i].angle += obstacles[i].bobSpeed * dt;
+        obstacles[i].y = obstacles[i].baseY + Math.sin(obstacles[i].angle) * obstacles[i].bobRange;
+        const dx = glider.x - obstacles[i].x, dy = glider.y - obstacles[i].y;
+        if (Math.sqrt(dx*dx+dy*dy) < obstacles[i].radius + 10) { endGame(); return; }
+        if (obstacles[i].x + obstacles[i].radius * 2 < 0) obstacles.splice(i, 1);
+    }
 
-            if (glider.vx > 0.05) {
-                scoreDistance += glider.vx * dt * 0.1;
-            }
-            scoreDisplay.innerText = `DISTANCE: ${Math.floor(scoreDistance)}m`;
-            speedDisplay.innerText = `SPEED: ${Math.round(glider.forwardAirspeed * 12)}MPH`;
-            
-            verifyMilestones();
+    // Terrain
+    terrainPoints.forEach(p => { p.x -= scrollSpeed * dt; });
+    if (terrainPoints[0].x <= -40) {
+        const s = terrainPoints.shift();
+        s.x = terrainPoints[terrainPoints.length-1].x + 40;
+        terrainPoints.push(s);
+    }
 
-            if (boostFlashTimer > 0) boostFlashTimer -= dt;
+    if (glider.y + 8 >= canvas.height - 40) endGame();
+}
 
-            glider.pitch += (glider.targetPitch - glider.pitch) * 0.12;
+function endGame() {
+    gameState = 'GAMEOVER';
+    stallWarning.style.display = 'none';
+    uiLayer.style.display = 'none';
+    menuTitle.innerText = 'MATRIX CRASH';
+    menuDesc.innerHTML = `Sector complete. Distance: <span style="color:#ff00ff">${Math.floor(scoreDistance)}m</span><br><span style="color:#ffcc00">High Score: ${globalHighScore}m</span><br><span style="color:#00ffcc">Max Speed: ${globalTopSpeed}MPH</span>`;
+    actionBtn.innerText = 'REBOOT GLIDE';
+    screenOverlay.style.display = 'flex';
+}
 
-            if (glider.forwardAirspeed < 3.2 && glider.pitch <= physics.stallPitchThreshold) {
-                glider.isStalling = true;
-                if (!glider.inThermalUpdraft) {
-                    stallWarning.style.display = 'block';
-                } else {
-                    stallWarning.style.display = 'none'; 
-                }
-            } else {
-                glider.isStalling = false;
-                stallWarning.style.display = 'none';
-            }
+// ── Render ─────────────────────────────────────────────────────────────────────
+function draw() {
+    ctx.fillStyle = '#05030a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // CORE GRADIENT DECAY MATRIX
-            if (glider.isStalling) {
-                glider.forwardAirspeed = Math.max(glider.forwardAirspeed - 0.07 * dt, 0);
-                glider.vx = glider.forwardAirspeed * Math.cos(glider.pitch);
-                glider.vy += physics.gravity * 1.5 * dt;
-                glider.targetPitch += 0.025 * dt; 
-            } else {
-                const gravityWork = Math.sin(glider.pitch) * physics.speedConversion;
-                const parasiteDrag = Math.pow(glider.forwardAirspeed, 2) * physics.quadraticDragCoeff;
-                
-                const levelEfficiency = Math.max(0, Math.cos(glider.pitch));
-                const levelBleedForce = (physics.parasiteDragBaseline * levelEfficiency);
-                
-                let inducedDrag = 0;
-                if (glider.pitch < 0) { 
-                    inducedDrag = Math.abs(glider.pitch) * physics.inducedDragCoeff;
-                }
+    const scrollSpeed = (gameState === 'PLAYING' && glider) ? glider.vx : 1.5;
+    stars.forEach(s => {
+        if (gameState !== 'PLAYING') { s.x -= scrollSpeed * s.speed; if (s.x < 0) s.x = canvas.width; }
+        ctx.fillStyle = s.color;
+        ctx.fillRect(s.x, s.y, s.size, s.size);
+    });
 
-                glider.forwardAirspeed += (gravityWork - levelBleedForce - parasiteDrag - inducedDrag) * dt;
-                
-                const currentMaxCap = Math.max(physics.maxSpeed, physics.baseSpeedCap + 6);
-                glider.forwardAirspeed = Math.max(physics.minSpeed, Math.min(glider.forwardAirspeed, currentMaxCap));
-
-                glider.vx = glider.forwardAirspeed * Math.cos(glider.pitch);
-                
-                const liftGeneration = Math.cos(glider.pitch) * (glider.forwardAirspeed * physics.liftFactor);
-                glider.vy = (glider.forwardAirspeed * Math.sin(glider.pitch)) + (physics.gravity - liftGeneration);
-            }
-
-            if (glider.inThermalUpdraft) {
-                glider.vy -= 0.65 * dt; 
-                glider.forwardAirspeed = Math.min(glider.forwardAirspeed + 0.04 * dt, physics.maxSpeed);
-            }
-
-            glider.y += glider.vy * dt;
-
-            if (glider.y < 35) {
-                glider.y = 35;
-                glider.vy = Math.max(0, glider.vy);
-            }
-
-            const currentScrollSpeed = glider.vx;
-
-            stars.forEach(star => {
-                star.x -= currentScrollSpeed * star.speed * dt;
-                if (star.x < 0) star.x = canvas.width;
-            });
-
-            spawnEntities();
-            glider.inThermalUpdraft = false;
-
-            // Thermal Updraft Vents
-            for (let i = fans.length - 1; i >= 0; i--) {
-                fans[i].x -= currentScrollSpeed * dt;
-                fans[i].pulse += 0.08 * dt;
-
-                if (glider.x + 10 >= fans[i].x && glider.x - 30 <= fans[i].x + fans[i].width) {
-                    if (glider.y < canvas.height - 40) { 
-                        glider.inThermalUpdraft = true; 
-                    }
-                }
-                if (fans[i].x + fans[i].width < 0) fans.splice(i, 1);
-            }
-
-            // Crystals Speed Modifications
-            for (let i = boosts.length - 1; i >= 0; i--) {
-                boosts[i].x -= currentScrollSpeed * dt;
-                boosts[i].pulse += 0.05 * dt;
-
-                const bDx = glider.x - boosts[i].x;
-                const bDy = glider.y - boosts[i].y;
-                const bDist = Math.sqrt(bDx * bDx + bDy * bDy);
-
-                if (bDist < boosts[i].size + 15) {
-                    physics.baseSpeedCap += 0.2; 
-                    glider.forwardAirspeed = Math.min(glider.forwardAirspeed + 3.0, physics.maxSpeed + 4); 
-                    boostFlashTimer = 25; 
-                    boosts.splice(i, 1);
-                    continue;
-                }
-                if (boosts[i].x + boosts[i].size * 2 < 0) boosts.splice(i, 1);
-            }
-
-            // Hazard Core Processing Loops
-            for (let i = obstacles.length - 1; i >= 0; i--) {
-                obstacles[i].x -= currentScrollSpeed * dt;
-                obstacles[i].angle += obstacles[i].bobSpeed * dt;
-                obstacles[i].y = obstacles[i].baseY + Math.sin(obstacles[i].angle) * obstacles[i].bobRange;
-
-                const dx = glider.x - obstacles[i].x;
-                const dy = glider.y - obstacles[i].y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-
-                if (distance < obstacles[i].radius + 10) {
-                    endGame();
-                    return;
-                }
-                if (obstacles[i].x + obstacles[i].radius * 2 < 0) obstacles.splice(i, 1);
-            }
-
-            // Floor Relocations
-            terrainPoints.forEach(p => { p.x -= currentScrollSpeed * dt; });
-            if (terrainPoints[0].x <= -40) {
-                let shifted = terrainPoints.shift();
-                shifted.x = terrainPoints[terrainPoints.length - 1].x + 40;
-                terrainPoints.push(shifted);
-            }
-
-            if (glider.y + 8 >= canvas.height - 40) endGame();
+    // Vents
+    fans.forEach(fan => {
+        ctx.strokeStyle = '#00ffcc'; ctx.lineWidth = 3;
+        ctx.fillStyle = '#0c1a24';
+        ctx.fillRect(fan.x, canvas.height-40-fan.height, fan.width, fan.height);
+        ctx.strokeRect(fan.x, canvas.height-40-fan.height, fan.width, fan.height);
+        ctx.beginPath();
+        ctx.moveTo(fan.x, canvas.height-40-fan.height/2);
+        ctx.lineTo(fan.x+fan.width, canvas.height-40-fan.height/2);
+        ctx.strokeStyle = '#ff00ff'; ctx.stroke();
+        ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,255,204,0.18)';
+        for (let h = 0; h < canvas.height-40-fan.height; h += 40) {
+            const off = Math.sin(fan.pulse + h/20) * 8;
+            ctx.beginPath(); ctx.moveTo(fan.x+off, h); ctx.lineTo(fan.x+fan.width+off, h); ctx.stroke();
         }
+        ctx.restore();
+    });
 
-        function endGame() {
-            gameState = 'GAMEOVER'; 
-            stallWarning.style.display = 'none';
-            uiLayer.style.display = 'none'; 
-            menuTitle.innerText = "MATRIX CRASH";
-            menuDesc.innerHTML = `Sector complete. Distance Traveled: <span style="color:#ff00ff">${Math.floor(scoreDistance)}m</span><br><span style="color:#ffcc00">High Score: ${globalHighScore}m</span><br><span style="color:#00ffcc">Max Speed Record: ${globalTopSpeed}MPH</span>`;
-            actionBtn.innerText = "REBOOT GLIDE";
-            screenOverlay.style.display = 'flex';
-        }
+    // Crystals
+    boosts.forEach(b => {
+        ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.pulse);
+        ctx.shadowBlur = 15; ctx.shadowColor = '#ffcc00';
+        ctx.strokeStyle = '#ffcc00'; ctx.fillStyle = 'rgba(255,204,0,0.15)'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(0,-b.size); ctx.lineTo(b.size,0); ctx.lineTo(0,b.size); ctx.lineTo(-b.size,0); ctx.closePath();
+        ctx.fill(); ctx.stroke(); ctx.restore();
+    });
 
-        // --- RENDER CORE DRIVERS ---
-        function draw() {
-            ctx.fillStyle = '#05030a';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Mines
+    obstacles.forEach(o => {
+        ctx.save(); ctx.shadowBlur = 10; ctx.shadowColor = '#ff0055';
+        ctx.strokeStyle = '#ff0055'; ctx.fillStyle = '#14050f'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(o.x, o.y, o.radius, 0, Math.PI*2); ctx.fill(); ctx.stroke(); ctx.restore();
+    });
 
-            const scrollSpeed = (gameState === 'PLAYING' && glider) ? glider.vx : 1.5; 
-            stars.forEach(star => {
-                if (gameState !== 'PLAYING') {
-                    star.x -= scrollSpeed * star.speed;
-                    if (star.x < 0) star.x = canvas.width;
-                }
-                ctx.fillStyle = star.color;
-                ctx.fillRect(star.x, star.y, star.size, star.size);
-            });
+    // Floor
+    ctx.strokeStyle = '#ff00ff'; ctx.lineWidth = 4; ctx.shadowBlur = 12; ctx.shadowColor = '#ff00ff';
+    ctx.beginPath();
+    terrainPoints.forEach((p, i) => {
+        if (gameState !== 'PLAYING') p.x -= scrollSpeed;
+        if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+    });
+    if (terrainPoints[0] && terrainPoints[0].x <= -40 && gameState !== 'PLAYING') {
+        const s = terrainPoints.shift(); s.x = terrainPoints[terrainPoints.length-1].x + 40; terrainPoints.push(s);
+    }
+    ctx.stroke(); ctx.shadowBlur = 0;
 
-            // Vents
-            fans.forEach(fan => {
-                ctx.strokeStyle = '#00ffcc';
-                ctx.lineWidth = 3;
-                ctx.fillStyle = '#0c1a24';
-                ctx.fillRect(fan.x, canvas.height - 40 - fan.height, fan.width, fan.height);
-                ctx.strokeRect(fan.x, canvas.height - 40 - fan.height, fan.width, fan.height);
+    ctx.strokeStyle = 'rgba(255,0,255,0.2)'; ctx.lineWidth = 1;
+    terrainPoints.forEach(p => { ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x-20, canvas.height); ctx.stroke(); });
 
-                ctx.beginPath();
-                ctx.moveTo(fan.x, canvas.height - 40 - fan.height/2);
-                ctx.lineTo(fan.x + fan.width, canvas.height - 40 - fan.height/2);
-                ctx.strokeStyle = '#ff00ff';
-                ctx.stroke();
-
-                ctx.save();
-                ctx.lineWidth = 2;
-                ctx.strokeStyle = 'rgba(0, 255, 204, 0.18)';
-                for (let h = 0; h < canvas.height - 40 - fan.height; h += 40) {
-                    let offset = (Math.sin(fan.pulse + h/20) * 8);
-                    ctx.beginPath();
-                    ctx.moveTo(fan.x + offset, h);
-                    ctx.lineTo(fan.x + fan.width + offset, h);
-                    ctx.stroke();
-                }
-                ctx.restore();
-            });
-
-            // Crystals
-            boosts.forEach(bst => {
-                ctx.save();
-                ctx.translate(bst.x, bst.y);
-                ctx.rotate(bst.pulse);
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = '#ffcc00';
-                ctx.strokeStyle = '#ffcc00';
-                ctx.fillStyle = 'rgba(255, 204, 0, 0.15)';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.moveTo(0, -bst.size); ctx.lineTo(bst.size, 0); ctx.lineTo(0, bst.size); ctx.lineTo(-bst.size, 0);
-                ctx.closePath();
-                ctx.fill(); ctx.stroke();
-                ctx.restore();
-            });
-
-            // Obstacles Mines
-            obstacles.forEach(obs => {
-                ctx.save();
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = '#ff0055';
-                ctx.strokeStyle = '#ff0055';
-                ctx.fillStyle = '#14050f';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
-                ctx.fill(); ctx.stroke();
-                ctx.restore();
-            });
-
-            // Grid Line Floor tracks
-            ctx.strokeStyle = '#ff00ff';
-            ctx.lineWidth = 4;
-            ctx.shadowBlur = 12;
-            ctx.shadowColor = '#ff00ff';
+    // ── Glider ────────────────────────────────────────────────────────────
+    if (gameState === 'PLAYING' && glider) {
+        // Draw velocity vector indicator (subtle) — shows actual flight path
+        const spd = glider.speed;
+        if (spd > 0.5) {
+            const vAngle = Math.atan2(glider.vy, glider.vx);  // actual direction of travel
+            ctx.save();
+            ctx.translate(glider.x, glider.y);
+            ctx.strokeStyle = 'rgba(0,255,204,0.25)';
+            ctx.lineWidth = 1.5;
             ctx.beginPath();
-            terrainPoints.forEach((p, idx) => {
-                if (gameState !== 'PLAYING') p.x -= scrollSpeed; 
-                if (idx === 0) ctx.moveTo(p.x, p.y);
-                else ctx.lineTo(p.x, p.y);
-            });
-            if (terrainPoints[0] && terrainPoints[0].x <= -40 && gameState !== 'PLAYING') {
-                let shifted = terrainPoints.shift();
-                shifted.x = terrainPoints[terrainPoints.length - 1].x + 40;
-                terrainPoints.push(shifted);
-            }
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(vAngle) * 28, Math.sin(vAngle) * 28);
             ctx.stroke();
-            ctx.shadowBlur = 0;
-
-            // Accent Grid Lines
-            ctx.strokeStyle = 'rgba(255, 0, 255, 0.2)';
-            ctx.lineWidth = 1;
-            terrainPoints.forEach((p) => {
-                ctx.beginPath();
-                ctx.moveTo(p.x, p.y);
-                ctx.lineTo(p.x - 20, canvas.height);
-                ctx.stroke();
-            });
-
-            // Ship Asset Profile
-            if (gameState === 'PLAYING' && glider) {
-                ctx.save();
-                ctx.translate(glider.x, glider.y);
-                ctx.rotate(glider.pitch);
-
-                ctx.shadowBlur = 15;
-                let shipColor = glider.isStalling ? '#ff0055' : (boostFlashTimer > 0 ? '#ffcc00' : '#00ffcc');
-                ctx.shadowColor = shipColor;
-                ctx.strokeStyle = shipColor;
-                ctx.lineWidth = 3;
-                ctx.fillStyle = '#05030a';
-
-                ctx.beginPath();
-                ctx.moveTo(25, 0);       
-                ctx.lineTo(-20, -16);    
-                ctx.lineTo(-10, -5);     
-                ctx.lineTo(-22, 0);      
-                ctx.lineTo(-10, 5);      
-                ctx.lineTo(-20, 16);     
-                ctx.closePath();
-                ctx.fill(); ctx.stroke();
-
-                // Thrust Particle Core Tail length settings
-                ctx.shadowColor = boostFlashTimer > 0 ? '#ffcc00' : '#ff00ff';
-                ctx.strokeStyle = boostFlashTimer > 0 ? '#ffcc00' : '#ff00ff';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.moveTo(-22, 0);
-                const trailLength = (glider.forwardAirspeed < 0.5) ? 0 : (glider.isStalling ? 5 : 18 + (glider.forwardAirspeed * 2.0));
-                if (trailLength > 0) {
-                    ctx.lineTo(-trailLength, (Math.random() * 4) - 2);
-                    ctx.stroke();
-                }
-
-                ctx.restore();
-            }
+            ctx.restore();
         }
 
-        // --- ANIMATION CORE STEPS ---
-        function loop(timestamp) {
-            let dt = (timestamp - lastTime) / 16.666;
-            if (dt > 4) dt = 4; 
-            lastTime = timestamp;
+        // Ship
+        ctx.save();
+        ctx.translate(glider.x, glider.y);
+        ctx.rotate(-glider.pitch);   // screen Y is flipped: -pitch rotates nose upward
 
-            if (gameState === 'PLAYING') updateGame(dt);
-            draw();
-            requestAnimationFrame(loop);
+        ctx.shadowBlur = 15;
+        const shipColor = glider.isStalled ? '#ff0055' : (boostFlashTimer > 0 ? '#ffcc00' : '#00ffcc');
+        ctx.shadowColor = shipColor; ctx.strokeStyle = shipColor;
+        ctx.lineWidth = 3; ctx.fillStyle = '#05030a';
+
+        ctx.beginPath();
+        ctx.moveTo(25, 0);
+        ctx.lineTo(-20, -16);
+        ctx.lineTo(-10, -5);
+        ctx.lineTo(-22, 0);
+        ctx.lineTo(-10, 5);
+        ctx.lineTo(-20, 16);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+
+        // Thrust trail
+        ctx.shadowColor = boostFlashTimer > 0 ? '#ffcc00' : '#ff00ff';
+        ctx.strokeStyle = boostFlashTimer > 0 ? '#ffcc00' : '#ff00ff';
+        ctx.lineWidth = 2;
+        const trailLen = (spd < 0.5) ? 0 : (glider.isStalled ? 5 : 18 + spd * 2.0);
+        if (trailLen > 0) {
+            ctx.beginPath();
+            ctx.moveTo(-22, 0);
+            ctx.lineTo(-trailLen, (Math.random()*4) - 2);
+            ctx.stroke();
         }
 
-        loadSavedRecords();
-        resize();
-        requestAnimationFrame(loop);
+        ctx.restore();
 
-    </script>
+        // AoA / stall debug arc (subtle visual feedback)
+        const flightAngle = (spd > 0.1) ? Math.atan2(-glider.vy, glider.vx) : 0;
+        const aoa = Math.abs(glider.pitch - flightAngle);
+        const stallFraction = Math.min(aoa / PHY.stallAoA, 1.0);
+        if (stallFraction > 0.4) {
+            ctx.save();
+            ctx.translate(glider.x, glider.y);
+            const warningColor = glider.isStalled
+                ? `rgba(255,0,85,0.8)`
+                : `rgba(255,${Math.round(255*(1-stallFraction))},0,${0.3+stallFraction*0.5})`;
+            ctx.strokeStyle = warningColor;
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 6;
+            ctx.shadowColor = warningColor;
+            ctx.beginPath();
+            ctx.arc(0, 0, 34, -glider.pitch - 0.15, -glider.pitch + 0.15);
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+}
+
+// ── Main loop ─────────────────────────────────────────────────────────────────
+function loop(timestamp) {
+    let dt = (timestamp - lastTime) / 16.666;
+    if (dt > 4) dt = 4;
+    lastTime = timestamp;
+    if (gameState === 'PLAYING') updateGame(dt);
+    draw();
+    requestAnimationFrame(loop);
+}
+
+loadSavedRecords();
+resize();
+requestAnimationFrame(loop);
+</script>
 </body>
 </html>
