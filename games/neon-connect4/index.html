@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>NEON CONNECT FOUR // GRID WAR</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
@@ -20,45 +20,39 @@
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  body {
+  html, body {
+    width: 100%; height: 100%;
     background: var(--dark);
     color: #ccd6f6;
     font-family: 'Share Tech Mono', monospace;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    overflow-x: hidden;
-    position: relative;
-  }
-
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: linear-gradient(90deg, rgba(0,245,255,0.04) 1px, transparent 1px);
-    background-size: 40px 100%;
-    pointer-events: none;
-    z-index: 0;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
   }
 
   .container {
     position: relative;
     z-index: 10;
+    width: 100vw;
+    height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 20px 16px;
-    width: 100%;
+    justify-content: center;
+    padding: 8px;
+    gap: 6px;
+    overflow: hidden;
   }
 
-  /* Header */
-  .header { text-align: center; margin-bottom: 20px; }
+  /* ── Header ── */
+  .header { text-align: center; flex-shrink: 0; line-height: 1.1; }
 
   .header h1 {
     font-family: 'Orbitron', sans-serif;
     font-weight: 900;
-    font-size: clamp(1.4rem, 4vw, 2.4rem);
+    font-size: clamp(0.85rem, 2.2vw, 1.6rem);
     letter-spacing: 0.15em;
     background: linear-gradient(90deg, var(--cyan), var(--magenta), var(--cyan));
     background-size: 200% 100%;
@@ -69,11 +63,10 @@
   }
 
   .header .subtitle {
-    font-size: 0.65rem;
+    font-size: clamp(0.45rem, 1vw, 0.6rem);
     color: var(--yellow);
     letter-spacing: 0.4em;
     text-shadow: var(--glow-yellow);
-    margin-top: 3px;
   }
 
   @keyframes shimmer {
@@ -81,147 +74,187 @@
     100% { background-position: 200% 50%; }
   }
 
-  /* Status bar */
+  /* ── Status bar ── */
   .status-bar {
-    font-size: 0.75rem;
-    letter-spacing: 0.2em;
-    padding: 7px 20px;
+    flex-shrink: 0;
+    font-size: clamp(0.5rem, 1.2vw, 0.75rem);
+    letter-spacing: 0.18em;
+    padding: 4px 14px;
     border: 1px solid var(--yellow);
     color: var(--yellow);
     text-shadow: var(--glow-yellow);
+    box-shadow: var(--glow-yellow);
     background: rgba(255,238,0,0.05);
     clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
     text-align: center;
-    min-width: 280px;
-    margin-bottom: 16px;
     transition: border-color 0.3s, color 0.3s, box-shadow 0.3s;
     animation: status-glow 2s ease-in-out infinite alternate;
   }
 
   @keyframes status-glow {
-    from { box-shadow: 0 0 6px currentColor, 0 0 12px transparent; }
-    to   { box-shadow: 0 0 14px currentColor, 0 0 28px rgba(255,238,0,0.2); }
+    from { box-shadow: 0 0 6px #ffee00, 0 0 12px #ffee0033; }
+    to   { box-shadow: 0 0 12px #ffee00, 0 0 24px #ffee0066; }
   }
 
-  /* Main layout */
+  /* ── Game layout ── */
   .game-layout {
     display: flex;
-    gap: 24px;
-    align-items: flex-start;
+    gap: clamp(6px, 1.2vw, 18px);
+    align-items: center;
     justify-content: center;
-    width: 100%;
-    max-width: 860px;
+    flex: 1 1 auto;
+    min-height: 0;
   }
 
-  /* Player panels */
-  .player-panel { width: 150px; flex-shrink: 0; }
+  /* ── Player panels (landscape) ── */
+  .player-panel {
+    width: clamp(70px, 11vw, 140px);
+    flex-shrink: 0;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  /* ── Portrait: panels row below board ── */
+  .panels-row {
+    display: none;
+    gap: clamp(8px, 3vw, 20px);
+    width: 100%;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  @media (orientation: portrait) {
+    .game-layout .player-panel { display: none; }
+    .panels-row { display: flex; }
+    .game-layout { flex: 0 0 auto; }
+    .container { justify-content: flex-start; padding-top: clamp(8px, 2vh, 20px); }
+
+    .panels-row .player-panel {
+      display: flex;
+      flex-direction: column;
+      width: clamp(120px, 42vw, 240px);
+      flex-shrink: 0;
+    }
+    .panels-row .panel-card {
+      display: flex;
+      flex-direction: column;
+      padding: clamp(5px, 2vw, 10px) clamp(8px, 3vw, 14px);
+    }
+    .panels-row .player-label { font-size: clamp(0.42rem, 2vw, 0.58rem); margin-bottom: 2px; }
+    .panels-row .player-name  { font-size: clamp(0.55rem, 2.5vw, 0.85rem); margin-bottom: 6px; }
+    .panels-row .wins-label   { font-size: clamp(0.38rem, 1.6vw, 0.5rem); }
+    .panels-row .wins-count   { font-size: clamp(1rem, 5vw, 1.6rem); }
+    .panels-row .wins-sub     { font-size: clamp(0.35rem, 1.4vw, 0.48rem); }
+  }
 
   .panel-card {
     border: 1px solid;
-    padding: 14px 12px;
+    padding: clamp(6px, 1vw, 12px);
     background: var(--dark2);
-    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
   }
 
-  .p1-panel .panel-card { border-color: var(--cyan);    box-shadow: inset 0 0 20px rgba(0,245,255,0.05), var(--glow-cyan); }
-  .p2-panel .panel-card { border-color: var(--magenta); box-shadow: inset 0 0 20px rgba(255,0,170,0.05), var(--glow-magenta); }
+  .p1-panel .panel-card { border-color: var(--cyan);    box-shadow: inset 0 0 16px rgba(0,245,255,0.05), var(--glow-cyan); }
+  .p2-panel .panel-card { border-color: var(--magenta); box-shadow: inset 0 0 16px rgba(255,0,170,0.05), var(--glow-magenta); }
 
   .player-label {
     font-family: 'Orbitron', sans-serif;
-    font-size: 0.58rem;
-    letter-spacing: 0.3em;
-    margin-bottom: 6px;
+    font-size: clamp(0.4rem, 0.7vw, 0.58rem);
+    letter-spacing: 0.25em;
+    margin-bottom: 4px;
     opacity: 0.7;
   }
-
   .p1-panel .player-label { color: var(--cyan); }
   .p2-panel .player-label { color: var(--magenta); }
 
   .player-name {
     font-family: 'Orbitron', sans-serif;
-    font-size: 0.82rem;
+    font-size: clamp(0.5rem, 0.9vw, 0.82rem);
     font-weight: 700;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
-
   .p1-panel .player-name { color: var(--cyan);    text-shadow: var(--glow-cyan); }
   .p2-panel .player-name { color: var(--magenta); text-shadow: var(--glow-magenta); }
 
   .active-indicator {
     height: 2px;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     background: transparent;
     transition: background 0.3s;
   }
-
   .active-indicator.active { animation: pulse-bar 1s ease-in-out infinite alternate; }
   .p1-panel .active-indicator.active { background: var(--cyan);    box-shadow: var(--glow-cyan); }
   .p2-panel .active-indicator.active { background: var(--magenta); box-shadow: var(--glow-magenta); }
-
   @keyframes pulse-bar { from { opacity: 0.5; } to { opacity: 1; } }
 
-  .wins-label { font-size: 0.55rem; opacity: 0.5; letter-spacing: 0.2em; margin-bottom: 4px; }
+  .wins-label { font-size: clamp(0.38rem, 0.65vw, 0.52rem); opacity: 0.5; letter-spacing: 0.15em; margin-bottom: 3px; }
 
   .wins-count {
     font-family: 'Orbitron', sans-serif;
-    font-size: 2rem;
+    font-size: clamp(1.2rem, 2.5vw, 2rem);
     font-weight: 900;
     line-height: 1;
   }
-
   .p1-panel .wins-count { color: var(--cyan);    text-shadow: var(--glow-cyan); }
   .p2-panel .wins-count { color: var(--magenta); text-shadow: var(--glow-magenta); }
 
-  .wins-sub { font-size: 0.55rem; opacity: 0.4; letter-spacing: 0.15em; margin-top: 2px; }
+  .wins-sub { font-size: clamp(0.35rem, 0.6vw, 0.5rem); opacity: 0.4; letter-spacing: 0.12em; margin-top: 2px; }
 
-  /* Board area */
+  /* ── Board area ── */
   .board-area {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 0;
+    flex: 0 0 auto;
   }
 
-  /* Drop arrows */
+  /* ── Drop arrows ── */
   .drop-row {
-    display: flex;
-    gap: 0;
-    margin-bottom: 6px;
+    display: grid;
+    grid-template-columns: repeat(7, var(--cell));
+    margin-bottom: 4px;
   }
 
   .drop-arrow {
     width: var(--cell);
-    height: 28px;
+    height: clamp(20px, 3vh, 28px);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: clamp(0.6rem, 1.2vw, 0.9rem);
     opacity: 0;
-    transition: opacity 0.15s, color 0.15s;
+    transition: opacity 0.15s, color 0.15s, transform 0.15s;
     color: var(--cyan);
     text-shadow: var(--glow-cyan);
-    user-select: none;
   }
 
-  .drop-arrow.active { opacity: 0; }
-  .drop-arrow.active:hover { opacity: 1; }
-  .drop-arrow.preview { opacity: 0.85; animation: arrow-pulse 0.7s ease-in-out infinite alternate; }
+  /* Selected col: solid visible arrow */
+  .drop-arrow.selected {
+    opacity: 1;
+    animation: arrow-pulse 0.6s ease-in-out infinite alternate;
+  }
+
+  /* Hover col: dim preview */
+  .drop-arrow.hovered:not(.selected) { opacity: 0.45; }
 
   @keyframes arrow-pulse {
     from { transform: translateY(0); }
     to   { transform: translateY(4px); }
   }
 
-  /* Board frame */
+  /* ── Board frame ── */
   .board-frame {
-    --cell: 72px;
+    --cell: 60px;
     background: var(--dark3);
     border: 2px solid var(--cyan);
     box-shadow: 0 0 40px rgba(0,245,255,0.18), inset 0 0 40px rgba(0,0,0,0.6);
     position: relative;
-    padding: 8px;
-    clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+    padding: clamp(4px, 1vw, 8px);
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
   }
 
   .board-frame::before {
@@ -229,7 +262,7 @@
     position: absolute;
     inset: -4px;
     border: 1px solid rgba(0,245,255,0.18);
-    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+    clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
     pointer-events: none;
   }
 
@@ -237,10 +270,10 @@
     display: grid;
     grid-template-columns: repeat(7, var(--cell));
     grid-template-rows: repeat(6, var(--cell));
-    gap: 6px;
+    gap: clamp(3px, 0.6vw, 6px);
   }
 
-  /* Cells */
+  /* ── Cells ── */
   .cell {
     width: var(--cell);
     height: var(--cell);
@@ -253,9 +286,14 @@
     cursor: pointer;
   }
 
-  .cell:hover { border-color: rgba(0,245,255,0.25); }
+  /* Hovered column: subtle glow */
+  .cell.col-hovered { border-color: rgba(0,245,255,0.2); }
 
-  /* Token inside cell */
+  /* Selected column: bright ring */
+  .cell.col-selected { border-color: rgba(0,245,255,0.55); box-shadow: 0 0 8px rgba(0,245,255,0.25); }
+  .p2-turn .cell.col-selected { border-color: rgba(255,0,170,0.55); box-shadow: 0 0 8px rgba(255,0,170,0.25); }
+
+  /* ── Tokens ── */
   .token {
     position: absolute;
     inset: 6px;
@@ -283,67 +321,88 @@
     border: 1.5px solid rgba(255,0,170,0.9);
   }
 
+  /* Preview ghost token */
   .token.preview-p1 {
-    opacity: 0.35;
+    opacity: 0.3;
     background: radial-gradient(circle at 35% 30%, #60ffff, #00b8cc);
     border: 1.5px solid rgba(0,245,255,0.5);
-    animation: none;
   }
-
   .token.preview-p2 {
-    opacity: 0.35;
+    opacity: 0.3;
     background: radial-gradient(circle at 35% 30%, #ff80d4, #cc0077);
     border: 1.5px solid rgba(255,0,170,0.5);
-    animation: none;
+  }
+
+  /* Confirmed selection ghost — brighter */
+  .token.confirm-p1 {
+    opacity: 0.65;
+    background: radial-gradient(circle at 35% 30%, #60ffff, #00b8cc);
+    border: 2px solid rgba(0,245,255,0.9);
+    box-shadow: 0 0 10px #00f5ff, 0 0 20px rgba(0,245,255,0.4);
+  }
+  .token.confirm-p2 {
+    opacity: 0.65;
+    background: radial-gradient(circle at 35% 30%, #ff80d4, #cc0077);
+    border: 2px solid rgba(255,0,170,0.9);
+    box-shadow: 0 0 10px #ff00aa, 0 0 20px rgba(255,0,170,0.4);
   }
 
   /* Win highlight */
-  .cell.win-cell .token {
-    animation: win-pulse 0.6s ease-in-out infinite alternate !important;
+  .cell.win-cell .token { animation: win-pulse 0.6s ease-in-out infinite alternate !important; }
+  .cell.win-cell.p1-win .token { box-shadow: 0 0 22px #00f5ff, 0 0 44px rgba(0,245,255,0.9), inset 0 -4px 8px rgba(0,0,0,0.4) !important; }
+  .cell.win-cell.p2-win .token { box-shadow: 0 0 22px #ff00aa, 0 0 44px rgba(255,0,170,0.9), inset 0 -4px 8px rgba(0,0,0,0.4) !important; }
+  @keyframes win-pulse { from { transform: scale(0.9); } to { transform: scale(1.08); } }
+
+  /* Dim non-winning tokens after game ends */
+  .game-over-state .cell:not(.win-cell) .token.placed { opacity: 0.25; filter: saturate(0.3); }
+  .game-over-state .cell.win-cell { border-color: rgba(255,238,0,0.5) !important; }
+
+  /* Wordle grid in modal */
+  .wordle-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin: 12px auto 4px;
+    align-items: center;
   }
-
-  .cell.win-cell.p1-win .token {
-    box-shadow: 0 0 20px #00f5ff, 0 0 40px rgba(0,245,255,0.8), inset 0 -4px 8px rgba(0,0,0,0.4);
+  .wordle-row { display: flex; gap: 3px; }
+  .wordle-cell {
+    width: 18px; height: 18px;
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
   }
+  .wordle-cell.c1 { background: rgba(0,245,255,0.35); border-color: rgba(0,245,255,0.6); }
+  .wordle-cell.c2 { background: rgba(255,0,170,0.35); border-color: rgba(255,0,170,0.6); }
+  .wordle-cell.win { background: var(--yellow); border-color: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+  .wordle-label { font-size: 0.5rem; letter-spacing: 0.2em; color: rgba(204,214,246,0.4); margin-bottom: 2px; text-align: center; }
 
-  .cell.win-cell.p2-win .token {
-    box-shadow: 0 0 20px #ff00aa, 0 0 40px rgba(255,0,170,0.8), inset 0 -4px 8px rgba(0,0,0,0.4);
-  }
-
-  @keyframes win-pulse {
-    from { transform: scale(0.92); }
-    to   { transform: scale(1.05); }
-  }
-
-  /* Column highlight on hover */
-  .col-hover .cell { border-color: rgba(0,245,255,0.2); }
-
-  /* Game over */
+  /* ── Game Over ── */
   .gameover-overlay {
-    position: fixed;
-    inset: 0;
+    position: fixed; inset: 0;
     background: rgba(5,8,16,0.92);
     display: none;
     align-items: center;
     justify-content: center;
     z-index: 300;
   }
-
   .gameover-overlay.show { display: flex; }
 
   .gameover-modal {
     border: 1px solid var(--cyan);
     background: var(--dark2);
-    padding: 36px 48px;
-    box-shadow: var(--glow-cyan), 0 0 80px rgba(0,245,255,0.15);
-    clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+    padding: 28px 36px;
+    box-shadow: var(--glow-cyan), 0 0 70px rgba(0,245,255,0.15);
+    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
     text-align: center;
+    max-width: 340px;
   }
 
   .gameover-title {
     font-family: 'Orbitron', sans-serif;
-    font-size: 1.5rem;
-    font-weight: 900;
+    font-size: 1.3rem; font-weight: 900;
     letter-spacing: 0.2em;
     background: linear-gradient(90deg, var(--cyan), var(--magenta));
     -webkit-background-clip: text;
@@ -351,53 +410,32 @@
     background-clip: text;
     margin-bottom: 8px;
   }
+  .gameover-sub    { color: var(--yellow); font-size: 0.7rem; letter-spacing: 0.28em; margin-bottom: 14px; text-shadow: var(--glow-yellow); }
+  .gameover-winner { font-family: 'Orbitron', sans-serif; font-size: 0.9rem; margin-bottom: 20px; color: #ccd6f6; }
 
-  .gameover-sub    { color: var(--yellow); font-size: 0.7rem; letter-spacing: 0.3em; text-shadow: var(--glow-yellow); margin-bottom: 16px; }
-  .gameover-winner { font-family: 'Orbitron', sans-serif; font-size: 1rem; margin-bottom: 28px; color: #ccd6f6; }
-
-  .modal-btns { display: flex; gap: 12px; justify-content: center; }
+  .modal-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
   .action-btn {
-    padding: 10px 22px;
+    padding: 9px 20px;
     border: 1px solid var(--cyan);
     background: transparent;
     color: var(--cyan);
     font-family: 'Orbitron', sans-serif;
-    font-size: 0.65rem;
-    letter-spacing: 0.25em;
+    font-size: 0.62rem;
+    letter-spacing: 0.22em;
     cursor: pointer;
     clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
     transition: all 0.2s;
+    text-shadow: var(--glow-cyan);
+    box-shadow: var(--glow-cyan);
   }
-
-  .action-btn:hover { background: rgba(0,245,255,0.1); box-shadow: var(--glow-cyan); transform: scale(1.03); }
-
-  .action-btn.secondary {
-    border-color: rgba(0,245,255,0.35);
-    color: rgba(0,245,255,0.5);
-  }
-
-  .action-btn.secondary:hover { border-color: var(--cyan); color: var(--cyan); }
-
-  /* Responsive */
-  @media (max-width: 740px) {
-    .board-frame { --cell: 48px; }
-    .drop-arrow  { width: 48px; }
-    .player-panel { width: 100px; }
-    .player-name { font-size: 0.65rem; }
-    .wins-count { font-size: 1.5rem; }
-  }
-
-  @media (max-width: 520px) {
-    .board-frame { --cell: 40px; padding: 5px; }
-    .board-grid  { gap: 4px; }
-    .drop-arrow  { width: 40px; }
-    .player-panel { display: none; }
-  }
+  .action-btn:hover { background: rgba(0,245,255,0.1); transform: scale(1.03); }
+  .action-btn.secondary { border-color: rgba(0,245,255,0.35); color: rgba(0,245,255,0.5); box-shadow: none; text-shadow: none; }
+  .action-btn.secondary:hover { border-color: var(--cyan); color: var(--cyan); box-shadow: var(--glow-cyan); }
 </style>
 </head>
 <body>
-<div class="container">
+<div class="container" id="container">
   <div class="header">
     <h1>NEON CONNECT FOUR</h1>
     <div class="subtitle">// GRID WAR PROTOCOL //</div>
@@ -406,11 +444,11 @@
   <div class="status-bar" id="status-bar">INITIALIZING...</div>
 
   <div class="game-layout">
-    <!-- P1 -->
+    <!-- P1 (landscape) -->
     <div class="player-panel p1-panel">
       <div class="panel-card">
-        <div class="player-label">// PLAYER 01</div>
-        <div class="player-name">CYAN UNIT</div>
+        <div class="player-label">// P01</div>
+        <div class="player-name">CYAN</div>
         <div class="active-indicator" id="p1-indicator"></div>
         <div class="wins-label">WINS:</div>
         <div class="wins-count" id="p1-wins">0</div>
@@ -421,19 +459,43 @@
     <!-- Board -->
     <div class="board-area">
       <div class="drop-row" id="drop-row"></div>
-      <div class="board-frame">
+      <div class="board-frame" id="board-frame">
         <div class="board-grid" id="board-grid"></div>
       </div>
     </div>
 
-    <!-- P2 -->
+    <!-- P2 (landscape) -->
     <div class="player-panel p2-panel">
       <div class="panel-card">
-        <div class="player-label">// PLAYER 02</div>
-        <div class="player-name">MAGENTA UNIT</div>
+        <div class="player-label">// P02</div>
+        <div class="player-name">MAGENTA</div>
         <div class="active-indicator" id="p2-indicator"></div>
         <div class="wins-label">WINS:</div>
         <div class="wins-count" id="p2-wins">0</div>
+        <div class="wins-sub">SESSIONS</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Portrait: panels below board -->
+  <div class="panels-row">
+    <div class="player-panel p1-panel">
+      <div class="panel-card">
+        <div class="player-label">// P01</div>
+        <div class="player-name">CYAN</div>
+        <div class="active-indicator" id="p1-indicator-b"></div>
+        <div class="wins-label">WINS:</div>
+        <div class="wins-count" id="p1-wins-b">0</div>
+        <div class="wins-sub">SESSIONS</div>
+      </div>
+    </div>
+    <div class="player-panel p2-panel">
+      <div class="panel-card">
+        <div class="player-label">// P02</div>
+        <div class="player-name">MAGENTA</div>
+        <div class="active-indicator" id="p2-indicator-b"></div>
+        <div class="wins-label">WINS:</div>
+        <div class="wins-count" id="p2-wins-b">0</div>
         <div class="wins-sub">SESSIONS</div>
       </div>
     </div>
@@ -446,6 +508,7 @@
     <div class="gameover-title">GAME OVER</div>
     <div class="gameover-sub" id="go-sub"></div>
     <div class="gameover-winner" id="go-winner"></div>
+    <div id="go-wordle"></div>
     <div class="modal-btns">
       <button class="action-btn" onclick="newRound()">// PLAY AGAIN //</button>
       <button class="action-btn secondary" onclick="resetAll()">// RESET ALL //</button>
@@ -457,21 +520,67 @@
 const ROWS = 6, COLS = 7;
 let grid, turn, gameOver, winCells;
 let wins = { p1: 0, p2: 0 };
+// Two-click system
+let selectedCol = -1;   // first click: column chosen, awaiting confirm
+let lastDropCol = -1;   // column the previous player dropped in
 let hoverCol = -1;
+
+// ===================== RESPONSIVE SIZING =====================
+
+function computeCell() {
+  const portrait = window.innerHeight > window.innerWidth;
+  if (portrait) {
+    // chrome: header + status + drop-row + panels-row + gaps + padding
+    const chrome = 200;
+    const pad = clamp(4, window.innerWidth * 0.01, 8) * 2 + clamp(3, window.innerWidth * 0.006, 6) * 6;
+    const availH = window.innerHeight - chrome;
+    const availW = window.innerWidth - 16 - pad;
+    return Math.max(24, Math.min(Math.floor(Math.min(availH / 6, availW / 7)), 80));
+  } else {
+    const chrome = 130;
+    const panelW = Math.min(140, Math.max(70, window.innerWidth * 0.11));
+    const pad = clamp(4, window.innerWidth * 0.01, 8) * 2 + clamp(3, window.innerWidth * 0.006, 6) * 6;
+    const availH = window.innerHeight - chrome;
+    const availW = window.innerWidth - panelW * 2 - 60 - pad;
+    return Math.max(28, Math.min(Math.floor(Math.min(availH / 6, availW / 7)), 90));
+  }
+}
+
+function clamp(min, val, max) { return Math.max(min, Math.min(val, max)); }
+
+function applyCell(cell) {
+  const frame = document.getElementById('board-frame');
+  frame.style.setProperty('--cell', cell + 'px');
+  // sync drop-row arrow widths
+  document.querySelectorAll('.drop-arrow').forEach(a => a.style.width = cell + 'px');
+  // sync drop-row grid
+  const dr = document.getElementById('drop-row');
+  dr.style.gridTemplateColumns = `repeat(7, ${cell}px)`;
+}
+
+window.addEventListener('resize', () => { applyCell(computeCell()); });
+
+// ===================== GAME LOGIC =====================
 
 function initGame() {
   grid = Array.from({length: ROWS}, () => Array(COLS).fill(0));
   turn = 1;
   gameOver = false;
   winCells = [];
+  selectedCol = -1;
+  lastDropCol = -1;
   hoverCol = -1;
+  lastClickTime = 0;
+  lastClickCol = -1;
   document.getElementById('gameover-overlay').classList.remove('show');
+  const bg = document.getElementById('board-grid'); if (bg) bg.classList.remove('game-over-state');
   buildBoard();
+  applyCell(computeCell());
   updateUI();
 }
 
-function newRound()  { initGame(); }
-function resetAll()  { wins.p1 = 0; wins.p2 = 0; initGame(); }
+function newRound() { initGame(); }
+function resetAll() { wins.p1 = 0; wins.p2 = 0; initGame(); }
 
 function buildBoard() {
   const grid_el = document.getElementById('board-grid');
@@ -481,12 +590,12 @@ function buildBoard() {
 
   for (let c = 0; c < COLS; c++) {
     const arrow = document.createElement('div');
-    arrow.className = 'drop-arrow active';
+    arrow.className = 'drop-arrow';
     arrow.textContent = '▼';
     arrow.dataset.col = c;
-    arrow.addEventListener('mouseenter', () => setHover(c));
-    arrow.addEventListener('mouseleave', () => setHover(-1));
-    arrow.addEventListener('click', () => dropToken(c));
+    arrow.addEventListener('mouseenter', () => onColHover(c));
+    arrow.addEventListener('mouseleave', () => onColHover(-1));
+    arrow.addEventListener('click', () => onColClick(c));
     drop_el.appendChild(arrow);
   }
 
@@ -496,9 +605,9 @@ function buildBoard() {
       cell.className = 'cell';
       cell.id = `cell-${r}-${c}`;
       cell.dataset.col = c;
-      cell.addEventListener('mouseenter', () => setHover(c));
-      cell.addEventListener('mouseleave', () => setHover(-1));
-      cell.addEventListener('click', () => dropToken(c));
+      cell.addEventListener('mouseenter', () => onColHover(c));
+      cell.addEventListener('mouseleave', () => onColHover(-1));
+      cell.addEventListener('click', () => onColClick(c));
 
       const token = document.createElement('div');
       token.className = 'token';
@@ -510,33 +619,77 @@ function buildBoard() {
   }
 }
 
-function setHover(col) {
+function onColHover(col) {
   if (gameOver) return;
   hoverCol = col;
-  renderPreview();
-  // Update arrows
-  document.querySelectorAll('.drop-arrow').forEach((a, i) => {
-    a.classList.toggle('preview', i === col);
-  });
+  refreshColumnStyles();
 }
 
-function renderPreview() {
-  // Clear all previews
+let lastClickTime = 0;
+let lastClickCol = -1;
+
+function onColClick(col) {
+  if (gameOver) return;
+  if (getDropRow(col) < 0) return;
+
+  // Debounce: ignore duplicate events within 300ms on the same column
+  // (mobile fires mouseenter + click + touchend combos that can double-fire)
+  const now = Date.now();
+  if (col === lastClickCol && now - lastClickTime < 300) return;
+  lastClickTime = now;
+  lastClickCol = col;
+
+  if (selectedCol === col) {
+    // Second click on selected column — drop
+    dropToken(col);
+    return;
+  }
+
+  // First click: select the column, always require a second click to confirm
+  selectedCol = col;
+  refreshColumnStyles();
+  updateStatusBar();
+}
+
+function refreshColumnStyles() {
+  // Arrows
+  document.querySelectorAll('.drop-arrow').forEach((a, i) => {
+    a.classList.toggle('selected', i === selectedCol);
+    a.classList.toggle('hovered', i === hoverCol && i !== selectedCol);
+  });
+
+  // Cells
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.getElementById(`cell-${r}-${c}`);
+      if (!cell) continue;
+      cell.classList.toggle('col-selected', c === selectedCol);
+      cell.classList.toggle('col-hovered', c === hoverCol && c !== selectedCol);
+    }
+  }
+
+  // Ghost preview token
+  clearPreviews();
+  const previewTarget = selectedCol >= 0 ? selectedCol : (hoverCol >= 0 ? hoverCol : -1);
+  if (previewTarget >= 0) {
+    const landRow = getDropRow(previewTarget);
+    if (landRow >= 0) {
+      const t = document.getElementById(`token-${landRow}-${previewTarget}`);
+      if (t && !t.classList.contains('placed')) {
+        const cls = previewTarget === selectedCol ? `confirm-p${turn}` : `preview-p${turn}`;
+        t.className = `token ${cls}`;
+      }
+    }
+  }
+}
+
+function clearPreviews() {
   for (let r = 0; r < ROWS; r++)
     for (let c = 0; c < COLS; c++) {
       const t = document.getElementById(`token-${r}-${c}`);
-      if (t && (t.classList.contains('preview-p1') || t.classList.contains('preview-p2'))) {
+      if (t && !t.classList.contains('placed') && !t.classList.contains('win-cell'))
         t.className = 'token';
-      }
     }
-
-  if (hoverCol < 0 || gameOver) return;
-
-  const landRow = getDropRow(hoverCol);
-  if (landRow < 0) return;
-
-  const t = document.getElementById(`token-${landRow}-${hoverCol}`);
-  if (t) t.className = `token preview-p${turn}`;
 }
 
 function getDropRow(col) {
@@ -546,13 +699,14 @@ function getDropRow(col) {
 }
 
 function dropToken(col) {
-  if (gameOver) return;
   const row = getDropRow(col);
   if (row < 0) return;
 
+  clearPreviews();
   grid[row][col] = turn;
+  lastDropCol = col;
+  selectedCol = -1;
 
-  // Clear preview then place real token
   const t = document.getElementById(`token-${row}-${col}`);
   t.className = `token p${turn} placed`;
 
@@ -562,14 +716,16 @@ function dropToken(col) {
     gameOver = true;
     wins[`p${turn}`]++;
     highlightWin();
+    updateUI();
     setTimeout(() => showGameOver(false), 700);
   } else if (isBoardFull()) {
     gameOver = true;
+    updateUI();
     setTimeout(() => showGameOver(true), 400);
   } else {
     turn = turn === 1 ? 2 : 1;
     hoverCol = -1;
-    renderPreview();
+    refreshColumnStyles();
     updateUI();
   }
 }
@@ -594,9 +750,7 @@ function checkWin(r, c) {
   return null;
 }
 
-function isBoardFull() {
-  return grid[0].every(v => v !== 0);
-}
+function isBoardFull() { return grid[0].every(v => v !== 0); }
 
 function highlightWin() {
   winCells.forEach(([r,c]) => {
@@ -605,46 +759,84 @@ function highlightWin() {
   });
 }
 
-function showGameOver(draw) {
-  const sub  = document.getElementById('go-sub');
-  const win  = document.getElementById('go-winner');
-  if (draw) {
-    sub.textContent  = '// DRAW — GRID SATURATED //';
-    win.textContent  = 'NO WINNER THIS ROUND';
-  } else {
-    sub.textContent  = '// FOUR IN A ROW DETECTED //';
-    win.textContent  = turn === 1 ? 'CYAN UNIT WINS' : 'MAGENTA UNIT WINS';
+function buildWordleGrid(draw) {
+  const winSet = new Set((winCells || []).map(([r,c]) => `${r},${c}`));
+  let html = '<div class="wordle-label">// BOARD STATE //</div><div class="wordle-grid">';
+  for (let r = 0; r < ROWS; r++) {
+    html += '<div class="wordle-row">';
+    for (let c = 0; c < COLS; c++) {
+      const v = grid[r][c];
+      const isWin = winSet.has(`${r},${c}`);
+      let cls = 'wordle-cell';
+      if (isWin) cls += ' win';
+      else if (v === 1) cls += ' c1';
+      else if (v === 2) cls += ' c2';
+      html += `<div class="${cls}"></div>`;
+    }
+    html += '</div>';
   }
-  updateUI();
+  html += '</div>';
+  return html;
+}
+
+function showGameOver(draw) {
+  const sub = document.getElementById('go-sub');
+  const win = document.getElementById('go-winner');
+  const grid_el = document.getElementById('board-grid');
+  if (draw) {
+    sub.textContent = '// DRAW — GRID SATURATED //';
+    win.textContent = 'NO WINNER THIS ROUND';
+  } else {
+    sub.textContent = '// FOUR IN A ROW DETECTED //';
+    win.textContent = turn === 1 ? 'CYAN WINS' : 'MAGENTA WINS';
+  }
+  // Dim non-win tokens on board
+  grid_el.classList.add('game-over-state');
+  // Inject wordle grid
+  document.getElementById('go-wordle').innerHTML = buildWordleGrid(draw);
   document.getElementById('gameover-overlay').classList.add('show');
 }
 
-function updateUI() {
-  // Status bar
+function updateStatusBar() {
   const sb = document.getElementById('status-bar');
-  if (!gameOver) {
-    sb.textContent = turn === 1 ? 'CYAN UNIT // DROP TOKEN' : 'MAGENTA UNIT // DROP TOKEN';
-    const col  = turn === 1 ? 'var(--cyan)' : 'var(--magenta)';
-    const glow = turn === 1 ? 'var(--glow-cyan)' : 'var(--glow-magenta)';
-    sb.style.borderColor = col;
-    sb.style.color       = col;
-    sb.style.textShadow  = glow;
-    sb.style.boxShadow   = glow;
+  const col  = turn === 1 ? 'var(--cyan)' : 'var(--magenta)';
+  const glow = turn === 1 ? 'var(--glow-cyan)' : 'var(--glow-magenta)';
+  if (selectedCol >= 0) {
+    const colLetter = 'ABCDEFG'[selectedCol];
+    sb.textContent = `CONFIRM COL ${colLetter} — CLICK AGAIN`;
+  } else {
+    sb.textContent = (turn === 1 ? 'CYAN' : 'MAGENTA') + ' // SELECT COLUMN';
   }
+  sb.style.borderColor = col;
+  sb.style.color = col;
+  sb.style.textShadow = glow;
+  sb.style.boxShadow = glow;
+}
 
-  // Drop arrows color
-  document.querySelectorAll('.drop-arrow').forEach(a => {
-    a.style.color      = turn === 1 ? 'var(--cyan)' : 'var(--magenta)';
-    a.style.textShadow = turn === 1 ? 'var(--glow-cyan)' : 'var(--glow-magenta)';
+function updateUI() {
+  if (!gameOver) updateStatusBar();
+
+  // Sync both panel sets
+  ['', 'b'].forEach(sfx => {
+    const s = sfx ? '-' + sfx : '';
+    const el = id => document.getElementById(id + s);
+    if (!el('p1-indicator')) return;
+    el('p1-indicator').className = 'active-indicator' + (turn===1&&!gameOver?' active':'');
+    el('p2-indicator').className = 'active-indicator' + (turn===2&&!gameOver?' active':'');
+    el('p1-wins').textContent = wins.p1;
+    el('p2-wins').textContent = wins.p2;
   });
 
-  // Active indicators
-  document.getElementById('p1-indicator').className = 'active-indicator' + (turn===1&&!gameOver?' active':'');
-  document.getElementById('p2-indicator').className = 'active-indicator' + (turn===2&&!gameOver?' active':'');
+  // Arrow colors
+  const arrowCol  = turn === 1 ? 'var(--cyan)' : 'var(--magenta)';
+  const arrowGlow = turn === 1 ? 'var(--glow-cyan)' : 'var(--glow-magenta)';
+  document.querySelectorAll('.drop-arrow').forEach(a => {
+    a.style.color = arrowCol;
+    a.style.textShadow = arrowGlow;
+  });
 
-  // Wins
-  document.getElementById('p1-wins').textContent = wins.p1;
-  document.getElementById('p2-wins').textContent = wins.p2;
+  // Add p2-turn class to board-frame so cell.col-selected can change color
+  document.getElementById('board-frame').classList.toggle('p2-turn', turn === 2);
 }
 
 initGame();
