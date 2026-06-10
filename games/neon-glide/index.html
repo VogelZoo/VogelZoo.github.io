@@ -434,26 +434,23 @@ function spawnEntities() {
                 });
     }
 
-    // Fixed blocks — start at 2000m
+    // Fixed blocks — 2x2 Massive Standalone Obstacles (spawns when distance > 2000)
     if (scoreDistance > 2000) {
-        const blockRate = diffScale(0.004, 0.003, 0.022);
-        if (blockCooldown > 0) { blockCooldown--; }
-        else if (Math.random() < blockRate) {
-            // Spawn a gap pair: two blocks with a navigable gap between them
-            const gapSize   = Math.max(130 - difficultyLevel*8, 70);
-            const gapCenter = Math.random()*(canvas.height - 220) + 90;
-            const blockW    = 26;
-            const topH      = gapCenter - gapSize/2 - 40;         // from top
-            const botY      = gapCenter + gapSize/2;              // bottom block top edge
-            const botH      = canvas.height - 40 - botY;         // to floor line
+        const blockRate = diffScale(0.006, 0.004, 0.028);
+        if (blockCooldown > 0) { 
+            blockCooldown--; 
+        } else if (Math.random() < blockRate) {
+            // Size configured to be 2x2 (52px width, 52px height) -> 4 times the area of original 26px bars
+            const blockW = 52;
+            const blockH = 52;
+            
+            // Randomly position in the sky space, keeping clear of ceiling and ground limits
+            const spawnY = Math.random() * (canvas.height - 180) + 60;
 
-            if (topH > 20) {
-                blocks.push({ x:canvas.width+60, y:40, w:blockW, h:topH, pulse:0 });
-            }
-            if (botH > 20) {
-                blocks.push({ x:canvas.width+60, y:botY, w:blockW, h:botH, pulse:0 });
-            }
-            blockCooldown = Math.max(80 - difficultyLevel*5, 30);
+            blocks.push({ x: canvas.width + 60, y: spawnY, w: blockW, h: blockH, pulse: 0 });
+            
+            // Shortened cooldown window to match the narrower width profiles
+            blockCooldown = Math.max(60 - difficultyLevel * 5, 20);
         }
     }
 }
