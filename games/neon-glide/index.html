@@ -442,7 +442,7 @@ function spawnEntities() {
             // Spawn a gap pair: two blocks with a navigable gap between them
             const gapSize   = Math.max(130 - difficultyLevel*8, 70);
             const gapCenter = Math.random()*(canvas.height - 220) + 90;
-            const blockW    = 28 + difficultyLevel*2;
+            const blockW    = 26;
             const topH      = gapCenter - gapSize/2 - 40;         // from top
             const botY      = gapCenter + gapSize/2;              // bottom block top edge
             const botH      = canvas.height - 40 - botY;         // to floor line
@@ -632,7 +632,7 @@ function endGame() {
     statHi.innerText   = `BEST: ${globalHighScore}m`;
     statSpd.innerText  = `${globalTopSpeed} MPH`;
     overlayStats.style.display='flex';
-    document.getElementById('overlay-logo').innerText='MATRIX CRASH';
+    document.getElementById('overlay-logo').innerText='GAME OVER';
     actionBtn.innerText='REBOOT GLIDE';
     screenOverlay.style.display='flex';
 }
