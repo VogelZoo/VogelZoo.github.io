@@ -225,10 +225,11 @@ const trackSources = [
 ];
 function initAudioEngine() {
     if (audioInitialized) return;
-    trackSources.forEach((src, idx) => {
+    trackSources.forEach((src) => {
         const a = new Audio(src); a.volume = 0; a.preload = 'auto';
         a.addEventListener('ended', () => {
-            let nextIndex = (idx + 1) % audioPlaylist.length;
+            // Evaluates using the live global tracking pointer index cleanly
+            let nextIndex = (currentTrackIndex + 1) % audioPlaylist.length;
             startPlaylistTrack(nextIndex);
         });
         audioPlaylist.push(a);
@@ -248,10 +249,8 @@ muteBtn.addEventListener('click', e => {
     isMuted ? muteBtn.classList.remove('unmuted') : muteBtn.classList.add('unmuted');
     if (audioPlaylist[currentTrackIndex]) {
         audioPlaylist[currentTrackIndex].volume = isMuted ? 0 : 0.4;
-        if (!isMuted) {
-            if (audioPlaylist[currentTrackIndex].paused) {
-                audioPlaylist[currentTrackIndex].play().catch(()=>{});
-            }
+        if (!isMuted && audioPlaylist[currentTrackIndex].paused) {
+            audioPlaylist[currentTrackIndex].play().catch(()=>{});
         }
     }
 });
@@ -448,16 +447,13 @@ function spawnEntities() {
         if (blockCooldown > 0) { 
             blockCooldown--; 
         } else if (Math.random() < blockRate) {
-            // Size configured to be 2x2 (52px width, 52px height) -> 4 times the area of original 26px bars
             const blockW = 52;
             const blockH = 52;
             
-            // Randomly position in the sky space, keeping clear of ceiling and ground limits
             const spawnY = Math.random() * (canvas.height - 180) + 60;
 
             blocks.push({ x: canvas.width + 60, y: spawnY, w: blockW, h: blockH, pulse: 0 });
             
-            // Shortened cooldown window to match the narrower width profiles
             blockCooldown = Math.max(60 - difficultyLevel * 5, 20);
         }
     }
@@ -540,7 +536,6 @@ function updateGame(dt) {
         const parasiteDrag = Math.pow(glider.forwardAirspeed, 2) * physics.quadraticDragCoeff;
         const levelEff     = Math.max(0, Math.cos(glider.pitch));
         
-        // Dynamic drag reduction based on collected speed boosts (clamped to prevent zero/negative drag mechanics)
         const activeParasiteBaseline = Math.max(0.005, physics.parasiteDragBaseline - (collectedBoosts * physics.dragReductionPerBoost));
         const levelBleed   = activeParasiteBaseline * levelEff;
         
@@ -592,7 +587,7 @@ function updateGame(dt) {
         boosts[i].x -= scrollSpeed*dt; boosts[i].pulse += 0.05*dt;
         const dx=glider.x-boosts[i].x, dy=glider.y-boosts[i].y;
         if (Math.sqrt(dx*dx+dy*dy) < boosts[i].size+15) {
-            collectedBoosts++; // Increment dynamic performance modifier
+            collectedBoosts++; 
             physics.baseSpeedCap += 0.2;
             glider.forwardAirspeed = Math.min(glider.forwardAirspeed+3.0, physics.maxSpeed+4);
             glider.isNosediving=false; glider.stallTimer=0;
@@ -616,7 +611,6 @@ function updateGame(dt) {
     for (let i=blocks.length-1; i>=0; i--) {
         blocks[i].x -= scrollSpeed*dt; blocks[i].pulse += 0.06*dt;
         const b=blocks[i];
-        // AABB collision with glider (treated as a point with radius 12)
         const closestX = Math.max(b.x, Math.min(glider.x, b.x+b.w));
         const closestY = Math.max(b.y, Math.min(glider.y, b.y+b.h));
         const dx=glider.x-closestX, dy=glider.y-closestY;
@@ -637,7 +631,6 @@ function endGame() {
     gameState='GAMEOVER';
     stallWarning.style.display='none'; nosediveWarning.style.display='none';
     uiLayer.style.display='none';
-    // Populate stats
     statDist.innerText = `${Math.floor(scoreDistance)}m`;
     statHi.innerText   = `BEST: ${globalHighScore}m`;
     statSpd.innerText  = `${globalTopSpeed} MPH`;
@@ -660,20 +653,17 @@ function draw() {
     ctx.fillStyle='#05030a';
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    // Subtle horizontal scan bands
     ctx.fillStyle='rgba(0,255,204,0.012)';
     for (let y=0; y<canvas.height; y+=80)
         ctx.fillRect(0, y, canvas.width, 1);
 
     const scrollSpeed = (gameState==='PLAYING'&&glider) ? glider.vx : 1.5;
 
-    // Stars
     stars.forEach(s => {
         if (gameState!=='PLAYING') { s.x-=scrollSpeed*s.speed; if(s.x<0)s.x=canvas.width; }
         ctx.fillStyle=s.color; ctx.beginPath(); ctx.arc(s.x,s.y,s.size/2,0,Math.PI*2); ctx.fill();
     });
 
-    // Distant grid lines (perspective effect)
     ctx.save();
     ctx.strokeStyle='rgba(255,0,255,0.07)'; ctx.lineWidth=1;
     const gridSpacing = 120;
@@ -683,7 +673,6 @@ function draw() {
     }
     ctx.restore();
 
-    // Particles (engine trail)
     particles.forEach(p => {
         ctx.save();
         ctx.globalAlpha = p.life * 0.8;
@@ -693,19 +682,15 @@ function draw() {
         ctx.restore();
     });
 
-    // Thermal vents
     fans.forEach(fan => {
         const fy = canvas.height-40-fan.height;
-        // Vent body
         const vg = ctx.createLinearGradient(fan.x, fy, fan.x+fan.width, fy);
         vg.addColorStop(0, 'rgba(0,40,35,0.9)'); vg.addColorStop(1, 'rgba(0,60,50,0.9)');
         ctx.fillStyle=vg; ctx.fillRect(fan.x, fy, fan.width, fan.height);
         ctx.strokeStyle='rgba(0,255,204,0.6)'; ctx.lineWidth=1.5;
         ctx.strokeRect(fan.x, fy, fan.width, fan.height);
-        // Horizontal accent
         ctx.strokeStyle='rgba(255,0,255,0.8)'; ctx.lineWidth=2;
         ctx.beginPath(); ctx.moveTo(fan.x, fy+fan.height/2); ctx.lineTo(fan.x+fan.width, fy+fan.height/2); ctx.stroke();
-        // Rising thermal stream
         ctx.save(); ctx.lineWidth=1.5;
         for (let h=0; h<fy; h+=32) {
             const off = Math.sin(fan.pulse + h/18)*9;
@@ -714,38 +699,30 @@ function draw() {
             ctx.beginPath(); ctx.moveTo(fan.x+off, h); ctx.lineTo(fan.x+fan.width+off, h); ctx.stroke();
         }
         ctx.restore();
-        // Glow
         ctx.save(); ctx.shadowBlur=18; ctx.shadowColor='rgba(0,255,204,0.4)';
         ctx.strokeStyle='rgba(0,255,204,0.25)'; ctx.lineWidth=3;
         ctx.strokeRect(fan.x, fy, fan.width, fan.height);
         ctx.restore();
     });
 
-    // Speed crystals
     boosts.forEach(b => {
         ctx.save(); ctx.translate(b.x,b.y); ctx.rotate(b.pulse);
-        // Outer glow
         ctx.shadowBlur=20; ctx.shadowColor='rgba(255,204,0,0.8)';
-        // Inner fill
         ctx.fillStyle='rgba(255,204,0,0.12)';
         ctx.strokeStyle='rgba(255,204,0,0.9)'; ctx.lineWidth=2.5;
         ctx.beginPath(); ctx.moveTo(0,-b.size); ctx.lineTo(b.size,0); ctx.lineTo(0,b.size); ctx.lineTo(-b.size,0); ctx.closePath();
         ctx.fill(); ctx.stroke();
-        // Inner diamond
         ctx.rotate(Math.PI/4); ctx.fillStyle='rgba(255,230,100,0.3)';
         ctx.beginPath(); ctx.moveTo(0,-b.size*0.5); ctx.lineTo(b.size*0.5,0); ctx.lineTo(0,b.size*0.5); ctx.lineTo(-b.size*0.5,0); ctx.closePath();
         ctx.fill();
         ctx.restore();
     });
 
-    // Mines
     obstacles.forEach(o => {
         ctx.save();
         ctx.shadowBlur=16; ctx.shadowColor='rgba(255,0,85,0.7)';
-        // Core
         ctx.fillStyle='#0a0208'; ctx.strokeStyle='rgba(255,0,85,0.9)'; ctx.lineWidth=2.5;
         ctx.beginPath(); ctx.arc(o.x,o.y,o.radius,0,Math.PI*2); ctx.fill(); ctx.stroke();
-        // Spikes
         ctx.strokeStyle='rgba(255,0,85,0.6)'; ctx.lineWidth=1.5;
         for (let a=0; a<Math.PI*2; a+=Math.PI/4) {
             ctx.beginPath();
@@ -753,25 +730,20 @@ function draw() {
             ctx.lineTo(o.x+Math.cos(a)*(o.radius+7), o.y+Math.sin(a)*(o.radius+7));
             ctx.stroke();
         }
-        // Pulsing inner dot
         ctx.fillStyle=`rgba(255,0,85,${0.3+0.2*Math.sin(o.angle*3)})`;
         ctx.beginPath(); ctx.arc(o.x,o.y,o.radius*0.4,0,Math.PI*2); ctx.fill();
         ctx.restore();
     });
 
-    // Fixed blocks
     blocks.forEach(b => {
         ctx.save();
         const pulse = 0.5 + 0.5*Math.sin(b.pulse);
         ctx.shadowBlur=14; ctx.shadowColor=`rgba(180,0,255,${0.4+pulse*0.3})`;
-        // Body
         const bg = ctx.createLinearGradient(b.x,b.y,b.x+b.w,b.y+b.h);
         bg.addColorStop(0,'rgba(40,0,60,0.95)'); bg.addColorStop(1,'rgba(20,0,35,0.95)');
         ctx.fillStyle=bg; ctx.fillRect(b.x,b.y,b.w,b.h);
-        // Border
         ctx.strokeStyle=`rgba(180,0,255,${0.6+pulse*0.4})`; ctx.lineWidth=2;
         ctx.strokeRect(b.x,b.y,b.w,b.h);
-        // Chevron warning stripes
         ctx.fillStyle=`rgba(255,0,255,${0.07+pulse*0.05})`;
         const stripeH=14;
         for (let sy=b.y; sy<b.y+b.h; sy+=stripeH*2)
@@ -780,20 +752,17 @@ function draw() {
     });
 
     // ── Floor ─────────────────────────────────────────────────────────────────
-    // Grid accent lines
     ctx.strokeStyle='rgba(255,0,255,0.15)'; ctx.lineWidth=1;
     terrainPoints.forEach(p => {
         if (gameState!=='PLAYING') p.x -= scrollSpeed;
         ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x-30,canvas.height); ctx.stroke();
     });
-    // Main floor line
     ctx.save();
     ctx.shadowBlur=16; ctx.shadowColor='rgba(255,0,255,0.6)';
     ctx.strokeStyle='#ff00ff'; ctx.lineWidth=3;
     ctx.beginPath();
     terrainPoints.forEach((p,i) => { if(i===0)ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
     ctx.stroke();
-    // Floor glow fill
     ctx.shadowBlur=0;
     const floorGrad = ctx.createLinearGradient(0, canvas.height-40, 0, canvas.height);
     floorGrad.addColorStop(0,'rgba(255,0,255,0.08)'); floorGrad.addColorStop(1,'rgba(255,0,255,0)');
@@ -813,7 +782,6 @@ function draw() {
                         : (glider.isStalling  ? '#ff0055'
                         : (boostFlashTimer>0  ? '#ffcc00' : '#00ffcc'));
 
-        // Body glow halo
         ctx.save();
         ctx.shadowBlur=0;
         const haloColorMap = {'#00ffcc':'rgba(0,255,204,', '#ff00ff':'rgba(255,0,255,', '#ff0055':'rgba(255,0,85,', '#ff6600':'rgba(255,102,0,', '#ffcc00':'rgba(255,204,0,'};
@@ -823,13 +791,11 @@ function draw() {
         ctx.fillStyle=halo2; ctx.fillRect(glider.x-45,glider.y-45,90,90);
         ctx.restore();
 
-        // Ship body
         ctx.save();
         ctx.translate(glider.x, glider.y); ctx.rotate(glider.pitch);
         ctx.shadowBlur=18; ctx.shadowColor=shipColor;
         ctx.strokeStyle=shipColor; ctx.lineWidth=2.5; ctx.fillStyle='#06020e';
 
-        // Main fuselage
         ctx.beginPath();
         ctx.moveTo(28,0);
         ctx.lineTo(-18,-14);
@@ -840,37 +806,31 @@ function draw() {
         ctx.closePath();
         ctx.fill(); ctx.stroke();
 
-        // Cockpit window
         const cockpitColorMap = {'#00ffcc':'rgba(0,255,204,0.25)','#ff00ff':'rgba(255,0,255,0.25)','#ff0055':'rgba(255,0,85,0.25)','#ff6600':'rgba(255,102,0,0.25)','#ffcc00':'rgba(255,204,0,0.25)'};
         ctx.fillStyle = cockpitColorMap[shipColor] || 'rgba(0,255,204,0.25)';
         ctx.beginPath(); ctx.ellipse(10, 0, 7, 4, 0, 0, Math.PI*2); ctx.fill();
         ctx.strokeStyle=shipColor; ctx.lineWidth=1; ctx.stroke();
 
-        // Wing detail line
         ctx.strokeStyle=shipColor; ctx.lineWidth=1; ctx.globalAlpha=0.45;
         ctx.beginPath(); ctx.moveTo(-5,-8); ctx.lineTo(16,0); ctx.lineTo(-5,8); ctx.stroke();
         ctx.globalAlpha=1;
 
-        // Engine glow dots
         ctx.shadowBlur=8; ctx.shadowColor=shipColor;
         ctx.fillStyle=shipColor;
         ctx.beginPath(); ctx.arc(-18, -10, 2.5, 0, Math.PI*2); ctx.fill();
         ctx.beginPath(); ctx.arc(-18,  10, 2.5, 0, Math.PI*2); ctx.fill();
 
-        // Thrust trail
         const trailLen = (glider.forwardAirspeed<0.5) ? 0 : (glider.isStalling ? 6 : 16+glider.forwardAirspeed*2.2);
         if (trailLen > 0) {
             const trailColor = boostFlashTimer>0 ? '#ffcc00' : '#ff00ff';
             ctx.shadowColor=trailColor; ctx.strokeStyle=trailColor; ctx.lineWidth=2; ctx.globalAlpha=0.85;
             ctx.beginPath(); ctx.moveTo(-20,0); ctx.lineTo(-trailLen,(Math.random()*5)-2.5); ctx.stroke();
-            // Second thinner trail
             ctx.lineWidth=1; ctx.globalAlpha=0.4;
             ctx.beginPath(); ctx.moveTo(-20,-3); ctx.lineTo(-trailLen*0.7,(Math.random()*3)-1.5); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(-20, 3); ctx.lineTo(-trailLen*0.7,(Math.random()*3)-1.5); ctx.stroke();
         }
         ctx.restore();
 
-        // Grace period timer arc
         if (glider.stallTimer > 0 && !glider.isNosediving) {
             const frac = glider.stallTimer / physics.stallGracePeriod;
             ctx.save(); ctx.translate(glider.x, glider.y);
