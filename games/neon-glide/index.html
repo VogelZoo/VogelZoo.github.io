@@ -147,7 +147,7 @@
         <div class="hud-block" style="align-items:flex-end">
             <div class="hud-label">Sector</div>
             <div id="sector-display" class="hud-value magenta">I</div>
-            <button id="mute-btn">MUTE</button>
+            <button id="mute-btn" class="unmuted">SOUND</button>
         </div>
     </div>
 
@@ -218,40 +218,70 @@ const DIFF_NAMES      = ['SECTOR I','SECTOR II','SECTOR III','SECTOR IV','SECTOR
 const DIFF_ROMAN      = ['I','II','III','IV','V','VI','VII'];
 
 // ── Audio ─────────────────────────────────────────────────────────────────────
-let audioInitialized = false, isMuted = true, currentTrackIndex = 0, audioPlaylist = [];
+let audioInitialized = false, isMuted = false, currentTrackIndex = 0, audioPlaylist = [];
 const trackSources = [
     'brass-glitch.mp3',
     'brass-glitch2.mp3'
 ];
 function initAudioEngine() {
     if (audioInitialized) return;
+
     trackSources.forEach((src) => {
-        const a = new Audio(src); a.volume = 0; a.preload = 'auto';
+        const a = new Audio(src);
+        a.preload = 'auto';
+
         a.addEventListener('ended', () => {
-            // Evaluates using the live global tracking pointer index cleanly
-            let nextIndex = (currentTrackIndex + 1) % audioPlaylist.length;
+            const nextIndex =
+                (currentTrackIndex + 1) % audioPlaylist.length;
             startPlaylistTrack(nextIndex);
         });
+
         audioPlaylist.push(a);
     });
-    audioInitialized = true; startPlaylistTrack(0);
+
+    audioInitialized = true;
+
+    if (!isMuted) {
+        startPlaylistTrack(0);
+    }
 }
 function startPlaylistTrack(idx) {
     if (!audioPlaylist.length) return;
-    audioPlaylist.forEach(t => { t.pause(); t.currentTime = 0; });
+
+    audioPlaylist.forEach(t => {
+        t.pause();
+        t.currentTime = 0;
+    });
+
     currentTrackIndex = idx % audioPlaylist.length;
-    audioPlaylist[currentTrackIndex].volume = isMuted ? 0 : 0.4;
-    audioPlaylist[currentTrackIndex].play().catch(()=>{});
+
+    if (!isMuted) {
+        const track = audioPlaylist[currentTrackIndex];
+        track.volume = 0.4;
+        track.play().catch(() => {});
+    }
 }
 muteBtn.addEventListener('click', e => {
-    e.stopPropagation(); isMuted = !isMuted;
+    e.stopPropagation();
+
+    isMuted = !isMuted;
+
     muteBtn.innerText = isMuted ? 'MUTE' : 'SOUND';
-    isMuted ? muteBtn.classList.remove('unmuted') : muteBtn.classList.add('unmuted');
-    if (audioPlaylist[currentTrackIndex]) {
-        audioPlaylist[currentTrackIndex].volume = isMuted ? 0 : 0.4;
-        if (!isMuted && audioPlaylist[currentTrackIndex].paused) {
-            audioPlaylist[currentTrackIndex].play().catch(()=>{});
-        }
+
+    if (isMuted) {
+        muteBtn.classList.remove('unmuted');
+    } else {
+        muteBtn.classList.add('unmuted');
+    }
+
+    const track = audioPlaylist[currentTrackIndex];
+    if (!track) return;
+
+    if (isMuted) {
+        track.pause();
+    } else {
+        track.volume = 0.4;
+        track.play().catch(() => {});
     }
 });
 
