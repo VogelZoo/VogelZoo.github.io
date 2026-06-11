@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>NEON OTHELLO // GRID WAR</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cyan: #00f5ff;
+    --magenta: #ff00aa;
+    --yellow: #ffee00;
+    --dark: #050810;
+    --dark2: #0a1020;
+    --dark3: #0d1530;
+    --glow-cyan: 0 0 8px #00f5ff, 0 0 20px #00f5ff55;
+    --glow-magenta: 0 0 8px #ff00aa, 0 0 20px #ff00aa55;
+    --glow-yellow: 0 0 8px #ffee00, 0 0 20px #ffee0055;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--dark);
+    color: #ccd6f6;
+    font-family: 'Share Tech Mono', monospace;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+  }
+
+  .container {
+    position: relative;
+    z-index: 10;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    gap: 6px;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  .header { text-align: center; flex-shrink: 0; line-height: 1.1; }
+
+  .header h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: clamp(0.85rem, 2.2vw, 1.6rem);
+    letter-spacing: 0.15em;
+    background: linear-gradient(90deg, var(--cyan), var(--magenta), var(--cyan));
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s linear infinite;
+  }
+
+  .header .subtitle {
+    font-size: clamp(0.45rem, 1vw, 0.6rem);
+    color: var(--yellow);
+    letter-spacing: 0.4em;
+    text-shadow: var(--glow-yellow);
+  }
+
+  @keyframes shimmer {
+    0%   { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+  }
+
+  /* ── Status bar ── */
+  .status-bar {
+    flex-shrink: 0;
+    font-size: clamp(0.5rem, 1.2vw, 0.75rem);
+    letter-spacing: 0.18em;
+    padding: 4px 14px;
+    border: 1px solid var(--yellow);
+    color: var(--yellow);
+    text-shadow: var(--glow-yellow);
+    box-shadow: var(--glow-yellow);
+    background: rgba(255,238,0,0.05);
+    clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+    text-align: center;
+    animation: status-glow 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes status-glow {
+    from { box-shadow: 0 0 6px #ffee00, 0 0 12px #ffee0033; }
+    to   { box-shadow: 0 0 12px #ffee00, 0 0 24px #ffee0066; }
+  }
+
+  /* ── Game layout ── */
+  .game-layout {
+    display: flex;
+    gap: clamp(6px, 1.2vw, 18px);
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  /* ── Player panels (landscape) ── */
+  .player-panel {
+    width: clamp(70px, 11vw, 140px);
+    flex-shrink: 0;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  /* ── Portrait: panels row below board ── */
+  .panels-row {
+    display: none;
+    gap: clamp(8px, 3vw, 20px);
+    width: 100%;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  @media (orientation: portrait) {
+    .game-layout .player-panel { display: none; }
+    .panels-row { display: flex; }
+    .game-layout { flex: 0 0 auto; }
+    .container { justify-content: flex-start; padding-top: clamp(8px, 2vh, 20px); }
+
+    .panels-row .player-panel {
+      display: flex;
+      flex-direction: column;
+      width: clamp(120px, 42vw, 240px);
+      flex-shrink: 0;
+    }
+    .panels-row .panel-card {
+      display: flex;
+      flex-direction: column;
+      padding: clamp(5px, 2vw, 10px) clamp(8px, 3vw, 14px);
+    }
+    .panels-row .player-label  { font-size: clamp(0.42rem, 2vw, 0.58rem); margin-bottom: 2px; }
+    .panels-row .player-name   { font-size: clamp(0.55rem, 2.5vw, 0.85rem); margin-bottom: 4px; }
+    .panels-row .score-count   { font-size: clamp(1.2rem, 6vw, 2rem); }
+    .panels-row .score-sub     { font-size: clamp(0.35rem, 1.4vw, 0.5rem); }
+    .panels-row .status-tag    { font-size: clamp(0.38rem, 1.6vw, 0.5rem); margin-top: 4px; }
+  }
+
+  .panel-card {
+    border: 1px solid;
+    padding: clamp(6px, 1vw, 12px);
+    background: var(--dark2);
+    position: relative;
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  }
+
+  .p1-panel .panel-card { border-color: var(--cyan);    box-shadow: inset 0 0 16px rgba(0,245,255,0.05), var(--glow-cyan); }
+  .p2-panel .panel-card { border-color: var(--magenta); box-shadow: inset 0 0 16px rgba(255,0,170,0.05), var(--glow-magenta); }
+
+  .player-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(0.4rem, 0.7vw, 0.58rem);
+    letter-spacing: 0.25em;
+    margin-bottom: 4px;
+    opacity: 0.7;
+  }
+  .p1-panel .player-label { color: var(--cyan); }
+  .p2-panel .player-label { color: var(--magenta); }
+
+  .player-name {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(0.5rem, 0.9vw, 0.82rem);
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .p1-panel .player-name { color: var(--cyan);    text-shadow: var(--glow-cyan); }
+  .p2-panel .player-name { color: var(--magenta); text-shadow: var(--glow-magenta); }
+
+  .active-indicator {
+    height: 2px;
+    margin-bottom: 8px;
+    background: transparent;
+    transition: background 0.3s;
+  }
+  .active-indicator.active { animation: pulse-bar 1s ease-in-out infinite alternate; }
+  .p1-panel .active-indicator.active { background: var(--cyan);    box-shadow: var(--glow-cyan); }
+  .p2-panel .active-indicator.active { background: var(--magenta); box-shadow: var(--glow-magenta); }
+  @keyframes pulse-bar { from { opacity: 0.5; } to { opacity: 1; } }
+
+  .score-label { font-size: clamp(0.38rem, 0.65vw, 0.52rem); opacity: 0.5; letter-spacing: 0.15em; margin-bottom: 3px; }
+
+  .score-count {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(1.4rem, 2.8vw, 2.2rem);
+    font-weight: 900;
+    line-height: 1;
+  }
+  .p1-panel .score-count { color: var(--cyan);    text-shadow: var(--glow-cyan); }
+  .p2-panel .score-count { color: var(--magenta); text-shadow: var(--glow-magenta); }
+
+  .score-sub { font-size: clamp(0.35rem, 0.6vw, 0.5rem); opacity: 0.4; letter-spacing: 0.12em; margin-top: 2px; }
+
+  .status-tag {
+    margin-top: 8px;
+    font-size: clamp(0.38rem, 0.6vw, 0.52rem);
+    padding: 3px 6px;
+    text-align: center;
+    letter-spacing: 0.15em;
+    display: none;
+  }
+  .status-tag.show { display: block; }
+  .p1-panel .status-tag { border: 1px solid var(--cyan);    color: var(--cyan);    background: rgba(0,245,255,0.05); }
+  .p2-panel .status-tag { border: 1px solid var(--magenta); color: var(--magenta); background: rgba(255,0,170,0.05); }
+
+  /* ── Board area ── */
+  .board-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+    min-height: 0;
+  }
+
+  .board-coords-wrap { display: flex; align-items: stretch; }
+
+  .coords-col {
+    display: grid;
+    grid-template-rows: repeat(8, var(--sq));
+    padding: 0 4px 0 2px;
+    font-size: calc(var(--sq) * 0.22);
+    color: rgba(0,245,255,0.45);
+  }
+  .coords-col span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--sq);
+  }
+
+  .coords-row {
+    display: grid;
+    grid-template-columns: repeat(8, var(--sq));
+    padding: 3px 0 0;
+    font-size: calc(var(--sq) * 0.2);
+    color: rgba(0,245,255,0.45);
+  }
+  .coords-row span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ── Board ── */
+  .board {
+    --sq: 60px;
+    display: grid;
+    grid-template-columns: repeat(8, var(--sq));
+    grid-template-rows: repeat(8, var(--sq));
+    border: 1px solid var(--cyan);
+    box-shadow: 0 0 30px rgba(0,245,255,0.2), inset 0 0 30px rgba(0,0,0,0.5);
+    position: relative;
+  }
+
+  .board::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border: 1px solid rgba(0,245,255,0.2);
+    pointer-events: none;
+  }
+
+  /* ── Squares ── */
+  .sq {
+    width: var(--sq);
+    height: var(--sq);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.12s;
+    background: #07101f;
+    border: 1px solid rgba(0,245,255,0.06);
+  }
+
+  .sq:hover { background: rgba(0,245,255,0.08); }
+  .sq.valid-move { cursor: pointer; }
+
+  /* Valid move hint dot */
+  .sq.valid-move::after {
+    content: '';
+    position: absolute;
+    width: 28%; height: 28%;
+    border-radius: 50%;
+    background: rgba(0,245,255,0.55);
+    box-shadow: 0 0 10px #00f5ff, 0 0 20px rgba(0,245,255,0.35);
+    pointer-events: none;
+    z-index: 1;
+  }
+  .p2-turn .sq.valid-move::after {
+    background: rgba(255,0,170,0.55);
+    box-shadow: 0 0 10px #ff00aa, 0 0 20px rgba(255,0,170,0.35);
+  }
+
+  .sq.last-move { background: rgba(255,238,0,0.09); }
+
+  /* ── Discs ── */
+  .disc {
+    width: 80%; height: 80%;
+    border-radius: 50%;
+    position: relative;
+    z-index: 2;
+    transition: transform 0.08s;
+    flex-shrink: 0;
+  }
+
+  /* Flip animation — rotates on Y axis, color swaps at 90deg */
+  .disc.flipping {
+    animation: flip-disc 0.32s ease-in-out forwards;
+  }
+
+  @keyframes flip-disc {
+    0%   { transform: scaleX(1); }
+    49%  { transform: scaleX(0); }
+    50%  { transform: scaleX(0); }
+    100% { transform: scaleX(1); }
+  }
+
+  .disc.p1 {
+    background: radial-gradient(circle at 35% 30%, #60ffff, #00b8cc 50%, #006680);
+    box-shadow: 0 0 10px #00f5ff, 0 0 20px rgba(0,245,255,0.5), inset 0 -3px 6px rgba(0,0,0,0.4);
+    border: 1.5px solid rgba(0,245,255,0.9);
+  }
+
+  .disc.p2 {
+    background: radial-gradient(circle at 35% 30%, #ff80d4, #cc0077 50%, #700040);
+    box-shadow: 0 0 10px #ff00aa, 0 0 20px rgba(255,0,170,0.5), inset 0 -3px 6px rgba(0,0,0,0.4);
+    border: 1.5px solid rgba(255,0,170,0.9);
+  }
+
+  /* Just-placed disc pulse */
+  .disc.just-placed {
+    animation: place-pop 0.25s cubic-bezier(0.25,0.46,0.45,0.94) forwards;
+  }
+
+  @keyframes place-pop {
+    0%   { transform: scale(0.5); opacity: 0.5; }
+    70%  { transform: scale(1.12); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* Win state — dim non-winners */
+  .board.game-over .sq:not(.win-sq) .disc { opacity: 0.22; filter: saturate(0.2); }
+  .board.game-over .sq.win-sq .disc { animation: win-pulse 0.65s ease-in-out infinite alternate; }
+  .board.game-over .sq.win-sq.p1-win .disc { box-shadow: 0 0 18px #00f5ff, 0 0 36px rgba(0,245,255,0.8), inset 0 -3px 6px rgba(0,0,0,0.4); }
+  .board.game-over .sq.win-sq.p2-win .disc { box-shadow: 0 0 18px #ff00aa, 0 0 36px rgba(255,0,170,0.8), inset 0 -3px 6px rgba(0,0,0,0.4); }
+  @keyframes win-pulse { from { transform: scale(0.9); } to { transform: scale(1.08); } }
+
+  /* ── Move log ── */
+  .move-log-wrap { flex-shrink: 0; width: calc(8 * var(--sq) + 20px); }
+
+  .move-log-header {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(0.38rem, 0.65vw, 0.52rem);
+    letter-spacing: 0.25em;
+    color: rgba(0,245,255,0.45);
+    margin-bottom: 2px;
+  }
+
+  .move-log {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    max-height: 36px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 6px;
+    background: var(--dark2);
+    border: 1px solid rgba(0,245,255,0.12);
+    font-size: clamp(0.45rem, 0.75vw, 0.62rem);
+    color: rgba(204,214,246,0.55);
+  }
+  .move-log::-webkit-scrollbar { width: 3px; }
+  .move-log::-webkit-scrollbar-track { background: var(--dark); }
+  .move-log::-webkit-scrollbar-thumb { background: var(--cyan); }
+
+  .move-entry { white-space: nowrap; }
+  .move-entry .num { color: rgba(255,238,0,0.45); margin-right: 2px; }
+  .move-entry .w   { color: var(--cyan); }
+  .move-entry .b   { color: var(--magenta); margin-left: 3px; }
+
+  /* ── Game Over ── */
+  .gameover-overlay {
+    position: fixed; inset: 0;
+    background: rgba(5,8,16,0.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+  }
+  .gameover-overlay.show { display: flex; }
+
+  .gameover-modal {
+    border: 1px solid var(--cyan);
+    background: var(--dark2);
+    padding: 28px 36px;
+    box-shadow: var(--glow-cyan), 0 0 70px rgba(0,245,255,0.18);
+    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+    text-align: center;
+    max-width: 380px;
+  }
+
+  .gameover-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.3rem; font-weight: 900;
+    letter-spacing: 0.2em;
+    background: linear-gradient(90deg, var(--cyan), var(--magenta));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+  .gameover-sub    { color: var(--yellow); font-size: 0.68rem; letter-spacing: 0.28em; margin-bottom: 6px; text-shadow: var(--glow-yellow); }
+  .gameover-winner { font-family: 'Orbitron', sans-serif; font-size: 0.95rem; margin-bottom: 14px; color: #ccd6f6; }
+
+  /* Score bar */
+  .score-bar-wrap { margin-bottom: 14px; }
+  .score-bar-label { font-size: 0.55rem; letter-spacing: 0.2em; opacity: 0.5; margin-bottom: 5px; }
+  .score-bar {
+    height: 14px;
+    border-radius: 2px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+  }
+  .score-bar-p1 { background: linear-gradient(90deg, #006680, #00b8cc); transition: width 0.6s ease; }
+  .score-bar-p2 { background: linear-gradient(90deg, #cc0077, #ff55cc); transition: width 0.6s ease; flex: 1; }
+  .score-bar-nums { display: flex; justify-content: space-between; margin-top: 4px; font-size: 0.6rem; }
+  .score-bar-nums .s1 { color: var(--cyan); text-shadow: var(--glow-cyan); }
+  .score-bar-nums .s2 { color: var(--magenta); text-shadow: var(--glow-magenta); }
+
+  /* Wordle grid */
+  .wordle-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 10px auto 14px;
+    align-items: center;
+  }
+  .wordle-row  { display: flex; gap: 2px; }
+  .wordle-cell {
+    width: 16px; height: 16px;
+    border-radius: 2px;
+    border: 1px solid rgba(255,255,255,0.07);
+    background: rgba(255,255,255,0.03);
+  }
+  .wordle-cell.c1 { background: rgba(0,245,255,0.38); border-color: rgba(0,245,255,0.55); }
+  .wordle-cell.c2 { background: rgba(255,0,170,0.38); border-color: rgba(255,0,170,0.55); }
+  .wordle-label { font-size: 0.48rem; letter-spacing: 0.2em; color: rgba(204,214,246,0.35); margin-bottom: 3px; }
+
+  .modal-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+  .action-btn {
+    padding: 9px 20px;
+    border: 1px solid var(--cyan);
+    background: transparent;
+    color: var(--cyan);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.62rem;
+    letter-spacing: 0.22em;
+    cursor: pointer;
+    clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+    transition: all 0.2s;
+    text-shadow: var(--glow-cyan);
+    box-shadow: var(--glow-cyan);
+  }
+  .action-btn:hover { background: rgba(0,245,255,0.1); transform: scale(1.03); }
+  .action-btn.secondary { border-color: rgba(0,245,255,0.35); color: rgba(0,245,255,0.5); box-shadow: none; text-shadow: none; }
+  .action-btn.secondary:hover { border-color: var(--cyan); color: var(--cyan); box-shadow: var(--glow-cyan); }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>NEON OTHELLO</h1>
+    <div class="subtitle">// GRID WAR PROTOCOL //</div>
+  </div>
+
+  <div class="status-bar" id="status-bar">INITIALIZING...</div>
+
+  <div class="game-layout" id="game-layout">
+    <!-- P1 (landscape) -->
+    <div class="player-panel p1-panel">
+      <div class="panel-card">
+        <div class="player-label">// P01</div>
+        <div class="player-name">CYAN</div>
+        <div class="active-indicator" id="p1-indicator"></div>
+        <div class="score-label">DISCS:</div>
+        <div class="score-count" id="p1-score">2</div>
+        <div class="score-sub">ON GRID</div>
+        <div class="status-tag" id="p1-skip">⚡ PASS</div>
+      </div>
+    </div>
+
+    <!-- Board -->
+    <div class="board-area">
+      <div class="board-coords-wrap">
+        <div class="coords-col" id="rank-coords"></div>
+        <div>
+          <div class="board" id="board"></div>
+          <div class="coords-row" id="file-coords"></div>
+        </div>
+      </div>
+      <div class="move-log-wrap" id="move-log-wrap">
+        <div class="move-log-header">// MOVE HISTORY</div>
+        <div class="move-log" id="move-log"></div>
+      </div>
+    </div>
+
+    <!-- P2 (landscape) -->
+    <div class="player-panel p2-panel">
+      <div class="panel-card">
+        <div class="player-label">// P02</div>
+        <div class="player-name">MAGENTA</div>
+        <div class="active-indicator" id="p2-indicator"></div>
+        <div class="score-label">DISCS:</div>
+        <div class="score-count" id="p2-score">2</div>
+        <div class="score-sub">ON GRID</div>
+        <div class="status-tag" id="p2-skip">⚡ PASS</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Portrait panels -->
+  <div class="panels-row">
+    <div class="player-panel p1-panel">
+      <div class="panel-card">
+        <div class="player-label">// P01</div>
+        <div class="player-name">CYAN</div>
+        <div class="active-indicator" id="p1-indicator-b"></div>
+        <div class="score-label">DISCS:</div>
+        <div class="score-count" id="p1-score-b">2</div>
+        <div class="score-sub">ON GRID</div>
+        <div class="status-tag" id="p1-skip-b">⚡ PASS</div>
+      </div>
+    </div>
+    <div class="player-panel p2-panel">
+      <div class="panel-card">
+        <div class="player-label">// P02</div>
+        <div class="player-name">MAGENTA</div>
+        <div class="active-indicator" id="p2-indicator-b"></div>
+        <div class="score-label">DISCS:</div>
+        <div class="score-count" id="p2-score-b">2</div>
+        <div class="score-sub">ON GRID</div>
+        <div class="status-tag" id="p2-skip-b">⚡ PASS</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Game Over -->
+<div class="gameover-overlay" id="gameover-overlay">
+  <div class="gameover-modal">
+    <div class="gameover-title">GAME OVER</div>
+    <div class="gameover-sub" id="go-sub"></div>
+    <div class="gameover-winner" id="go-winner"></div>
+    <div class="score-bar-wrap">
+      <div class="score-bar-label">// FINAL DISC COUNT //</div>
+      <div class="score-bar">
+        <div class="score-bar-p1" id="go-bar-p1" style="width:50%"></div>
+        <div class="score-bar-p2" id="go-bar-p2"></div>
+      </div>
+      <div class="score-bar-nums">
+        <span class="s1" id="go-s1">2</span>
+        <span class="s2" id="go-s2">2</span>
+      </div>
+    </div>
+    <div class="wordle-label">// BOARD STATE //</div>
+    <div class="wordle-grid" id="go-wordle"></div>
+    <div class="modal-btns">
+      <button class="action-btn" onclick="initGame()">// PLAY AGAIN //</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================== SIZING =====================
+function computeSq() {
+  const portrait = window.innerHeight > window.innerWidth;
+  if (portrait) {
+    const chrome = 215;
+    const coordCol = 24;
+    const availH = window.innerHeight - chrome;
+    const availW = window.innerWidth - coordCol - 16;
+    return Math.max(28, Math.min(Math.floor(Math.min(availH, availW) / 8), 90));
+  } else {
+    const chrome = 155;
+    const panelW = Math.min(140, Math.max(70, window.innerWidth * 0.11));
+    const availH = window.innerHeight - chrome;
+    const availW = window.innerWidth - panelW * 2 - 80;
+    return Math.max(32, Math.min(Math.floor(Math.min(availH, availW) / 8), 90));
+  }
+}
+
+function applySq(sq) {
+  document.getElementById('board').style.setProperty('--sq', sq + 'px');
+  document.querySelectorAll('.coords-col, .coords-row').forEach(el => el.style.setProperty('--sq', sq + 'px'));
+  const lw = document.getElementById('move-log-wrap');
+  if (lw) lw.style.width = (8 * sq + 20) + 'px';
+}
+
+window.addEventListener('resize', () => applySq(computeSq()));
+
+// ===================== OTHELLO ENGINE =====================
+const N = 8;
+const DIRS = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+
+let board, turn, gameOver, moveHistory, moveCount, lastMove, skipNext;
+// board values: 0=empty, 1=p1(cyan), 2=p2(magenta)
+
+function opp(t) { return t === 1 ? 2 : 1; }
+
+function initGame() {
+  board = Array.from({length:N}, () => Array(N).fill(0));
+  // Standard start position
+  board[3][3] = 1; board[4][4] = 1;
+  board[3][4] = 2; board[4][3] = 2;
+  turn = 1;
+  gameOver = false;
+  moveHistory = [];
+  moveCount = 0;
+  lastMove = null;
+  skipNext = false;
+
+  document.getElementById('gameover-overlay').classList.remove('show');
+  document.getElementById('board').classList.remove('game-over');
+  applySq(computeSq());
+  renderBoard();
+  updateUI();
+}
+
+// Returns list of flipped positions if placing turn's disc at (r,c), else []
+function getFlips(b, r, c, player) {
+  if (b[r][c] !== 0) return [];
+  const flips = [];
+  for (const [dr, dc] of DIRS) {
+    const line = [];
+    let nr = r + dr, nc = c + dc;
+    while (nr >= 0 && nr < N && nc >= 0 && nc < N && b[nr][nc] === opp(player)) {
+      line.push([nr, nc]);
+      nr += dr; nc += dc;
+    }
+    if (line.length > 0 && nr >= 0 && nr < N && nc >= 0 && nc < N && b[nr][nc] === player) {
+      flips.push(...line);
+    }
+  }
+  return flips;
+}
+
+function getValidMoves(b, player) {
+  const moves = [];
+  for (let r = 0; r < N; r++)
+    for (let c = 0; c < N; c++)
+      if (getFlips(b, r, c, player).length > 0)
+        moves.push([r, c]);
+  return moves;
+}
+
+function countDiscs(b, player) {
+  let n = 0;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (b[r][c] === player) n++;
+  return n;
+}
+
+function onSquareClick(r, c) {
+  if (gameOver) return;
+  const flips = getFlips(board, r, c, turn);
+  if (flips.length === 0) return;
+
+  // Place disc
+  board[r][c] = turn;
+  lastMove = [r, c];
+
+  // Animate flips with staggered delay
+  const flipDelay = 60;
+  flips.forEach(([fr, fc], i) => {
+    setTimeout(() => {
+      board[fr][fc] = turn;
+      const el = document.getElementById(`disc-${fr}-${fc}`);
+      if (el) {
+        el.classList.remove('p1','p2','flipping');
+        void el.offsetWidth; // reflow
+        el.classList.add('flipping', `p${turn}`);
+        setTimeout(() => el.classList.remove('flipping'), 320);
+      }
+    }, i * flipDelay);
+  });
+
+  // Log move
+  const files = 'abcdefgh';
+  const notation = files[c] + (8 - r);
+  moveCount++;
+  if (turn === 1) moveHistory.push({num: moveCount, w: notation, b: ''});
+  else {
+    if (moveHistory.length > 0) moveHistory[moveHistory.length - 1].b = notation;
+    else moveHistory.push({num: moveCount, w: '', b: notation});
+  }
+
+  // After flips settle, switch turn
+  setTimeout(() => {
+    turn = opp(turn);
+    const nextMoves = getValidMoves(board, turn);
+
+    if (nextMoves.length === 0) {
+      // Current player has no moves — try passing
+      const oppMoves = getValidMoves(board, opp(turn));
+      if (oppMoves.length === 0) {
+        // Neither player has moves — game over
+        endGame();
+        return;
+      }
+      // Pass
+      skipNext = true;
+      renderBoard();
+      updateUI(true); // show pass notice
+      setTimeout(() => {
+        skipNext = false;
+        turn = opp(turn);
+        renderBoard();
+        updateUI();
+      }, 1400);
+      return;
+    }
+
+    skipNext = false;
+    renderBoard();
+    updateUI();
+  }, flips.length * flipDelay + 120);
+}
+
+function endGame() {
+  gameOver = true;
+  const p1 = countDiscs(board, 1);
+  const p2 = countDiscs(board, 2);
+  document.getElementById('board').classList.add('game-over');
+  highlightWinner(p1, p2);
+  updateUI();
+  setTimeout(() => showGameOver(p1, p2), 700);
+}
+
+function highlightWinner(p1, p2) {
+  if (p1 === p2) return; // draw — no highlight
+  const winner = p1 > p2 ? 1 : 2;
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      if (board[r][c] === winner) {
+        const sq = document.getElementById(`sq-${r}-${c}`);
+        if (sq) sq.classList.add('win-sq', `p${winner}-win`);
+      }
+    }
+  }
+}
+
+function showGameOver(p1, p2) {
+  const sub = document.getElementById('go-sub');
+  const win = document.getElementById('go-winner');
+  const total = p1 + p2;
+  if (p1 === p2) {
+    sub.textContent = '// PERFECT BALANCE //';
+    win.textContent = 'DRAW — GRID SPLIT';
+  } else if (p1 > p2) {
+    sub.textContent = '// GRID DOMINATED //';
+    win.textContent = 'CYAN WINS';
+  } else {
+    sub.textContent = '// GRID DOMINATED //';
+    win.textContent = 'MAGENTA WINS';
+  }
+
+  // Score bar
+  document.getElementById('go-bar-p1').style.width = ((p1 / total) * 100) + '%';
+  document.getElementById('go-s1').textContent = p1;
+  document.getElementById('go-s2').textContent = p2;
+
+  // Wordle board
+  let html = '';
+  for (let r = 0; r < N; r++) {
+    html += '<div class="wordle-row">';
+    for (let c = 0; c < N; c++) {
+      const v = board[r][c];
+      html += `<div class="wordle-cell${v === 1 ? ' c1' : v === 2 ? ' c2' : ''}"></div>`;
+    }
+    html += '</div>';
+  }
+  document.getElementById('go-wordle').innerHTML = html;
+  document.getElementById('gameover-overlay').classList.add('show');
+}
+
+// ===================== RENDERING =====================
+function renderBoard() {
+  const boardEl = document.getElementById('board');
+  const validMoves = getValidMoves(board, turn);
+  const validSet = new Set(validMoves.map(([r,c]) => `${r},${c}`));
+
+  boardEl.innerHTML = '';
+  boardEl.classList.toggle('p2-turn', turn === 2);
+
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      const sq = document.createElement('div');
+      sq.className = 'sq';
+      sq.id = `sq-${r}-${c}`;
+
+      if (lastMove && lastMove[0] === r && lastMove[1] === c) sq.classList.add('last-move');
+      if (!gameOver && validSet.has(`${r},${c}`)) sq.classList.add('valid-move');
+
+      const v = board[r][c];
+      if (v !== 0) {
+        const disc = document.createElement('div');
+        disc.className = `disc p${v}`;
+        disc.id = `disc-${r}-${c}`;
+        if (lastMove && lastMove[0] === r && lastMove[1] === c) disc.classList.add('just-placed');
+        sq.appendChild(disc);
+      }
+
+      sq.addEventListener('click', () => onSquareClick(r, c));
+      boardEl.appendChild(sq);
+    }
+  }
+
+  document.getElementById('rank-coords').innerHTML = '87654321'.split('').map(n => `<span>${n}</span>`).join('');
+  document.getElementById('file-coords').innerHTML  = 'abcdefgh'.split('').map(f => `<span>${f}</span>`).join('');
+}
+
+function updateUI(passing) {
+  const p1 = countDiscs(board, 1);
+  const p2 = countDiscs(board, 2);
+  const sb = document.getElementById('status-bar');
+
+  if (gameOver) {
+    sb.textContent = p1 > p2 ? 'CYAN WINS' : p2 > p1 ? 'MAGENTA WINS' : 'DRAW';
+    sb.style.borderColor = 'var(--yellow)';
+    sb.style.color = 'var(--yellow)';
+    sb.style.textShadow = 'var(--glow-yellow)';
+    sb.style.boxShadow  = 'var(--glow-yellow)';
+  } else if (passing) {
+    const passUnit = turn === 1 ? 'CYAN' : 'MAGENTA';
+    sb.textContent = `${passUnit} // NO MOVES — PASSING`;
+    sb.style.borderColor = 'var(--yellow)';
+    sb.style.color = 'var(--yellow)';
+    sb.style.textShadow = 'var(--glow-yellow)';
+    sb.style.boxShadow  = 'var(--glow-yellow)';
+  } else {
+    const col  = turn === 1 ? 'var(--cyan)' : 'var(--magenta)';
+    const glow = turn === 1 ? 'var(--glow-cyan)' : 'var(--glow-magenta)';
+    sb.textContent = (turn === 1 ? 'CYAN' : 'MAGENTA') + ' // PLACE DISC';
+    sb.style.borderColor = col;
+    sb.style.color = col;
+    sb.style.textShadow = glow;
+    sb.style.boxShadow  = glow;
+  }
+
+  // Sync both panel sets
+  ['', 'b'].forEach(sfx => {
+    const s = sfx ? '-' + sfx : '';
+    const el = id => document.getElementById(id + s);
+    if (!el('p1-indicator')) return;
+    el('p1-indicator').className = 'active-indicator' + (turn===1&&!gameOver&&!passing?' active':'');
+    el('p2-indicator').className = 'active-indicator' + (turn===2&&!gameOver&&!passing?' active':'');
+    el('p1-score').textContent = p1;
+    el('p2-score').textContent = p2;
+    el('p1-skip').className = 'status-tag' + (passing&&turn===1?' show':'');
+    el('p2-skip').className = 'status-tag' + (passing&&turn===2?' show':'');
+  });
+
+  // Move log
+  const logEl = document.getElementById('move-log');
+  logEl.innerHTML = moveHistory.map(m =>
+    `<span class="move-entry"><span class="num">${m.num}.</span><span class="w">${m.w}</span><span class="b">${m.b}</span></span>`
+  ).join('');
+  logEl.scrollLeft = logEl.scrollWidth;
+}
+
+initGame();
+</script>
+</body>
+</html>
