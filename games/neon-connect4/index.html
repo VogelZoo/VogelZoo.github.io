@@ -444,7 +444,6 @@
   <div class="status-bar" id="status-bar">INITIALIZING...</div>
 
   <div class="game-layout">
-    <!-- P1 (landscape) -->
     <div class="player-panel p1-panel">
       <div class="panel-card">
         <div class="player-label">// P01</div>
@@ -456,7 +455,6 @@
       </div>
     </div>
 
-    <!-- Board -->
     <div class="board-area">
       <div class="drop-row" id="drop-row"></div>
       <div class="board-frame" id="board-frame">
@@ -464,7 +462,6 @@
       </div>
     </div>
 
-    <!-- P2 (landscape) -->
     <div class="player-panel p2-panel">
       <div class="panel-card">
         <div class="player-label">// P02</div>
@@ -477,7 +474,6 @@
     </div>
   </div>
 
-  <!-- Portrait: panels below board -->
   <div class="panels-row">
     <div class="player-panel p1-panel">
       <div class="panel-card">
@@ -502,7 +498,6 @@
   </div>
 </div>
 
-<!-- Game Over -->
 <div class="gameover-overlay" id="gameover-overlay">
   <div class="gameover-modal">
     <div class="gameover-title">GAME OVER</div>
@@ -530,7 +525,6 @@ let hoverCol = -1;
 function computeCell() {
   const portrait = window.innerHeight > window.innerWidth;
   if (portrait) {
-    // chrome: header + status + drop-row + panels-row + gaps + padding
     const chrome = 200;
     const pad = clamp(4, window.innerWidth * 0.01, 8) * 2 + clamp(3, window.innerWidth * 0.006, 6) * 6;
     const availH = window.innerHeight - chrome;
@@ -551,9 +545,7 @@ function clamp(min, val, max) { return Math.max(min, Math.min(val, max)); }
 function applyCell(cell) {
   const frame = document.getElementById('board-frame');
   frame.style.setProperty('--cell', cell + 'px');
-  // sync drop-row arrow widths
   document.querySelectorAll('.drop-arrow').forEach(a => a.style.width = cell + 'px');
-  // sync drop-row grid
   const dr = document.getElementById('drop-row');
   dr.style.gridTemplateColumns = `repeat(7, ${cell}px)`;
 }
@@ -570,8 +562,6 @@ function initGame() {
   selectedCol = -1;
   lastDropCol = -1;
   hoverCol = -1;
-  lastClickTime = 0;
-  lastClickCol = -1;
   document.getElementById('gameover-overlay').classList.remove('show');
   const bg = document.getElementById('board-grid'); if (bg) bg.classList.remove('game-over-state');
   buildBoard();
@@ -593,9 +583,11 @@ function buildBoard() {
     arrow.className = 'drop-arrow';
     arrow.textContent = '▼';
     arrow.dataset.col = c;
-    arrow.addEventListener('mouseenter', () => onColHover(c));
-    arrow.addEventListener('mouseleave', () => onColHover(-1));
-    arrow.addEventListener('click', () => onColClick(c));
+    
+    // Only apply pointer/hover states if the device supports actual hovers
+    arrow.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') onColHover(c); });
+    arrow.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') onColHover(-1); });
+    arrow.addEventListener('click', (e) => { e.preventDefault(); onColClick(c); });
     drop_el.appendChild(arrow);
   }
 
@@ -605,9 +597,10 @@ function buildBoard() {
       cell.className = 'cell';
       cell.id = `cell-${r}-${c}`;
       cell.dataset.col = c;
-      cell.addEventListener('mouseenter', () => onColHover(c));
-      cell.addEventListener('mouseleave', () => onColHover(-1));
-      cell.addEventListener('click', () => onColClick(c));
+      
+      cell.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') onColHover(c); });
+      cell.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') onColHover(-1); });
+      cell.addEventListener('click', (e) => { e.preventDefault(); onColClick(c); });
 
       const token = document.createElement('div');
       token.className = 'token';
@@ -625,27 +618,15 @@ function onColHover(col) {
   refreshColumnStyles();
 }
 
-let lastClickTime = 0;
-let lastClickCol = -1;
-
 function onColClick(col) {
   if (gameOver) return;
   if (getDropRow(col) < 0) return;
 
-  // Debounce: ignore duplicate events within 300ms on the same column
-  // (mobile fires mouseenter + click + touchend combos that can double-fire)
-  const now = Date.now();
-  if (col === lastClickCol && now - lastClickTime < 300) return;
-  lastClickTime = now;
-  lastClickCol = col;
-
   if (selectedCol === col) {
-    // Second click on selected column — drop
     dropToken(col);
     return;
   }
 
-  // First click: select the column, always require a second click to confirm
   selectedCol = col;
   refreshColumnStyles();
   updateStatusBar();
@@ -687,7 +668,7 @@ function clearPreviews() {
   for (let r = 0; r < ROWS; r++)
     for (let c = 0; c < COLS; c++) {
       const t = document.getElementById(`token-${r}-${c}`);
-      if (t && !t.classList.contains('placed') && !t.classList.contains('win-cell'))
+      if (t && !t.classList.contains('placed') && !t.parentElement.classList.contains('win-cell'))
         t.className = 'token';
     }
 }
@@ -790,9 +771,7 @@ function showGameOver(draw) {
     sub.textContent = '// FOUR IN A ROW DETECTED //';
     win.textContent = turn === 1 ? 'CYAN WINS' : 'MAGENTA WINS';
   }
-  // Dim non-win tokens on board
   grid_el.classList.add('game-over-state');
-  // Inject wordle grid
   document.getElementById('go-wordle').innerHTML = buildWordleGrid(draw);
   document.getElementById('gameover-overlay').classList.add('show');
 }
@@ -816,7 +795,6 @@ function updateStatusBar() {
 function updateUI() {
   if (!gameOver) updateStatusBar();
 
-  // Sync both panel sets
   ['', 'b'].forEach(sfx => {
     const s = sfx ? '-' + sfx : '';
     const el = id => document.getElementById(id + s);
@@ -827,7 +805,6 @@ function updateUI() {
     el('p2-wins').textContent = wins.p2;
   });
 
-  // Arrow colors
   const arrowCol  = turn === 1 ? 'var(--cyan)' : 'var(--magenta)';
   const arrowGlow = turn === 1 ? 'var(--glow-cyan)' : 'var(--glow-magenta)';
   document.querySelectorAll('.drop-arrow').forEach(a => {
@@ -835,7 +812,6 @@ function updateUI() {
     a.style.textShadow = arrowGlow;
   });
 
-  // Add p2-turn class to board-frame so cell.col-selected can change color
   document.getElementById('board-frame').classList.toggle('p2-turn', turn === 2);
 }
 
