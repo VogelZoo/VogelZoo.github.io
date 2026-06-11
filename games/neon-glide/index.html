@@ -147,7 +147,7 @@
         <div class="hud-block" style="align-items:flex-end">
             <div class="hud-label">Sector</div>
             <div id="sector-display" class="hud-value magenta">I</div>
-            <button id="mute-btn" class="unmuted">SOUND</button>
+            <button id="mute-btn">UNMUTE</button>
         </div>
     </div>
 
@@ -218,7 +218,7 @@ const DIFF_NAMES      = ['SECTOR I','SECTOR II','SECTOR III','SECTOR IV','SECTOR
 const DIFF_ROMAN      = ['I','II','III','IV','V','VI','VII'];
 
 // ── Audio ─────────────────────────────────────────────────────────────────────
-let audioInitialized = false, isMuted = false, currentTrackIndex = 0, audioPlaylist = [];
+let audioInitialized = false, isMuted = true, currentTrackIndex = 0, audioPlaylist = [];
 const trackSources = [
     'brass-glitch.mp3',
     'joystick-sonata.mp3',
@@ -245,8 +245,13 @@ function initAudioEngine() {
 
     audioInitialized = true;
 
+    // Pick a random starting track
+    currentTrackIndex = Math.floor(
+        Math.random() * audioPlaylist.length
+    );
+
     if (!isMuted) {
-        startPlaylistTrack(0);
+        startPlaylistTrack(currentTrackIndex);
     }
 }
 function startPlaylistTrack(idx) {
@@ -270,7 +275,7 @@ muteBtn.addEventListener('click', e => {
 
     isMuted = !isMuted;
 
-    muteBtn.innerText = isMuted ? 'MUTE' : 'SOUND';
+    muteBtn.innerText = isMuted ? 'UNMUTE' : 'MUTE';
 
     if (isMuted) {
         muteBtn.classList.remove('unmuted');
@@ -284,8 +289,7 @@ muteBtn.addEventListener('click', e => {
     if (isMuted) {
         track.pause();
     } else {
-        track.volume = 0.4;
-        track.play().catch(() => {});
+        startPlaylistTrack(currentTrackIndex);
     }
 });
 
