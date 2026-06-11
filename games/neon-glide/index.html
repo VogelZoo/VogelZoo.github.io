@@ -202,14 +202,15 @@ const statSpd         = document.getElementById('stat-spd');
 const actionBtn       = document.getElementById('action-btn');
 
 // ── Game state ────────────────────────────────────────────────────────────────
-let gameState     = 'START';
-let scoreDistance = 0;
+let gameState       = 'START';
+let scoreDistance   = 0;
 let globalHighScore = 0;
 let globalTopSpeed  = 0;
 let lastTime        = 0;
 let boostFlashTimer = 0;
 let difficultyLevel = 0;   // 0..N, increases over time
 let lastDiffLevel   = 0;
+let collectedBoosts = 0;   // Tracks speed boosts collected only during current run
 
 // ── Difficulty thresholds ─────────────────────────────────────────────────────
 const DIFF_THRESHOLDS = [0, 300, 700, 1200, 2000, 3000, 4500];
@@ -224,9 +225,12 @@ const trackSources = [
 ];
 function initAudioEngine() {
     if (audioInitialized) return;
-    trackSources.forEach(src => {
+    trackSources.forEach((src, idx) => {
         const a = new Audio(src); a.volume = 0; a.preload = 'auto';
-        a.addEventListener('ended', () => startPlaylistTrack((currentTrackIndex+1)%audioPlaylist.length));
+        a.addEventListener('ended', () => {
+            let nextIndex = (idx + 1) % audioPlaylist.length;
+            startPlaylistTrack(nextIndex);
+        });
         audioPlaylist.push(a);
     });
     audioInitialized = true; startPlaylistTrack(0);
@@ -244,8 +248,11 @@ muteBtn.addEventListener('click', e => {
     isMuted ? muteBtn.classList.remove('unmuted') : muteBtn.classList.add('unmuted');
     if (audioPlaylist[currentTrackIndex]) {
         audioPlaylist[currentTrackIndex].volume = isMuted ? 0 : 0.4;
-        if (!isMuted && audioPlaylist[currentTrackIndex].paused)
-            audioPlaylist[currentTrackIndex].play().catch(()=>{});
+        if (!isMuted) {
+            if (audioPlaylist[currentTrackIndex].paused) {
+                audioPlaylist[currentTrackIndex].play().catch(()=>{});
+            }
+        }
     }
 });
 
@@ -292,6 +299,7 @@ const physics = {
     baseSpeedCap:         9.0,
     stallGracePeriod:     1.0,
     nosediveRecoveryMPH:  10,
+    dragReductionPerBoost: 0.00015, // Amount parasite drag is reduced per collected boost
 };
 
 // ── Scene ─────────────────────────────────────────────────────────────────────
@@ -371,7 +379,7 @@ function resetGame() {
         isNosediving: false,
     };
     fans=[]; obstacles=[]; boosts=[]; blocks=[]; particles=[];
-    scoreDistance=0; boostFlashTimer=0; difficultyLevel=0; lastDiffLevel=0;
+    scoreDistance=0; boostFlashTimer=0; difficultyLevel=0; lastDiffLevel=0; collectedBoosts=0;
     sectorDisplay.innerText = DIFF_ROMAN[0];
     initTerrain(); loadSavedRecords();
     lastTime = performance.now();
@@ -531,7 +539,11 @@ function updateGame(dt) {
         const gravityWork  = Math.sin(glider.pitch) * physics.speedConversion;
         const parasiteDrag = Math.pow(glider.forwardAirspeed, 2) * physics.quadraticDragCoeff;
         const levelEff     = Math.max(0, Math.cos(glider.pitch));
-        const levelBleed   = physics.parasiteDragBaseline * levelEff;
+        
+        // Dynamic drag reduction based on collected speed boosts (clamped to prevent zero/negative drag mechanics)
+        const activeParasiteBaseline = Math.max(0.005, physics.parasiteDragBaseline - (collectedBoosts * physics.dragReductionPerBoost));
+        const levelBleed   = activeParasiteBaseline * levelEff;
+        
         const inducedDrag  = glider.pitch < 0 ? Math.abs(glider.pitch)*physics.inducedDragCoeff : 0;
         glider.forwardAirspeed += (gravityWork - levelBleed - parasiteDrag - inducedDrag) * dt;
         const maxCap = Math.max(physics.maxSpeed, physics.baseSpeedCap+6);
@@ -580,6 +592,7 @@ function updateGame(dt) {
         boosts[i].x -= scrollSpeed*dt; boosts[i].pulse += 0.05*dt;
         const dx=glider.x-boosts[i].x, dy=glider.y-boosts[i].y;
         if (Math.sqrt(dx*dx+dy*dy) < boosts[i].size+15) {
+            collectedBoosts++; // Increment dynamic performance modifier
             physics.baseSpeedCap += 0.2;
             glider.forwardAirspeed = Math.min(glider.forwardAirspeed+3.0, physics.maxSpeed+4);
             glider.isNosediving=false; glider.stallTimer=0;
