@@ -138,19 +138,35 @@ function render7DayHorizon(baseDate) {
         let dayCard = document.createElement("div");
         dayCard.className = `cal-day-card ${dateString === activeLogDate ? 'today' : ''}`;
         
+        // --- LAYOUT FIX FOR TEXT OVERFLOW / HEIGHT ---
+        // Ensures the card grows gracefully with the content instead of clipping
+        dayCard.style.display = "flex";
+        dayCard.style.flexDirection = "column";
+        dayCard.style.minHeight = "fit-content"; 
+        dayCard.style.height = "auto";
+        dayCard.style.padding = "0.5rem";
+
         dayCard.onclick = () => {
             cancelFormEdit();
             document.getElementById("log-date").value = dateString;
             evaluateTodayPlans();
         };
 
-        let tagsHtml = dayTargets.map(t => `<span class="cal-event-tag">${t}</span>`).join("");
-        if (dayTargets.length === 0) tagsHtml = `<span class="text-muted" style="font-size:0.65rem;">Rest</span>`;
+        // Added styling adjustments inside the mapping loop to keep tag structures block-wrapped and neat
+        let tagsHtml = dayTargets.map(t => `
+            <span class="cal-event-tag" style="display: block; margin-top: 2px; word-break: break-word; font-size: 0.65rem;">
+                ${t}
+            </span>
+        `).join("");
+        
+        if (dayTargets.length === 0) {
+            tagsHtml = `<span class="text-muted" style="font-size:0.65rem; display:block; margin-top:2px;">Rest</span>`;
+        }
 
         dayCard.innerHTML = `
-            <div class="cal-day-title">${dayLabel}</div>
-            <div class="text-muted" style="font-size:0.65rem;">${futureDate.getMonth()+1}/${futureDate.getDate()}</div>
-            <div class="cal-day-events">${tagsHtml}</div>
+            <div class="cal-day-title" style="font-weight: bold;">${dayLabel}</div>
+            <div class="text-muted" style="font-size:0.65rem; margin-bottom: 4px;">${futureDate.getMonth()+1}/${futureDate.getDate()}</div>
+            <div class="cal-day-events" style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;">${tagsHtml}</div>
         `;
         container.appendChild(dayCard);
     }
