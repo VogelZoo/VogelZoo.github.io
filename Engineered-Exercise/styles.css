@@ -21,7 +21,7 @@
 body {
     background-color: var(--bg-primary);
     color: var(--text-main);
-    padding-bottom: 4rem; /* Buffer for mobile screens */
+    padding-bottom: 4rem;
 }
 
 header {
@@ -37,7 +37,6 @@ header h1 {
     font-size: 1.25rem;
     text-align: center;
     margin-bottom: 0.5rem;
-    color: var(--text-main);
 }
 
 nav {
@@ -159,26 +158,36 @@ select:focus, input:focus {
     font-size: 0.75rem;
 }
 
+.badge-intensity {
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    margin-left: 0.35rem;
+}
+.intensity-Light { background-color: #4b5563; color: #fff; }
+.intensity-Medium { background-color: #d97706; color: #fff; }
+.intensity-Heavy { background-color: #dc2626; color: #fff; }
 
-/* Horizontal 7-Day Calendar Strip */
+/* 7-Day Horizon Scroll Layout */
 .calendar-horizon {
     display: flex;
     gap: 0.5rem;
     overflow-x: auto;
-    padding-bottom: 0.5rem;
+    padding-bottom: 0.75rem;
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
 }
 
 .cal-day-card {
-    flex: 0 0 calc(25% - 0.4rem);
+    flex: 0 0 calc(30% - 0.4rem);
     scroll-snap-align: start;
     background-color: var(--bg-primary);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 0.5rem;
     text-align: center;
-    font-size: 0.75rem;
+    cursor: pointer;
 }
 
 .cal-day-card.today {
@@ -189,18 +198,31 @@ select:focus, input:focus {
 .cal-day-title {
     font-weight: bold;
     color: var(--text-main);
-    margin-bottom: 0.25rem;
+    font-size: 0.8rem;
 }
 
 .cal-day-events {
-    color: var(--accent);
-    font-size: 0.7rem;
+    margin-top: 0.35rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    max-height: 50px;
+    overflow-y: auto;
+}
+
+.cal-event-tag {
+    background-color: rgba(37, 99, 235, 0.2);
+    color: #93c5fd;
+    font-size: 0.65rem;
+    padding: 0.1rem 0.2rem;
+    border-radius: 4px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    text-align: left;
 }
 
-/* Custom Checkbox Grid layout */
+/* Checkbox Grid */
 .checkbox-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -220,17 +242,41 @@ select:focus, input:focus {
     cursor: pointer;
 }
 
-.checkbox-label input {
-    width: auto;
-    margin: 0;
-}
+.checkbox-label input { width: auto; margin: 0; }
 
+/* Visual block separation for plans */
 .schedule-section-title {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--text-muted);
-    margin: 1rem 0 0.5rem 0;
+    color: var(--accent);
+    margin: 1.25rem 0 0.5rem 0;
+    padding-bottom: 0.25rem;
+    font-weight: bold;
+}
+
+.plan-day-block {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.plan-day-block-title {
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: var(--text-main);
     border-bottom: 1px solid var(--border);
     padding-bottom: 0.25rem;
+    margin-bottom: 0.5rem;
+}
+
+/* SVG Chart Wrapper */
+.svg-chart-container {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.5rem;
+    width: 100%;
 }
