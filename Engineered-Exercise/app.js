@@ -26,6 +26,13 @@ const FIELD_LABELS = {
     distance: { label: "Distance (miles)", type: "number", placeholder: "0.00", step: "0.01" }
 };
 
+const INTENSITY_COLORS = {
+    "Light": "#4b5563",
+    "Medium": "#d97706",
+    "Heavy": "#dc2626",
+    "Default": "#2563eb"
+};
+
 const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAYS_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -63,12 +70,15 @@ function switchView(viewId) {
     document.getElementById(`view-${viewId}`).classList.remove('hidden');
     document.getElementById(`nav-${viewId}`).classList.add('active');
     
+    // Clear dynamic modifications if navigating out of edit mode context
+    if (viewId !== 'track') cancelFormEdit();
+
     if (viewId === 'track') evaluateTodayPlans();
     if (viewId === 'plan') renderPlanList();
     if (viewId === 'stats') { populateChartFilter(); renderStats(); }
 }
 
-// --- CALENDAR & DRILL DOWN ---
+// --- ENGINE CALCULATIONS & HORIZONS ---
 function evaluateTodayPlans() {
     const selectedDateStr = document.getElementById("log-date").value;
     const selectedDate = selectedDateStr ? new Date(selectedDateStr + "T00:00:00") : new Date();
@@ -126,10 +136,10 @@ function render7DayHorizon(baseDate) {
         let dateString = futureDate.toISOString().split('T')[0];
 
         let dayCard = document.createElement("div");
-        // Highlight if card matches what is typed into the date input box
         dayCard.className = `cal-day-card ${dateString === activeLogDate ? 'today' : ''}`;
         
         dayCard.onclick = () => {
+            cancelFormEdit();
             document.getElementById("log-date").value = dateString;
             evaluateTodayPlans();
         };
@@ -146,12 +156,11 @@ function render7DayHorizon(baseDate) {
     }
 }
 
-// --- EXERCISE DROPDOWN SORT ENGINE ---
+// --- LOGGING INPUT FIELDS LOGIC ---
 function renderExerciseSelectors(priorityList = []) {
     const selectLog = document.getElementById("exercise-select");
     const selectPlan = document.getElementById("plan-exercise");
     
-    // Sort logic: Alpha by Category, then Alpha by Name within Category
     let organizedExercises = [...state.exercises].sort((a, b) => {
         let catA = a.category || "Uncategorized";
         let catB = b.category || "Uncategorized";
@@ -159,22 +168,21 @@ function renderExerciseSelectors(priorityList = []) {
         return a.name.localeCompare(b.name);
     });
 
-    // Bubble scheduled options to the very top section grouped under priority rows
     let priorityOptions = [];
     let regularOptionsByGroup = {};
 
     organizedExercises.forEach(ex => {
         let cat = ex.category || "Uncategorized";
         if (priorityList.includes(ex.name)) {
-            priorityOptions.push(`<option value="${ex.name}" style="font-weight:bold; color:#2563eb;">⭐ [${cat}] ${ex.name}</option>`);
+            priorityOptions.push(`<option value="${ex.name}">⭐ [${cat}] ${ex.name}</option>`);
         }
         if (!regularOptionsByGroup[cat]) regularOptionsByGroup[cat] = [];
-        regularOptionsByGroup[cat].push(`<option value="${ex.name}">[${cat}] ${ex.name}</option>`);
+        regularOptionsByGroup[cat].push(`<option value="${ex.name}">${ex.name}</option>`);
     });
 
     let finalLogHtml = "";
     if (priorityOptions.length > 0) {
-        finalLogHtml += `<optgroup label="⭐ Scheduled Options For Selected Date">` + priorityOptions.join("") + `</optgroup>`;
+        finalLogHtml += `<optgroup label="⭐ Scheduled For Selected Date">` + priorityOptions.join("") + `</optgroup>`;
     }
     Object.entries(regularOptionsByGroup).forEach(([category, options]) => {
         finalLogHtml += `<optgroup label="${category}">` + options.join("") + `</optgroup>`;
@@ -183,12 +191,14 @@ function renderExerciseSelectors(priorityList = []) {
     selectLog.innerHTML = finalLogHtml;
     selectPlan.innerHTML = organizedExercises.map(ex => `<option value="${ex.name}">[${ex.category || 'General'}] ${ex.name}</option>`).join("");
     
-    if (organizedExercises.length > 0) {
+    // Check if we are currently editing an existing record before forcing field values updates
+    const editingId = document.getElementById("edit-entry-id").value;
+    if (!editingId && organizedExercises.length > 0) {
         buildDynamicFormFields(selectLog.value);
     }
 }
 
-function buildDynamicFormFields(exerciseName) {
+function buildDynamicFormFields(exerciseName, existingData = null) {
     const container = document.getElementById("dynamic-fields-container");
     container.innerHTML = "";
     
@@ -204,14 +214,18 @@ function buildDynamicFormFields(exerciseName) {
         const div = document.createElement("div");
         div.className = "form-group";
         
+        let valAttr = "";
         let placeholderVal = fieldMeta.placeholder;
-        if (previousEntry && previousEntry.exerciseName === exerciseName && previousEntry.data[fieldKey] !== undefined) {
+
+        if (existingData && existingData[fieldKey] !== undefined) {
+            valAttr = `value="${existingData[fieldKey]}"`;
+        } else if (previousEntry && previousEntry.exerciseName === exerciseName && previousEntry.data[fieldKey] !== undefined) {
             placeholderVal = `Prev: ${previousEntry.data[fieldKey]}`;
         }
 
         div.innerHTML = `
             <label for="field-${fieldKey}">${fieldMeta.label}</label>
-            <input type="${fieldMeta.type}" id="field-${fieldKey}" name="${fieldKey}" placeholder="${placeholderVal}" step="${fieldMeta.step}" inputmode="decimal" required>
+            <input type="${fieldMeta.type}" id="field-${fieldKey}" name="${fieldKey}" ${valAttr} placeholder="${placeholderVal}" step="${fieldMeta.step}" inputmode="decimal" required>
         `;
         container.appendChild(div);
     });
@@ -221,112 +235,130 @@ function getPreviousEntry(exerciseName) {
     return state.history.find(entry => entry.exerciseName === exerciseName);
 }
 
-// --- PLAN VIEW DELINEATION RENDERING ---
-function renderPlanList() {
-    const container = document.getElementById("organized-plan-view");
-    container.innerHTML = "";
+// --- HISTORICAL EDIT/DELETE OPERATION PIPELINES ---
+function initEditEntry(id) {
+    const entry = state.history.find(h => h.id === id);
+    if (!entry) return;
 
-    if (state.plans.length === 0) {
-        container.innerHTML = `<p class="text-muted">No scheduled routines set up yet.</p>`;
-        return;
-    }
+    switchView('track');
 
-    let weeklyPlans = state.plans.filter(p => p.type === 'weekly');
-    let intervalPlans = state.plans.filter(p => p.type === 'interval');
+    document.getElementById("form-title").innerText = "Edit Historical Log";
+    document.getElementById("edit-entry-id").value = entry.id;
+    document.getElementById("log-date").value = entry.date;
+    document.getElementById("intensity-select").value = entry.intensity || "";
+    
+    // Repopulate dynamic drop select layouts cleanly
+    evaluateTodayPlans();
+    document.getElementById("exercise-select").value = entry.exerciseName;
+    
+    buildDynamicFormFields(entry.exerciseName, entry.data);
 
-    let html = `<div class="schedule-section-title">Weekly Schedule</div>`;
-
-    // Visual Delineation Blocks Loop (Mon -> Sun)
-    const sortedDaysIndices = [1, 2, 3, 4, 5, 6, 0];
-    sortedDaysIndices.forEach(dayIdx => {
-        let dayPlans = weeklyPlans.filter(p => parseInt(p.day) === dayIdx);
+    // Inject Cancel button block layout safely if not already existing
+    if (!document.getElementById("cancel-edit-btn")) {
+        const btnContainer = document.getElementById("form-action-buttons");
+        btnContainer.style.gridTemplateColumns = "1fr 1fr";
         
-        html += `
-            <div class="plan-day-block">
-                <div class="plan-day-block-title">${DAYS_LONG[dayIdx]}</div>
-                ${dayPlans.length === 0 ? '<p class="text-muted" style="font-size:0.8rem; padding:0.25rem 0;">Rest Day</p>' : '<ul class="list-group">'}
-                ${dayPlans.map(plan => `
-                    <li class="list-group-item">
-                        <span>💪 ${plan.exercise}</span>
-                        <button onclick="deletePlan(${plan.id})" class="badge" style="background:#dc2626; border:none; color:white; cursor:pointer;">X</button>
-                    </li>
-                `).join("")}
-                ${dayPlans.length === 0 ? '' : '</ul>'}
-            </div>
-        `;
-    });
-
-    if (intervalPlans.length > 0) {
-        intervalPlans.sort((a, b) => parseInt(a.interval) - parseInt(b.interval));
-        html += `<div class="schedule-section-title">Interval Schedules (By Frequency)</div><div class="plan-day-block"><ul class="list-group">`;
-        html += intervalPlans.map(plan => `
-            <li class="list-group-item">
-                <div><strong>Every ${plan.interval} Days</strong>: ${plan.exercise} <br><span class="text-muted" style="font-size:0.75rem;">Starts ${plan.startDate}</span></div>
-                <button onclick="deletePlan(${plan.id})" class="badge" style="background:#dc2626; border:none; color:white; cursor:pointer;">X</button>
-            </li>
-        `).join("");
-        html += `</ul></div>`;
+        const cancelBtn = document.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.id = "cancel-edit-btn";
+        cancelBtn.className = "btn btn-secondary";
+        cancelBtn.innerText = "Cancel";
+        cancelBtn.onclick = cancelFormEdit;
+        btnContainer.appendChild(cancelBtn);
     }
-
-    container.innerHTML = html;
+    document.getElementById("submit-log-btn").innerText = "Update Entry";
 }
 
-function deletePlan(id) {
-    state.plans = state.plans.filter(p => p.id !== id);
-    saveState();
-    renderPlanList();
+function cancelFormEdit() {
+    document.getElementById("form-title").innerText = "Log Exercise";
+    document.getElementById("edit-entry-id").value = "";
+    document.getElementById("log-form").reset();
+    document.getElementById("log-date").value = new Date().toISOString().split('T')[0];
+    document.getElementById("submit-log-btn").innerText = "Save Entry";
+    
+    const cancelBtn = document.getElementById("cancel-edit-btn");
+    if (cancelBtn) {
+        cancelBtn.remove();
+        document.getElementById("form-action-buttons").style.gridTemplateColumns = "1fr";
+    }
     evaluateTodayPlans();
 }
 
-// --- NATIVE SVG ENGINE LIGHTWEIGHT GRAPHS ---
+function deleteEntry(id) {
+    if (confirm("Are you sure you want to delete this historical entry?")) {
+        state.history = state.history.filter(h => h.id !== id);
+        saveState();
+        renderStats();
+    }
+}
+
+// --- STATS VIEW & COMPACT DAY GROUPING ---
 function populateChartFilter() {
     const filterSelect = document.getElementById("chart-exercise-select");
-    if(state.exercises.length === 0) return;
+    const wrapper = document.getElementById("chart-filter-wrapper");
     
+    // Filter array: Evaluate exercises containing 2 or more complete records explicitly
+    let chartableExercises = state.exercises.filter(ex => {
+        let count = state.history.filter(h => h.exerciseName === ex.name).length;
+        return count >= 2;
+    });
+
+    if (chartableExercises.length === 0) {
+        wrapper.classList.add("hidden");
+        return;
+    }
+    wrapper.classList.remove("hidden");
+
     let currentSelection = filterSelect.value;
-    filterSelect.innerHTML = state.exercises.map(e => `<option value="${e.name}">${e.name}</option>`).join("");
-    if (currentSelection && state.exercises.some(e => e.name === currentSelection)) {
+    filterSelect.innerHTML = chartableExercises.map(e => `<option value="${e.name}">${e.name}</option>`).join("");
+    
+    if (currentSelection && chartableExercises.some(e => e.name === currentSelection)) {
         filterSelect.value = currentSelection;
     }
 }
 
 function renderStats() {
     const summary = document.getElementById("stats-summary");
-    const list = document.getElementById("history-list");
+    const groupedContainer = document.getElementById("history-grouped-container");
     const graphContainer = document.getElementById("graph-container");
-    const targetExercise = document.getElementById("chart-exercise-select").value;
+    const legendBlock = document.getElementById("chart-legend");
+    const filterSelect = document.getElementById("chart-exercise-select");
 
     if (state.history.length === 0) {
         summary.innerHTML = `<p class="text-muted">Complete your first log to start tracking metrics.</p>`;
-        list.innerHTML = `<p class="text-muted">No history found.</p>`;
+        groupedContainer.innerHTML = `<p class="text-muted">No historic timeline data logs detected.</p>`;
         graphContainer.innerHTML = "";
+        legendBlock.style.display = "none";
         return;
     }
 
-    // Isolate historic array matching specific user exercise selections
-    let exerciseHistory = state.history
-        .filter(entry => entry.exerciseName === targetExercise)
-        .sort((a, b) => new Date(a.date) - new Date(b.date)); // Chronological order for plotting
+    const targetExercise = filterSelect.value;
+    let exerciseHistory = [];
 
-    if (exerciseHistory.length < 2) {
-        graphContainer.innerHTML = `<p class="text-muted" style="text-align:center; padding: 1rem; border:1px dashed var(--border); border-radius:8px;">Log at least 2 entries for "${targetExercise}" to draw progression charts.</p>`;
+    if (targetExercise) {
+        exerciseHistory = state.history
+            .filter(entry => entry.exerciseName === targetExercise)
+            .sort((a, b) => new Date(a.date) - new Date(b.date));
+    }
+
+    // Graph guard rails validation condition check
+    if (!targetExercise || exerciseHistory.length < 2) {
+        graphContainer.innerHTML = `<p class="text-muted" style="text-align:center; padding:1rem; border:1px dashed var(--border); border-radius:8px;">Select or complete an exercise with 2+ entries to unlock metric progression curves.</p>`;
+        legendBlock.style.display = "none";
     } else {
-        // Determine what metric axis lines to draw (weight -> distance -> duration parameters check)
+        legendBlock.style.display = "flex";
         let sampleEntry = exerciseHistory[0].data;
         let chartMetricKey = Object.keys(sampleEntry).includes("weight") ? "weight" : 
                              Object.keys(sampleEntry).includes("distance") ? "distance" : 
                              Object.keys(sampleEntry).includes("timeSeconds") ? "timeSeconds" : "timeMinutes";
 
         let metricLabel = FIELD_LABELS[chartMetricKey].label;
-        
-        // Compute chart absolute scales
         let values = exerciseHistory.map(h => h.data[chartMetricKey]);
-        let minVal = Math.min(...values) * 0.9; // add padding padding bottom boundaries
-        let maxVal = Math.max(...values) * 1.1; // add padding padding top boundaries
+        let minVal = Math.min(...values) * 0.9;
+        let maxVal = Math.max(...values) * 1.1;
         if(maxVal === minVal) { minVal -= 10; maxVal += 10; }
         let valRange = maxVal - minVal;
 
-        // Plot resolution setup geometry
         const width = 400;
         const height = 180;
         const padding = 30;
@@ -334,28 +366,27 @@ function renderStats() {
         let points = exerciseHistory.map((entry, index) => {
             let x = padding + (index / (exerciseHistory.length - 1)) * (width - padding * 2);
             let y = (height - padding) - ((entry.data[chartMetricKey] - minVal) / valRange) * (height - padding * 2);
-            return {x, y, date: entry.date, val: entry.data[chartMetricKey]};
+            return {x, y, date: entry.date, val: entry.data[chartMetricKey], intensity: entry.intensity};
         });
 
         let pathD = `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(" ");
 
-        let dotsHtml = points.map(p => `
-            <circle cx="${p.x}" cy="${p.y}" r="4" fill="#2563eb"/>
-            <text x="${p.x}" y="${p.y - 8}" font-size="8" fill="#f3f4f6" text-anchor="middle">${p.val}</text>
-        `).join("");
+        let dotsHtml = points.map(p => {
+            let dotColor = INTENSITY_COLORS[p.intensity] || INTENSITY_COLORS["Default"];
+            return `
+                <circle cx="${p.x}" cy="${p.y}" r="4.5" fill="${dotColor}" stroke="#1e1e24" stroke-width="1"/>
+                <text x="${p.x}" y="${p.y - 8}" font-size="8" font-weight="bold" fill="#f3f4f6" text-anchor="middle">${p.val}</text>
+            `;
+        }).join("");
 
         graphContainer.innerHTML = `
             <div class="svg-chart-container">
-                <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.25rem; text-align:center;">Progression: ${metricLabel}</div>
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.25rem; text-align:center;">Progression Matrix: ${metricLabel}</div>
                 <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%">
-                    <!-- Grid Axis Lines -->
                     <line x1="${padding}" y1="${padding}" x2="${padding}" y2="${height-padding}" stroke="#374151" stroke-width="1"/>
                     <line x1="${padding}" y1="${height-padding}" x2="${width-padding}" y2="${height-padding}" stroke="#374151" stroke-width="1"/>
-                    <!-- Trend Path Line -->
-                    <path d="${pathD}" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <!-- Points overlay data items -->
+                    <path d="${pathD}" fill="none" stroke="#374151" stroke-width="1.5" stroke-dasharray="3,3" stroke-linecap="round" stroke-linejoin="round"/>
                     ${dotsHtml}
-                    <!-- X Axis Labels -->
                     <text x="${points[0].x}" y="${height-10}" font-size="8" fill="#9ca3af" text-anchor="start">${points[0].date.substring(5)}</text>
                     <text x="${points[points.length-1].x}" y="${height-10}" font-size="8" fill="#9ca3af" text-anchor="end">${points[points.length-1].date.substring(5)}</text>
                 </svg>
@@ -364,31 +395,55 @@ function renderStats() {
     }
 
     summary.innerHTML = `<p><strong>Total Lifetime Logs:</strong> ${state.history.length} sessions</p>`;
-    
-    // Print comprehensive global scrolling history records details block
-    list.innerHTML = state.history.slice(0, 20).map(entry => {
-        let dataString = Object.entries(entry.data).map(([key, val]) => {
-            let label = key === 'timeSeconds' ? 's' : key === 'timeMinutes' ? 'm' : key === 'distance' ? 'mi' : key === 'weight' ? 'lbs' : ` ${key}`;
-            return `${val}${label}`;
-        }).join(" | ");
 
-        let intensityBadge = entry.intensity ? `<span class="badge-intensity intensity-${entry.intensity}">${entry.intensity}</span>` : '';
+    // --- COMPACT GROUP BY DAY MAP COMPILATION ---
+    let dailyGroups = {};
+    state.history.forEach(entry => {
+        if (!dailyGroups[entry.date]) dailyGroups[entry.date] = [];
+        dailyGroups[entry.date].push(entry);
+    });
+
+    // Sort explicit key index clusters sequentially back descending
+    let sortedDaysKeys = Object.keys(dailyGroups).sort((a,b) => new Date(b) - new Date(a));
+
+    groupedContainer.innerHTML = sortedDaysKeys.map(dateStr => {
+        let displayDayObj = new Date(dateStr + "T00:00:00");
+        let dayHeaderLabel = displayDayObj.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+        let dayItems = dailyGroups[dateStr];
 
         return `
-            <li class="list-group-item">
-                <span><strong>${entry.exerciseName}</strong>${intensityBadge}</span>
-                <span class="text-muted">${dataString} <span class="badge">${entry.date}</span></span>
-            </li>
+            <div class="history-day-block">
+                <div class="history-day-block-title">${dayHeaderLabel}</div>
+                <ul class="list-group">
+                    ${dayItems.map(item => {
+                        let metricStr = Object.entries(item.data).map(([k, v]) => {
+                            let unit = k === 'timeSeconds' ? 's' : k === 'timeMinutes' ? 'm' : k === 'distance' ? 'mi' : k === 'weight' ? 'lbs' : ` ${k}`;
+                            return `${v}${unit}`;
+                        }).join(" | ");
+
+                        let intBadge = item.intensity ? `<span class="badge-intensity intensity-${item.intensity}">${item.intensity}</span>` : '';
+
+                        return `
+                            <li class="list-group-item">
+                                <div><strong>${item.exerciseName}</strong>${intBadge}<br><span class="text-muted" style="font-size:0.8rem;">${metricStr}</span></div>
+                                <div class="history-item-actions">
+                                    <span class="action-link" onclick="initEditEntry(${item.id})">Edit</span>
+                                    <span class="action-link delete" onclick="deleteEntry(${item.id})">Del</span>
+                                </div>
+                            </li>
+                        `;
+                    }).join("")}
+                </ul>
+            </div>
         `;
     }).join("");
 }
 
-// --- EVENTS BINDING ROUTINES ---
+// --- ORGANIZED APP EVENT LISTENER ATTACHMENTS ---
 function setupEventListeners() {
-    // Dynamic Date Picker Change Interceptor Hook
-    document.getElementById("log-date").value = new Date().toISOString().split('T')[0];
     document.getElementById("log-date").addEventListener("change", () => {
-        evaluateTodayPlans();
+        const editingId = document.getElementById("edit-entry-id").value;
+        if (!editingId) evaluateTodayPlans();
     });
 
     document.getElementById("exercise-select").addEventListener("change", (e) => {
@@ -397,6 +452,7 @@ function setupEventListeners() {
 
     document.getElementById("log-form").addEventListener("submit", (e) => {
         e.preventDefault();
+        const editingId = document.getElementById("edit-entry-id").value;
         const exerciseName = document.getElementById("exercise-select").value;
         const exercise = state.exercises.find(e => e.name === exerciseName);
         const selectedDate = document.getElementById("log-date").value;
@@ -409,24 +465,33 @@ function setupEventListeners() {
             logData[fieldKey] = parseFloat(formData.get(fieldKey));
         });
 
-        const newEntry = {
-            id: Date.now(),
-            date: selectedDate,
-            exerciseName: exerciseName,
-            intensity: intensity || null,
-            data: logData
-        };
+        if (editingId) {
+            // Processing updates on an existing configuration record node
+            let index = state.history.findIndex(h => h.id === parseInt(editingId));
+            if (index !== -1) {
+                state.history[index].date = selectedDate;
+                state.history[index].exerciseName = exerciseName;
+                state.history[index].intensity = intensity || null;
+                state.history[index].data = logData;
+            }
+            alert(`Log entry updated!`);
+        } else {
+            // standard appending routine execution
+            const newEntry = {
+                id: Date.now(),
+                date: selectedDate,
+                exerciseName: exerciseName,
+                intensity: intensity || null,
+                data: logData
+            };
+            state.history.unshift(newEntry);
+        }
 
-        state.history.unshift(newEntry);
         state.history.sort((a,b) => new Date(b.date) - new Date(a.date));
-        
         saveState();
-        e.target.reset();
         
-        // Keep inputs sticky to the date input value chosen by user instead of auto wiping
-        document.getElementById("log-date").value = selectedDate;
-        evaluateTodayPlans();
-        alert(`Logged metric entry for ${exerciseName}!`);
+        // Reset dynamic elements cleanly back to standard defaults tracking configurations
+        cancelFormEdit();
     });
 
     document.getElementById("plan-form").addEventListener("submit", (e) => {
@@ -467,6 +532,7 @@ function setupEventListeners() {
         state.exercises.push({ name: name, category: category, metrics: selectedMetrics });
         saveState();
         renderExerciseSelectors();
+        populateChartFilter();
         e.target.reset();
         alert(`Created custom template for: ${name}`);
     });
@@ -478,7 +544,55 @@ function toggleScheduleInputs() {
     document.getElementById("interval-inputs").classList.toggle("hidden", type !== "interval");
 }
 
-// --- EXPORT/IMPORT PORTS ---
+function renderPlanList() {
+    const container = document.getElementById("organized-plan-view");
+    container.innerHTML = "";
+
+    if (state.plans.length === 0) {
+        container.innerHTML = `<p class="text-muted">No scheduled routines set up yet.</p>`;
+        return;
+    }
+
+    let weeklyPlans = state.plans.filter(p => p.type === 'weekly');
+    let intervalPlans = state.plans.filter(p => p.type === 'interval');
+
+    let html = `<div class="schedule-section-title">Weekly Schedule</div>`;
+
+    const sortedDaysIndices = [1, 2, 3, 4, 5, 6, 0];
+    sortedDaysIndices.forEach(dayIdx => {
+        let dayPlans = weeklyPlans.filter(p => parseInt(p.day) === dayIdx);
+        
+        html += `
+            <div class="plan-day-block">
+                <div class="plan-day-block-title">${DAYS_LONG[dayIdx]}</div>
+                ${dayPlans.length === 0 ? '<p class="text-muted" style="font-size:0.8rem; padding:0.25rem 0;">Rest Day</p>' : '<ul class="list-group">'}
+                ${dayPlans.map(plan => `
+                    <li class="list-group-item">
+                        <span>💪 ${plan.exercise}</span>
+                        <button onclick="deletePlan(${plan.id})" class="badge" style="background:#dc2626; border:none; color:white; cursor:pointer;">X</button>
+                    </li>
+                `).join("")}
+                ${dayPlans.length === 0 ? '' : '</ul>'}
+            </div>
+        `;
+    });
+
+    if (intervalPlans.length > 0) {
+        intervalPlans.sort((a, b) => parseInt(a.interval) - parseInt(b.interval));
+        html += `<div class="schedule-section-title">Interval Schedules</div><div class="plan-day-block"><ul class="list-group">`;
+        html += intervalPlans.map(plan => `
+            <li class="list-group-item">
+                <div><strong>Every ${plan.interval} Days</strong>: ${plan.exercise} <br><span class="text-muted" style="font-size:0.75rem;">Starts ${plan.startDate}</span></div>
+                <button onclick="deletePlan(${plan.id})" class="badge" style="background:#dc2626; border:none; color:white; cursor:pointer;">X</button>
+            </li>
+        `).join("");
+        html += `</ul></div>`;
+    }
+
+    container.innerHTML = html;
+}
+
+// --- PORTING IO CONTEXTS ---
 function exportData() {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
     const downloadAnchor = document.createElement('a');
@@ -504,7 +618,7 @@ function importData(event) {
                 alert("Data configuration imported successfully!");
             }
         } catch (err) {
-            alert("Error parsing backup formatting json template structure.");
+            alert("Error parsing configuration json backup file structure templates.");
         }
     };
     reader.readAsText(file);
