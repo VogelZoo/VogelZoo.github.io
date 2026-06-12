@@ -169,6 +169,8 @@ select:focus, input:focus {
 .intensity-Light { background-color: #4b5563; color: #fff; }
 .intensity-Medium { background-color: #d97706; color: #fff; }
 .intensity-Heavy { background-color: #dc2626; color: #fff; }
+.intensity-Low { background-color: #4b5563; color: #fff; }
+.intensity-High { background-color: #dc2626; color: #fff; }
 
 /* 7-Day Horizon Scroll Layout */
 .calendar-horizon {
@@ -302,4 +304,11 @@ select:focus, input:focus {
     border-radius: 8px;
     padding: 0.5rem;
     width: 100%;
+}
+
+/* Mobile responsive fix for Date/Intensity fields overlap */
+@media (max-width: 480px) {
+    .form-row {
+        grid-template-columns: 1fr;
+    }
 }
