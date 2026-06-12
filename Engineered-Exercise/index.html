@@ -167,6 +167,9 @@
             <div class="card">
                 <h2>Manage App Data</h2>
                 <p class="text-muted">Backup your data or import history from another device.</p>
+                <div class="form-row" style="grid-template-columns: 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <button onclick="exportCSV()" class="btn btn-success">Export History Log (CSV)</button>
+                </div>
                 <div class="form-row">
                     <button onclick="exportData()" class="btn btn-secondary">Export Backup (JSON)</button>
                     <label class="btn btn-secondary text-center">
