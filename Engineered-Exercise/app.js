@@ -27,9 +27,9 @@ const FIELD_LABELS = {
 };
 
 const INTENSITY_COLORS = {
-    "Light": "#4b5563",
+    "Low": "#4b5563",
     "Medium": "#d97706",
-    "Heavy": "#dc2626",
+    "High": "#dc2626",
     "Default": "#2563eb"
 };
 
@@ -328,6 +328,15 @@ function deleteEntry(id) {
     }
 }
 
+function deletePlan(id) {
+    if (confirm("Are you sure you want to delete this plan?")) {
+        state.plans = state.plans.filter(p => p.id !== id);
+        saveState();
+        renderPlanList();
+        evaluateTodayPlans();
+    }
+}
+
 // --- STATS VIEW & COMPACT DAY GROUPING ---
 function populateChartFilter() {
     const filterSelect = document.getElementById("chart-exercise-select");
@@ -379,7 +388,7 @@ function renderStats() {
 
     // Graph guard rails validation condition check
     if (!targetExercise || exerciseHistory.length < 2) {
-        graphContainer.innerHTML = `<p class="text-muted" style="text-align:center; padding:1rem; border:1px dashed var(--border); border-radius:8px;">Select or complete an exercise with 2+ entries to unlock metric progression curves.</p>`;
+        graphContainer.innerHTML = `<p class="text-muted" style="text-align:center; padding:1rem; border:1px dashed var(--border); border-radius:8px;">Select or complete an exercise with 2+ entries to view progression.</p>`;
         legendBlock.style.display = "none";
     } else {
         legendBlock.style.display = "flex";
@@ -604,7 +613,7 @@ function renderPlanList() {
                 ${dayPlans.length === 0 ? '<p class="text-muted" style="font-size:0.8rem; padding:0.25rem 0;">Rest Day</p>' : '<ul class="list-group">'}
                 ${dayPlans.map(plan => `
                     <li class="list-group-item">
-                        <span>${getCategoryEmoji(state.exercises.find(e => e.name === plan.exercise) || {}).category)} ${plan.exercise}</span>
+                        <span>${getCategoryEmoji((state.exercises.find(e => e.name === plan.exercise) || {}).category)} ${plan.exercise}</span>
                         <button onclick="deletePlan(${plan.id})" class="badge" style="background:#dc2626; border:none; color:white; cursor:pointer;">X</button>
                     </li>
                 `).join("")}
