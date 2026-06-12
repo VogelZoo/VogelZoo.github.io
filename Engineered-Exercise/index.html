@@ -18,13 +18,14 @@
     </header>
 
     <main class="container">
+        <!-- TRACK VIEW -->
         <section id="view-track" class="view">
             <div class="card suggestion-box" id="today-suggestion"></div>
 
+            <!-- NEXT 7 DAYS SCHEDULE CALENDAR -->
             <div class="card">
                 <h3>7-Day Horizon</h3>
-                <div class="calendar-horizon" id="calendar-horizon-view">
-                    </div>
+                <div class="calendar-horizon" id="calendar-horizon-view"></div>
             </div>
 
             <div class="card">
@@ -32,15 +33,25 @@
                 <form id="log-form">
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="exercise-select">Exercise</label>
-                            <select id="exercise-select" required></select>
-                        </div>
-                        <div class="form-group">
                             <label for="log-date">Date</label>
                             <input type="date" id="log-date" required>
                         </div>
+                        <div class="form-group">
+                            <label for="intensity-select">Intensity (Optional)</label>
+                            <select id="intensity-select">
+                                <option value="">None Specified</option>
+                                <option value="Light">Light</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Heavy">Heavy</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="exercise-select">Exercise</label>
+                        <select id="exercise-select" required></select>
                     </div>
 
+                    <!-- Dynamic Input Fields Container -->
                     <div id="dynamic-fields-container"></div>
 
                     <button type="submit" class="btn btn-primary">Save Entry</button>
@@ -48,6 +59,7 @@
             </div>
         </section>
 
+        <!-- PLAN VIEW -->
         <section id="view-plan" class="view hidden">
             <div class="card">
                 <h2>Schedule Your Routine</h2>
@@ -97,10 +109,16 @@
             </div>
         </section>
 
+        <!-- STATS VIEW -->
         <section id="view-stats" class="view hidden">
             <div class="card">
-                <h2>Progress Insight</h2>
-                <div id="stats-summary"></div>
+                <h2>Progress Insight Charts</h2>
+                <div class="form-group">
+                    <label for="chart-exercise-select">Filter Chart by Exercise</label>
+                    <select id="chart-exercise-select" onchange="renderStats()"></select>
+                </div>
+                <div id="graph-container"></div>
+                <div id="stats-summary" style="margin-top: 1rem;"></div>
             </div>
             <div class="card">
                 <h3>Recent History</h3>
@@ -108,6 +126,7 @@
             </div>
         </section>
 
+        <!-- SETTINGS / DATA VIEW -->
         <section id="view-settings" class="view hidden">
             <div class="card">
                 <h2>Add Custom Exercise</h2>
@@ -115,6 +134,15 @@
                     <div class="form-group">
                         <label for="new-ex-name">Name</label>
                         <input type="text" id="new-ex-name" required placeholder="e.g., Romanian Deadlift">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-ex-category">Category</label>
+                        <select id="new-ex-category">
+                            <option value="Strength">Strength</option>
+                            <option value="Core">Core</option>
+                            <option value="Cardio">Cardio</option>
+                            <option value="Mobility/Yoga">Mobility/Yoga</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label>Metrics to Track:</label>
