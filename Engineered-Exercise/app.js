@@ -441,6 +441,9 @@ function renderStats() {
 
     summary.innerHTML = `<p><strong>Total Lifetime Logs:</strong> ${state.history.length} sessions</p>`;
 
+    // --- STACKED BAR CHARTS ---
+    renderStackedBarCharts();
+
     // --- COMPACT GROUP BY DAY MAP COMPILATION ---
     let dailyGroups = {};
     state.history.forEach(entry => {
@@ -482,6 +485,204 @@ function renderStats() {
             </div>
         `;
     }).join("");
+}
+
+// --- STACKED BAR CHARTS ---
+
+const CATEGORY_COLORS = {
+    "Strength":      "#2563eb",
+    "Core":          "#7c3aed",
+    "Cardio":        "#059669",
+    "Mobility/Yoga": "#db2777",
+    "Other":         "#4b5563"
+};
+
+const STACKED_INTENSITY_COLORS = {
+    "Low":    "#4b5563",
+    "Medium": "#d97706",
+    "High":   "#dc2626",
+    "None":   "#374151"
+};
+
+function buildWeeklyBuckets(history, weeks = 8) {
+    // Returns array of { label, startDate, endDate } for the last N weeks (oldest first)
+    const buckets = [];
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    // Align to start of current week (Monday)
+    const day = now.getDay(); // 0=Sun
+    const diffToMon = (day === 0) ? -6 : 1 - day;
+    const thisMonday = new Date(now);
+    thisMonday.setDate(now.getDate() + diffToMon);
+
+    for (let i = weeks - 1; i >= 0; i--) {
+        const start = new Date(thisMonday);
+        start.setDate(thisMonday.getDate() - i * 7);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+
+        const label = `${start.getMonth()+1}/${start.getDate()}`;
+        buckets.push({ label, startDate: start, endDate: end });
+    }
+
+    // Assign history entries to buckets
+    buckets.forEach(b => {
+        b.entries = history.filter(entry => {
+            const d = new Date(entry.date + "T00:00:00");
+            return d >= b.startDate && d <= b.endDate;
+        });
+    });
+
+    return buckets;
+}
+
+function renderStackedSVG(buckets, stackKeys, colorMap, title) {
+    const width = 400;
+    const height = 180;
+    const padL = 28, padR = 10, padT = 16, padB = 36;
+    const chartW = width - padL - padR;
+    const chartH = height - padT - padB;
+    const barW = Math.floor(chartW / buckets.length * 0.65);
+    const gap  = Math.floor(chartW / buckets.length);
+
+    // Build stacked counts per bucket
+    const stacks = buckets.map(b => {
+        const counts = {};
+        stackKeys.forEach(k => counts[k] = 0);
+        b.entries.forEach(e => {
+            const key = stackKeys.includes(e._stackKey) ? e._stackKey : stackKeys[stackKeys.length - 1];
+            counts[key]++;
+        });
+        const total = Object.values(counts).reduce((s, v) => s + v, 0);
+        return { label: b.label, counts, total };
+    });
+
+    const maxTotal = Math.max(...stacks.map(s => s.total), 1);
+    // Round up to nice grid
+    const gridMax = Math.ceil(maxTotal / 2) * 2 || 2;
+    const gridLines = [0, Math.floor(gridMax / 2), gridMax];
+
+    let svgParts = [];
+
+    // Grid lines + Y labels
+    gridLines.forEach(v => {
+        const y = padT + chartH - (v / gridMax) * chartH;
+        svgParts.push(`<line x1="${padL}" y1="${y}" x2="${width - padR}" y2="${y}" stroke="#374151" stroke-width="0.5" stroke-dasharray="3,3"/>`);
+        svgParts.push(`<text x="${padL - 3}" y="${y + 3}" font-size="8" fill="#9ca3af" text-anchor="end">${v}</text>`);
+    });
+
+    // Bars
+    stacks.forEach((s, i) => {
+        const barX = padL + i * gap + (gap - barW) / 2;
+        let yOffset = padT + chartH;
+
+        stackKeys.forEach(k => {
+            if (s.counts[k] === 0) return;
+            const barH = (s.counts[k] / gridMax) * chartH;
+            yOffset -= barH;
+            const color = colorMap[k] || "#4b5563";
+            svgParts.push(`<rect x="${barX}" y="${yOffset}" width="${barW}" height="${barH}" fill="${color}" rx="1"/>`);
+        });
+
+        // X label
+        svgParts.push(`<text x="${barX + barW / 2}" y="${padT + chartH + 10}" font-size="7.5" fill="#9ca3af" text-anchor="middle">${s.label}</text>`);
+        // Total on top (only if >0)
+        if (s.total > 0) {
+            const topY = padT + chartH - (s.total / gridMax) * chartH - 3;
+            svgParts.push(`<text x="${barX + barW / 2}" y="${topY}" font-size="7" fill="#f3f4f6" text-anchor="middle">${s.total}</text>`);
+        }
+    });
+
+    // Axes
+    svgParts.push(`<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + chartH}" stroke="#374151" stroke-width="1"/>`);
+    svgParts.push(`<line x1="${padL}" y1="${padT + chartH}" x2="${width - padR}" y2="${padT + chartH}" stroke="#374151" stroke-width="1"/>`);
+
+    return `
+        <div class="svg-chart-container" style="margin-bottom: 0.75rem;">
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.35rem; text-align:center;">${title}</div>
+            <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%">
+                ${svgParts.join("\n")}
+            </svg>
+        </div>
+    `;
+}
+
+function renderChartLegend(keys, colorMap) {
+    return `
+        <div style="display:flex; flex-wrap:wrap; gap:0.4rem 0.75rem; justify-content:center; font-size:0.7rem; margin-bottom:0.75rem;">
+            ${keys.map(k => `
+                <span style="display:flex; align-items:center; gap:0.25rem;">
+                    <span style="display:inline-block; width:8px; height:8px; border-radius:2px; background:${colorMap[k] || '#4b5563'};"></span>
+                    ${k}
+                </span>
+            `).join("")}
+        </div>
+    `;
+}
+
+function renderStackedBarCharts() {
+    const container = document.getElementById("stacked-bar-charts-container");
+    if (!container) return;
+
+    if (state.history.length < 2) {
+        container.innerHTML = "";
+        return;
+    }
+
+    const activeTab = container.dataset.activeTab || "intensity";
+
+    // Tab buttons
+    const tabHtml = `
+        <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
+            <button onclick="switchStackedTab('intensity')" class="stacked-tab-btn ${activeTab==='intensity' ? 'active' : ''}" 
+                style="flex:1; padding:0.4rem; border-radius:6px; border:1px solid var(--border); font-size:0.8rem; font-weight:600; cursor:pointer;
+                background:${activeTab==='intensity' ? 'var(--accent)' : 'var(--bg-primary)'}; color:${activeTab==='intensity' ? '#fff' : 'var(--text-muted)'};">
+                By Intensity
+            </button>
+            <button onclick="switchStackedTab('category')" class="stacked-tab-btn ${activeTab==='category' ? 'active' : ''}"
+                style="flex:1; padding:0.4rem; border-radius:6px; border:1px solid var(--border); font-size:0.8rem; font-weight:600; cursor:pointer;
+                background:${activeTab==='category' ? 'var(--accent)' : 'var(--bg-primary)'}; color:${activeTab==='category' ? '#fff' : 'var(--text-muted)'};">
+                By Category
+            </button>
+        </div>
+    `;
+
+    const buckets = buildWeeklyBuckets(state.history, 8);
+
+    let chartHtml = "";
+
+    if (activeTab === "intensity") {
+        const intensityKeys = ["High", "Medium", "Low", "None"];
+        // Tag each entry with its stack key
+        buckets.forEach(b => b.entries.forEach(e => {
+            e._stackKey = (e.intensity && STACKED_INTENSITY_COLORS[e.intensity]) ? e.intensity : "None";
+        }));
+        chartHtml += renderStackedSVG(buckets, intensityKeys, STACKED_INTENSITY_COLORS, "Weekly Exercise Count — by Intensity");
+        chartHtml += renderChartLegend(intensityKeys, STACKED_INTENSITY_COLORS);
+    } else {
+        // Get all categories present in exercises, preserving known order
+        const knownOrder = ["Strength", "Core", "Cardio", "Mobility/Yoga"];
+        const allCats = [...new Set(state.exercises.map(e => e.category || "Other"))];
+        const categoryKeys = [...knownOrder.filter(c => allCats.includes(c)), ...allCats.filter(c => !knownOrder.includes(c))];
+        if (!CATEGORY_COLORS["Other"]) categoryKeys.forEach(k => { if (!CATEGORY_COLORS[k]) CATEGORY_COLORS[k] = "#4b5563"; });
+
+        // Tag each entry with its category
+        buckets.forEach(b => b.entries.forEach(e => {
+            const ex = state.exercises.find(x => x.name === e.exerciseName);
+            e._stackKey = (ex && ex.category) ? ex.category : "Other";
+        }));
+        chartHtml += renderStackedSVG(buckets, categoryKeys, CATEGORY_COLORS, "Weekly Exercise Count — by Category");
+        chartHtml += renderChartLegend(categoryKeys, CATEGORY_COLORS);
+    }
+
+    container.innerHTML = tabHtml + chartHtml;
+}
+
+function switchStackedTab(tab) {
+    const container = document.getElementById("stacked-bar-charts-container");
+    if (!container) return;
+    container.dataset.activeTab = tab;
+    renderStackedBarCharts();
 }
 
 // --- ORGANIZED APP EVENT LISTENER ATTACHMENTS ---
