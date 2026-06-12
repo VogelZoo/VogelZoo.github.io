@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Engineered Exercise</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Engineered Exercise</h1>
+        <nav>
+            <button onclick="switchView('track')" class="nav-btn active" id="nav-track">Track</button>
+            <button onclick="switchView('plan')" class="nav-btn" id="nav-plan">Plan</button>
+            <button onclick="switchView('stats')" class="nav-btn" id="nav-stats">Stats</button>
+            <button onclick="switchView('settings')" class="nav-btn" id="nav-settings">Data</button>
+        </nav>
+    </header>
+
+    <main class="container">
+        <section id="view-track" class="view">
+            <div class="card suggestion-box" id="today-suggestion">
+                </div>
+
+            <div class="card">
+                <h2>Log Exercise</h2>
+                <form id="log-form">
+                    <div class="form-group">
+                        <label for="exercise-select">Exercise</label>
+                        <select id="exercise-select" required>
+                            </select>
+                    </div>
+
+                    <div id="dynamic-fields-container"></div>
+
+                    <button type="submit" class="btn btn-primary">Save Entry</button>
+                </form>
+            </div>
+        </section>
+
+        <section id="view-plan" class="view hidden">
+            <div class="card">
+                <h2>Schedule Your Routine</h2>
+                <form id="plan-form">
+                    <div class="form-group">
+                        <label for="plan-exercise">Exercise</label>
+                        <select id="plan-exercise" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="schedule-type">Schedule Type</label>
+                        <select id="schedule-type" onchange="toggleScheduleInputs()">
+                            <option value="weekly">Day of Week</option>
+                            <option value="interval">Interval (Days)</option>
+                        </select>
+                    </div>
+                    <div id="weekly-inputs" class="form-group">
+                        <label for="plan-day">Day</label>
+                        <select id="plan-day">
+                            <option value="1">Monday</option>
+                            <option value="2">Tuesday</option>
+                            <option value="3">Wednesday</option>
+                            <option value="4">Thursday</option>
+                            <option value="5">Friday</option>
+                            <option value="6">Saturday</option>
+                            <option value="0">Sunday</option>
+                        </select>
+                    </div>
+                    <div id="interval-inputs" class="form-group hidden">
+                        <div class="form-row">
+                            <div>
+                                <label for="plan-interval">Every X Days</label>
+                                <input type="number" id="plan-interval" min="1" placeholder="3">
+                            </div>
+                            <div>
+                                <label for="plan-start-date">Start Date</label>
+                                <input type="date" id="plan-start-date">
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success">Add to Plan</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>Active Plans</h3>
+                <ul id="plan-list" class="list-group"></ul>
+            </div>
+        </section>
+
+        <section id="view-stats" class="view hidden">
+            <div class="card">
+                <h2>Progress Insight</h2>
+                <div id="stats-summary"></div>
+            </div>
+            <div class="card">
+                <h3>Recent History</h3>
+                <ul id="history-list" class="list-group"></ul>
+            </div>
+        </section>
+
+        <section id="view-settings" class="view hidden">
+            <div class="card">
+                <h2>Add Custom Exercise</h2>
+                <form id="custom-exercise-form">
+                    <div class="form-group">
+                        <label for="new-ex-name">Name</label>
+                        <input type="text" id="new-ex-name" required placeholder="e.g., Romanian Deadlift">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-ex-template">Tracking Template</label>
+                        <select id="new-ex-template" required>
+                            <option value="strength">Sets, Reps, Weight</option>
+                            <option value="duration-reps">Sets, Time</option>
+                            <option value="cardio">Distance, Time</option>
+                            <option value="yoga">Time</option>
+                            <option value="hybrid">Sets, Weight, Time</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create Exercise</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2>Manage App Data</h2>
+                <p class="text-muted">Backup your data or import history from another device.</p>
+                <div class="form-row">
+                    <button onclick="exportData()" class="btn btn-secondary">Export Backup (JSON)</button>
+                    <label class="btn btn-secondary text-center">
+                        Import Backup
+                        <input type="file" id="import-file" accept=".json" onchange="importData(event)" style="display:none;">
+                    </label>
+                </div>
+            </div>
+        </section>
+    </main>
+    <script src="app.js"></script>
+</body>
+</html>
