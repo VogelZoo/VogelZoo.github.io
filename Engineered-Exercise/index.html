@@ -30,15 +30,15 @@
                 <h2 id="form-title">Log Exercise</h2>
                 <form id="log-form">
                     <input type="hidden" id="edit-entry-id" value="">
-                    <!-- Inside your Log Workout / Entry Form Card -->
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-                        <div class="form-group" style="margin-bottom: 0;">
+                    
+                    <div style="display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="form-group" style="flex: 1; min-width: 130px; margin-bottom: 0;">
                             <label for="log-date">Date</label>
-                            <input type="date" id="log-date" required style="width: 100%; box-sizing: border-box;">
+                            <input type="date" id="log-date" required style="width: 100%; box-sizing: border-box; height: 40px;">
                         </div>
-                        <div class="form-group" style="margin-bottom: 0;">
+                        <div class="form-group" style="flex: 1; min-width: 130px; margin-bottom: 0;">
                             <label for="log-intensity">Intensity</label>
-                            <select id="log-intensity" style="width: 100%; box-sizing: border-box;">
+                            <select id="log-intensity" style="width: 100%; box-sizing: border-box; height: 40px;">
                                 <option value="Low">Low</option>
                                 <option value="Medium" selected>Medium</option>
                                 <option value="High">High</option>
