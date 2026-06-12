@@ -19,16 +19,26 @@
 
     <main class="container">
         <section id="view-track" class="view">
-            <div class="card suggestion-box" id="today-suggestion">
-                </div>
+            <div class="card suggestion-box" id="today-suggestion"></div>
+
+            <div class="card">
+                <h3>7-Day Horizon</h3>
+                <div class="calendar-horizon" id="calendar-horizon-view">
+                    </div>
+            </div>
 
             <div class="card">
                 <h2>Log Exercise</h2>
                 <form id="log-form">
-                    <div class="form-group">
-                        <label for="exercise-select">Exercise</label>
-                        <select id="exercise-select" required>
-                            </select>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="exercise-select">Exercise</label>
+                            <select id="exercise-select" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="log-date">Date</label>
+                            <input type="date" id="log-date" required>
+                        </div>
                     </div>
 
                     <div id="dynamic-fields-container"></div>
@@ -82,8 +92,8 @@
             </div>
 
             <div class="card">
-                <h3>Active Plans</h3>
-                <ul id="plan-list" class="list-group"></ul>
+                <h3>Organized Schedule</h3>
+                <div id="organized-plan-view"></div>
             </div>
         </section>
 
@@ -107,14 +117,15 @@
                         <input type="text" id="new-ex-name" required placeholder="e.g., Romanian Deadlift">
                     </div>
                     <div class="form-group">
-                        <label for="new-ex-template">Tracking Template</label>
-                        <select id="new-ex-template" required>
-                            <option value="strength">Sets, Reps, Weight</option>
-                            <option value="duration-reps">Sets, Time</option>
-                            <option value="cardio">Distance, Time</option>
-                            <option value="yoga">Time</option>
-                            <option value="hybrid">Sets, Weight, Time</option>
-                        </select>
+                        <label>Metrics to Track:</label>
+                        <div class="checkbox-grid">
+                            <label class="checkbox-label"><input type="checkbox" name="metric" value="sets"> Sets</label>
+                            <label class="checkbox-label"><input type="checkbox" name="metric" value="reps"> Reps</label>
+                            <label class="checkbox-label"><input type="checkbox" name="metric" value="weight"> Weight</label>
+                            <label class="checkbox-label"><input type="checkbox" name="metric" value="timeSeconds"> Time (Secs)</label>
+                            <label class="checkbox-label"><input type="checkbox" name="metric" value="timeMinutes"> Time (Mins)</label>
+                            <label class="checkbox-label"><input type="checkbox" name="metric" value="distance"> Distance</label>
+                        </div>
                     </div>
                     <button type="submit" class="btn btn-primary">Create Exercise</button>
                 </form>
