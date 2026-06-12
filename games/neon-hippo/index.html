@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>NEON HIPPOS // GRID WAR</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cyan:    #00f5ff;
+    --magenta: #ff00aa;
+    --yellow:  #ffee00;
+    --green:   #00ff88;
+    --dark:    #050810;
+    --dark2:   #0a1020;
+    --p0: #00f5ff;   /* TL */
+    --p1: #ff00aa;   /* TR */
+    --p2: #00ff88;   /* BL */
+    --p3: #ffee00;   /* BR */
+    --g0: 0 0 10px #00f5ff, 0 0 24px #00f5ff55;
+    --g1: 0 0 10px #ff00aa, 0 0 24px #ff00aa55;
+    --g2: 0 0 10px #00ff88, 0 0 24px #00ff8855;
+    --g3: 0 0 10px #ffee00, 0 0 24px #ffee0055;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  html, body {
+    width:100%; height:100%;
+    background: var(--dark);
+    font-family: 'Share Tech Mono', monospace;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: none;
+  }
+
+  /* ── Full-screen canvas layer ── */
+  #game-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* ── Corner tap zones ── */
+  .corner-btn {
+    position: fixed;
+    width: 28vmin;
+    height: 28vmin;
+    max-width: 180px;
+    max-height: 180px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border: 2px solid;
+    background: rgba(5,8,16,0.55);
+    cursor: pointer;
+    z-index: 20;
+    transition: background 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .corner-btn:active { background: rgba(255,255,255,0.08); }
+
+  #btn-tl { top:0; left:0;
+    clip-path: polygon(0 0, 100% 0, 100% 80%, 80% 100%, 0 100%);
+    border-color: var(--p0); box-shadow: var(--g0); }
+  #btn-tr { top:0; right:0;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 20% 100%, 0 80%);
+    border-color: var(--p1); box-shadow: var(--g1); }
+  #btn-bl { bottom:0; left:0;
+    clip-path: polygon(0 0, 80% 0, 100% 20%, 100% 100%, 0 100%);
+    border-color: var(--p2); box-shadow: var(--g2); }
+  #btn-br { bottom:0; right:0;
+    clip-path: polygon(20% 0, 100% 0, 100% 100%, 0 100%, 0 20%);
+    border-color: var(--p3); box-shadow: var(--g3); }
+
+  .btn-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(0.55rem, 2vmin, 0.85rem);
+    font-weight: 700;
+    letter-spacing: 0.15em;
+  }
+  .btn-score {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(1rem, 4vmin, 1.8rem);
+    font-weight: 900;
+    line-height: 1;
+  }
+  .btn-sub { font-size: clamp(0.4rem, 1.4vmin, 0.6rem); opacity: 0.55; letter-spacing: 0.1em; }
+
+  #btn-tl .btn-label, #btn-tl .btn-score { color: var(--p0); text-shadow: var(--g0); }
+  #btn-tr .btn-label, #btn-tr .btn-score { color: var(--p1); text-shadow: var(--g1); }
+  #btn-bl .btn-label, #btn-bl .btn-score { color: var(--p2); text-shadow: var(--g2); }
+  #btn-br .btn-label, #btn-br .btn-score { color: var(--p3); text-shadow: var(--g3); }
+
+  /* Active flash ring */
+  .corner-btn.flash { animation: corner-flash 0.12s ease-out; }
+  @keyframes corner-flash {
+    0%   { background: rgba(255,255,255,0.18); }
+    100% { background: rgba(5,8,16,0.55); }
+  }
+
+  /* ── Centre status ── */
+  #status-wrap {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+    z-index: 30;
+  }
+
+  #status-text {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(0.6rem, 2vmin, 0.9rem);
+    letter-spacing: 0.25em;
+    color: rgba(0,245,255,0.55);
+    text-shadow: 0 0 10px rgba(0,245,255,0.3);
+    white-space: nowrap;
+  }
+
+  #balls-left {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(1.2rem, 5vmin, 2.4rem);
+    font-weight: 900;
+    color: var(--yellow);
+    text-shadow: 0 0 12px var(--yellow);
+    line-height: 1;
+    margin-top: 2px;
+  }
+
+  /* ── Overlay ── */
+  .overlay {
+    position: fixed; inset:0;
+    background: rgba(5,8,16,0.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .overlay.show { display:flex; }
+
+  .modal {
+    border: 1px solid var(--cyan);
+    background: var(--dark2);
+    padding: 28px 36px;
+    box-shadow: 0 0 8px #00f5ff, 0 0 40px #00f5ff33, 0 0 80px #00f5ff15;
+    clip-path: polygon(0 0, calc(100%-20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100%-20px));
+    text-align: center;
+    max-width: min(90vw, 400px);
+    width: 100%;
+  }
+
+  .modal-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(1.2rem, 4vw, 2rem);
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    background: linear-gradient(90deg, var(--cyan), var(--magenta), var(--green), var(--yellow));
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s linear infinite;
+    margin-bottom: 6px;
+  }
+
+  @keyframes shimmer { 0%{background-position:0%}100%{background-position:200%} }
+
+  .modal-sub {
+    font-size: clamp(0.5rem, 1.5vw, 0.7rem);
+    letter-spacing: 0.35em;
+    color: var(--yellow);
+    text-shadow: 0 0 8px var(--yellow);
+    margin-bottom: 20px;
+  }
+
+  .winner-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .winner-disc {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .winner-name {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(0.9rem, 2.5vw, 1.3rem);
+    font-weight: 700;
+  }
+
+  .final-scores {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 22px;
+  }
+
+  .fs-cell {
+    padding: 8px 10px;
+    border: 1px solid;
+    background: rgba(255,255,255,0.03);
+    clip-path: polygon(0 0, calc(100%-6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100%-6px));
+  }
+  .fs-name { font-size: 0.55rem; letter-spacing: 0.2em; opacity: 0.7; margin-bottom: 2px; }
+  .fs-val  { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; font-weight:900; }
+
+  .action-btn {
+    padding: 10px 28px;
+    border: 1px solid var(--cyan);
+    background: transparent;
+    color: var(--cyan);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.68rem;
+    letter-spacing: 0.3em;
+    cursor: pointer;
+    clip-path: polygon(8px 0, 100% 0, calc(100%-8px) 100%, 0 100%);
+    transition: all 0.2s;
+    text-shadow: 0 0 8px #00f5ff;
+    box-shadow: 0 0 8px #00f5ff, 0 0 20px #00f5ff55;
+  }
+  .action-btn:hover { background: rgba(0,245,255,0.1); transform: scale(1.03); }
+</style>
+</head>
+<body>
+
+<canvas id="game-canvas"></canvas>
+
+<!-- Corner tap zones -->
+<div class="corner-btn" id="btn-tl" data-p="0">
+  <div class="btn-label">CYAN</div>
+  <div class="btn-score" id="score-0">0</div>
+  <div class="btn-sub">TAP!</div>
+</div>
+<div class="corner-btn" id="btn-tr" data-p="1">
+  <div class="btn-label">MAGENTA</div>
+  <div class="btn-score" id="score-1">0</div>
+  <div class="btn-sub">TAP!</div>
+</div>
+<div class="corner-btn" id="btn-bl" data-p="2">
+  <div class="btn-label">GREEN</div>
+  <div class="btn-score" id="score-2">0</div>
+  <div class="btn-sub">TAP!</div>
+</div>
+<div class="corner-btn" id="btn-br" data-p="3">
+  <div class="btn-label">YELLOW</div>
+  <div class="btn-score" id="score-3">0</div>
+  <div class="btn-sub">TAP!</div>
+</div>
+
+<!-- Centre display -->
+<div id="status-wrap">
+  <div id="status-text">GRID WAR PROTOCOL</div>
+  <div id="balls-left"></div>
+</div>
+
+<!-- Overlay -->
+<div class="overlay show" id="overlay">
+  <div class="modal">
+    <div class="modal-title">HUNGRY HIPPOS</div>
+    <div class="modal-sub">// GRID WAR PROTOCOL //</div>
+    <div style="font-size:clamp(0.5rem,1.5vw,0.68rem);letter-spacing:0.18em;opacity:0.65;line-height:2;margin-bottom:22px;color:#ccd6f6">
+      4 PLAYERS — ONE PER CORNER<br>
+      TAP YOUR CORNER TO LAUNCH<br>
+      COLLECT BALLS BEFORE OTHERS<br>
+      MOST BALLS WINS
+    </div>
+    <button class="action-btn" onclick="startGame()">// ENGAGE //</button>
+  </div>
+</div>
+
+<!-- Game Over overlay -->
+<div class="overlay" id="gameover-overlay">
+  <div class="modal">
+    <div class="modal-title">GAME OVER</div>
+    <div class="modal-sub" id="go-sub">// PROTOCOL TERMINATED //</div>
+    <div class="winner-row" id="go-winner-row"></div>
+    <div class="final-scores" id="go-scores"></div>
+    <button class="action-btn" onclick="startGame()">// PLAY AGAIN //</button>
+  </div>
+</div>
+
+<script>
+// ===================== CONFIG =====================
+const COLORS  = ['#00f5ff','#ff00aa','#00ff88','#ffee00'];
+const GLOWS   = ['#00f5ff','#ff00aa','#00ff88','#ffee00'];
+const NAMES   = ['CYAN','MAGENTA','GREEN','YELLOW'];
+const TOTAL_BALLS = 30;
+const BALL_R  = 0; // computed
+const HIPPO_REACH = 0; // computed
+const NECK_SPEED  = 14; // px per frame at launch
+const RETRACT_SPD = 12;
+const BALL_SPEED_MIN = 1.2;
+const BALL_SPEED_MAX = 3.2;
+
+// Hippo corner positions (normalised 0-1)
+const CORNERS = [
+  {nx:0, ny:0}, // TL - p0
+  {nx:1, ny:0}, // TR - p1
+  {nx:0, ny:1}, // BL - p2
+  {nx:1, ny:1}, // BR - p3
+];
+
+// ===================== STATE =====================
+let W, H, ballR, hippoR, neckMaxLen;
+let balls, hippos, scores, frameId, gameRunning, ballsRemaining;
+
+const canvas = document.getElementById('game-canvas');
+const ctx    = canvas.getContext('2d');
+
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  ballR      = Math.max(7, Math.min(W, H) * 0.022);
+  hippoR     = Math.max(30, Math.min(W, H) * 0.09);
+  neckMaxLen = Math.min(W, H) * 0.28;
+}
+
+window.addEventListener('resize', () => { resize(); if (!gameRunning) drawIdle(); });
+
+// ===================== GAME INIT =====================
+function startGame() {
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('gameover-overlay').classList.remove('show');
+  resize();
+
+  scores = [0, 0, 0, 0];
+  ballsRemaining = TOTAL_BALLS;
+
+  // Spawn balls in the centre region
+  balls = [];
+  for (let i = 0; i < TOTAL_BALLS; i++) spawnBall();
+
+  // Init hippos
+  hippos = CORNERS.map((c, i) => ({
+    id: i,
+    // anchor = corner of screen (slightly inset)
+    ax: c.nx === 0 ? hippoR * 0.55 : W - hippoR * 0.55,
+    ay: c.ny === 0 ? hippoR * 0.55 : H - hippoR * 0.55,
+    // current neck tip
+    tx: 0, ty: 0,
+    neckLen: 0,
+    maxLen: neckMaxLen,
+    extending: false,
+    retracting: false,
+    eating: false,
+    mouthOpen: 0, // 0-1 open fraction
+    cooldown: 0,
+  }));
+
+  // Position neck tips at anchor initially
+  hippos.forEach(h => { h.tx = h.ax; h.ty = h.ay; });
+
+  gameRunning = true;
+  updateScoreUI();
+  updateStatus();
+
+  cancelAnimationFrame(frameId);
+  frameId = requestAnimationFrame(gameLoop);
+}
+
+function spawnBall() {
+  const cx = W / 2, cy = H / 2;
+  const spread = Math.min(W, H) * 0.28;
+  let x, y, tries = 0;
+  do {
+    const a = Math.random() * Math.PI * 2;
+    const r = spread * (0.15 + Math.random() * 0.85);
+    x = cx + Math.cos(a) * r;
+    y = cy + Math.sin(a) * r;
+    tries++;
+  } while (tries < 20 && balls.some(b => dist(b.x, b.y, x, y) < ballR * 3));
+
+  const angle = Math.random() * Math.PI * 2;
+  const speed = BALL_SPEED_MIN + Math.random() * (BALL_SPEED_MAX - BALL_SPEED_MIN);
+  balls.push({
+    x, y,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    hue: Math.random() * 360,
+    r: ballR * (0.85 + Math.random() * 0.3),
+    eaten: false,
+  });
+}
+
+// ===================== GAME LOOP =====================
+function gameLoop() {
+  if (!gameRunning) return;
+  update();
+  draw();
+  frameId = requestAnimationFrame(gameLoop);
+}
+
+function update() {
+  // Move balls
+  const margin = Math.min(W, H) * 0.18; // keep balls in central area roughly
+  balls.forEach(b => {
+    if (b.eaten) return;
+    b.x += b.vx;
+    b.y += b.vy;
+    // Bounce off centre region walls (soft containment)
+    const cx = W/2, cy = H/2, zone = Math.min(W,H)*0.38;
+    if (b.x - b.r < cx - zone) { b.vx = Math.abs(b.vx); }
+    if (b.x + b.r > cx + zone) { b.vx = -Math.abs(b.vx); }
+    if (b.y - b.r < cy - zone) { b.vy = Math.abs(b.vy); }
+    if (b.y + b.r > cy + zone) { b.vy = -Math.abs(b.vy); }
+    // Ball-ball collisions (simple)
+    balls.forEach(b2 => {
+      if (b2 === b || b2.eaten) return;
+      const d = dist(b.x, b.y, b2.x, b2.y);
+      if (d < b.r + b2.r && d > 0) {
+        const nx = (b2.x - b.x) / d, ny = (b2.y - b.y) / d;
+        const overlap = (b.r + b2.r - d) / 2;
+        b.x -= nx * overlap; b.y -= ny * overlap;
+        b2.x += nx * overlap; b2.y += ny * overlap;
+        const dot = (b.vx - b2.vx) * nx + (b.vy - b2.vy) * ny;
+        if (dot > 0) {
+          b.vx -= dot * nx; b.vy -= dot * ny;
+          b2.vx += dot * nx; b2.vy += dot * ny;
+        }
+      }
+    });
+  });
+
+  // Update hippos
+  hippos.forEach(h => {
+    if (h.cooldown > 0) h.cooldown--;
+
+    // Direction from anchor toward centre
+    const dx = W/2 - h.ax, dy = H/2 - h.ay;
+    const dlen = Math.sqrt(dx*dx + dy*dy);
+    const ux = dx/dlen, uy = dy/dlen;
+
+    if (h.extending) {
+      h.neckLen = Math.min(h.neckLen + NECK_SPEED, h.maxLen);
+      h.tx = h.ax + ux * h.neckLen;
+      h.ty = h.ay + uy * h.neckLen;
+      h.mouthOpen = 1;
+
+      // Check eat
+      balls.forEach(b => {
+        if (b.eaten) return;
+        if (dist(h.tx, h.ty, b.x, b.y) < h.neckLen > hippoR * 0.8 ? ballR * 3.5 : ballR * 2.2) {
+          // Head sweep collision
+          if (dist(h.tx, h.ty, b.x, b.y) < ballR * 3.2) {
+            b.eaten = true;
+            scores[h.id]++;
+            ballsRemaining--;
+            updateScoreUI();
+            flashCorner(h.id);
+            // Check win
+            if (ballsRemaining <= 0) { setTimeout(endGame, 400); }
+          }
+        }
+      });
+
+      if (h.neckLen >= h.maxLen) { h.extending = false; h.retracting = true; }
+    } else if (h.retracting) {
+      h.neckLen = Math.max(h.neckLen - RETRACT_SPD, 0);
+      h.tx = h.ax + ux * h.neckLen;
+      h.ty = h.ay + uy * h.neckLen;
+      h.mouthOpen = h.neckLen / h.maxLen;
+      if (h.neckLen <= 0) { h.retracting = false; h.mouthOpen = 0; h.cooldown = 8; }
+    }
+  });
+
+  updateStatus();
+}
+
+// ===================== DRAW =====================
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = '#050810';
+  ctx.fillRect(0, 0, W, H);
+
+  // Arena circle
+  const cx = W/2, cy = H/2, aR = Math.min(W,H)*0.38;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, aR, 0, Math.PI*2);
+  ctx.strokeStyle = 'rgba(0,245,255,0.12)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(0,245,255,0.02)';
+  ctx.fill();
+  // Inner ring
+  ctx.beginPath(); ctx.arc(cx, cy, aR*0.5, 0, Math.PI*2);
+  ctx.strokeStyle = 'rgba(0,245,255,0.06)';
+  ctx.stroke();
+  ctx.restore();
+
+  // Draw balls
+  balls.forEach(b => {
+    if (b.eaten) return;
+    ctx.save();
+    ctx.shadowColor = `hsl(${b.hue},100%,65%)`;
+    ctx.shadowBlur = 14;
+    const grad = ctx.createRadialGradient(b.x - b.r*0.3, b.y - b.r*0.3, b.r*0.1, b.x, b.y, b.r);
+    grad.addColorStop(0, `hsl(${b.hue},80%,85%)`);
+    grad.addColorStop(1, `hsl(${b.hue},100%,50%)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  });
+
+  // Draw hippos
+  hippos.forEach(h => drawHippo(h));
+}
+
+function drawHippo(h) {
+  const dx = W/2 - h.ax, dy = H/2 - h.ay;
+  const dlen = Math.sqrt(dx*dx + dy*dy);
+  const ux = dx/dlen, uy = dy/dlen;
+  const col  = COLORS[h.id];
+  const glow = GLOWS[h.id];
+
+  ctx.save();
+  ctx.shadowColor = col;
+
+  // Neck (tube from anchor toward tip)
+  if (h.neckLen > 2) {
+    const neckW = hippoR * 0.38;
+    const px = -uy, py = ux; // perpendicular
+    ctx.beginPath();
+    ctx.moveTo(h.ax + px*neckW, h.ay + py*neckW);
+    ctx.lineTo(h.tx + px*neckW*0.7, h.ty + py*neckW*0.7);
+    ctx.lineTo(h.tx - px*neckW*0.7, h.ty - py*neckW*0.7);
+    ctx.lineTo(h.ax - px*neckW, h.ay - py*neckW);
+    ctx.closePath();
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = col + '55';
+    ctx.fill();
+    ctx.strokeStyle = col + 'aa';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  // Body (anchor circle)
+  ctx.shadowBlur = 16;
+  const bodyGrad = ctx.createRadialGradient(
+    h.ax - ux*hippoR*0.3, h.ay - uy*hippoR*0.3, hippoR*0.1,
+    h.ax, h.ay, hippoR
+  );
+  bodyGrad.addColorStop(0, col + 'cc');
+  bodyGrad.addColorStop(1, col + '33');
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath(); ctx.arc(h.ax, h.ay, hippoR, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 2;
+  ctx.shadowBlur = 8;
+  ctx.stroke();
+
+  // Head (tip)
+  const headR = hippoR * 0.48;
+  ctx.shadowBlur = 20;
+  const headGrad = ctx.createRadialGradient(
+    h.tx - ux*headR*0.3, h.ty - uy*headR*0.3, headR*0.1,
+    h.tx, h.ty, headR
+  );
+  headGrad.addColorStop(0, col);
+  headGrad.addColorStop(1, col + '88');
+  ctx.fillStyle = headGrad;
+  ctx.beginPath(); ctx.arc(h.tx, h.ty, headR, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Mouth (open arc)
+  if (h.mouthOpen > 0.05) {
+    const mAngle = h.mouthOpen * 0.55;
+    const baseAngle = Math.atan2(uy, ux);
+    ctx.shadowBlur = 12;
+    ctx.strokeStyle = '#fff8';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(h.tx, h.ty, headR * 0.65, baseAngle + Math.PI - mAngle, baseAngle + Math.PI + mAngle);
+    ctx.stroke();
+    // Teeth
+    ctx.shadowBlur = 4;
+    ctx.fillStyle = '#ffffffcc';
+    const toothA1 = baseAngle + Math.PI - mAngle * 0.5;
+    const toothA2 = baseAngle + Math.PI + mAngle * 0.5;
+    [toothA1, toothA2].forEach(a => {
+      const tx2 = h.tx + Math.cos(a) * headR * 0.62;
+      const ty2 = h.ty + Math.sin(a) * headR * 0.62;
+      ctx.beginPath(); ctx.arc(tx2, ty2, headR*0.1, 0, Math.PI*2); ctx.fill();
+    });
+  }
+
+  // Eyes on body
+  const eyeOff = hippoR * 0.35;
+  const ex1 = h.ax + ux*eyeOff*0.6 - uy*eyeOff*0.7;
+  const ey1 = h.ay + uy*eyeOff*0.6 + ux*eyeOff*0.7;
+  const ex2 = h.ax + ux*eyeOff*0.6 + uy*eyeOff*0.7;
+  const ey2 = h.ay + uy*eyeOff*0.6 - ux*eyeOff*0.7;
+  ctx.shadowBlur = 6;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(ex1, ey1, hippoR*0.1, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(ex2, ey2, hippoR*0.1, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#001820';
+  ctx.beginPath(); ctx.arc(ex1+ux*2, ey1+uy*2, hippoR*0.055, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(ex2+ux*2, ey2+uy*2, hippoR*0.055, 0, Math.PI*2); ctx.fill();
+
+  // Score badge on body
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = col;
+  ctx.font = `bold ${Math.round(hippoR*0.38)}px Orbitron, monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(scores[h.id], h.ax, h.ay);
+
+  ctx.restore();
+}
+
+function drawIdle() {
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#050810'; ctx.fillRect(0,0,W,H);
+  const cx=W/2,cy=H/2,aR=Math.min(W,H)*0.38;
+  ctx.beginPath(); ctx.arc(cx,cy,aR,0,Math.PI*2);
+  ctx.strokeStyle='rgba(0,245,255,0.1)'; ctx.lineWidth=1; ctx.stroke();
+}
+
+// ===================== INPUT =====================
+function hippoTap(pid) {
+  if (!gameRunning) return;
+  const h = hippos[pid];
+  if (h.cooldown > 0 || h.extending || h.retracting) return;
+  h.extending = true;
+  h.neckLen = 0;
+}
+
+function flashCorner(pid) {
+  const ids = ['btn-tl','btn-tr','btn-bl','btn-br'];
+  const btn = document.getElementById(ids[pid]);
+  btn.classList.remove('flash');
+  void btn.offsetWidth;
+  btn.classList.add('flash');
+  setTimeout(() => btn.classList.remove('flash'), 140);
+}
+
+// Bind corner buttons — both touch and mouse
+['btn-tl','btn-tr','btn-bl','btn-br'].forEach((id, i) => {
+  const btn = document.getElementById(id);
+  btn.addEventListener('touchstart', e => { e.preventDefault(); hippoTap(i); }, {passive:false});
+  btn.addEventListener('mousedown',  e => { e.preventDefault(); hippoTap(i); });
+});
+
+// ===================== END =====================
+function endGame() {
+  gameRunning = false;
+  cancelAnimationFrame(frameId);
+
+  const max = Math.max(...scores);
+  const winners = scores.map((s,i) => s===max?i:-1).filter(i=>i>=0);
+
+  // Build winner row
+  const wRow = document.getElementById('go-winner-row');
+  wRow.innerHTML = '';
+  winners.forEach(wi => {
+    const disc = document.createElement('div');
+    disc.className = 'winner-disc';
+    disc.style.background = COLORS[wi];
+    disc.style.boxShadow = `0 0 14px ${COLORS[wi]}`;
+    wRow.appendChild(disc);
+    const nm = document.createElement('div');
+    nm.className = 'winner-name';
+    nm.style.color = COLORS[wi];
+    nm.style.textShadow = `0 0 10px ${COLORS[wi]}`;
+    nm.textContent = NAMES[wi] + (winners.length > 1 ? '' : ' WINS');
+    wRow.appendChild(nm);
+  });
+
+  document.getElementById('go-sub').textContent =
+    winners.length > 1 ? '// TIE — SHARED DOMINANCE //' : '// GRID DOMINATED //';
+
+  // Final scores
+  const scDiv = document.getElementById('go-scores');
+  scDiv.innerHTML = '';
+  scores.forEach((s,i) => {
+    const cell = document.createElement('div');
+    cell.className = 'fs-cell';
+    cell.style.borderColor = COLORS[i] + '88';
+    cell.innerHTML = `<div class="fs-name" style="color:${COLORS[i]}">${NAMES[i]}</div>
+                      <div class="fs-val" style="color:${COLORS[i]};text-shadow:0 0 8px ${COLORS[i]}">${s}</div>`;
+    scDiv.appendChild(cell);
+  });
+
+  document.getElementById('gameover-overlay').classList.add('show');
+}
+
+// ===================== UI =====================
+function updateScoreUI() {
+  scores.forEach((s,i) => {
+    document.getElementById(`score-${i}`).textContent = s;
+  });
+}
+
+function updateStatus() {
+  if (!gameRunning) return;
+  document.getElementById('status-text').textContent = 'BALLS REMAINING';
+  document.getElementById('balls-left').textContent = Math.max(0, ballsRemaining);
+}
+
+// ===================== HELPERS =====================
+function dist(x1,y1,x2,y2) { return Math.sqrt((x2-x1)**2+(y2-y1)**2); }
+
+// ===================== BOOT =====================
+resize();
+drawIdle();
+</script>
+</body>
+</html>
