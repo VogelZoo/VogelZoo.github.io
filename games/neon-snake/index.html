@@ -631,7 +631,7 @@ window.addEventListener('keydown', e => {
   const nd = map[e.key];
   if (nd) {
     e.preventDefault();
-    if (!running) { startGame(); return; }
+    if (!running) return;
     // No U-turn
     if (nd.x !== -dir.x || nd.y !== -dir.y) nextDir = nd;
   }
@@ -656,13 +656,11 @@ canvas.addEventListener('touchend', e => {
   // Minimum swipe distance (scaled with cell size)
   const minSwipe = cellSize * 0.8;
   if (absDx < minSwipe && absDy < minSwipe) {
-    // Tap — start/restart if not running
-    if (!running) startGame();
     touchStart = null;
     return;
   }
 
-  if (!running) { startGame(); touchStart = null; return; }
+  if (!running) { touchStart = null; return; }
 
   let nd;
   if (absDx > absDy) nd = dx > 0 ? {x:1,y:0} : {x:-1,y:0};
@@ -687,7 +685,7 @@ document.addEventListener('touchend', e => {
   const absDx = Math.abs(dx), absDy = Math.abs(dy);
   const minSwipe = 30;
   if (absDx < minSwipe && absDy < minSwipe) { touchStart = null; return; }
-  if (!running) { startGame(); touchStart = null; return; }
+  if (!running) { touchStart = null; return; }
   let nd;
   if (absDx > absDy) nd = dx > 0 ? {x:1,y:0} : {x:-1,y:0};
   else                nd = dy > 0 ? {x:0,y:1} : {x:0,y:-1};
