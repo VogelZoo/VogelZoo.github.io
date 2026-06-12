@@ -604,7 +604,7 @@ function renderPlanList() {
                 ${dayPlans.length === 0 ? '<p class="text-muted" style="font-size:0.8rem; padding:0.25rem 0;">Rest Day</p>' : '<ul class="list-group">'}
                 ${dayPlans.map(plan => `
                     <li class="list-group-item">
-                        <span>${getCategoryEmoji(exercise.category)} ${plan.exercise}</span>
+                        <span>${getCategoryEmoji(state.exercises.find(e => e.name === plan.exercies) || {}).category)} ${plan.exercise}</span>
                         <button onclick="deletePlan(${plan.id})" class="badge" style="background:#dc2626; border:none; color:white; cursor:pointer;">X</button>
                     </li>
                 `).join("")}
