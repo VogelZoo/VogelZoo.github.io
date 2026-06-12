@@ -281,7 +281,7 @@ function initEditEntry(id) {
     document.getElementById("form-title").innerText = "Edit Historical Log";
     document.getElementById("edit-entry-id").value = entry.id;
     document.getElementById("log-date").value = entry.date;
-    document.getElementById("intensity-select").value = entry.intensity || "";
+    document.getElementById("log-intensity").value = entry.intensity || "";
     
     // Repopulate dynamic drop select layouts cleanly
     evaluateTodayPlans();
@@ -492,7 +492,7 @@ function setupEventListeners() {
         const exerciseName = document.getElementById("exercise-select").value;
         const exercise = state.exercises.find(e => e.name === exerciseName);
         const selectedDate = document.getElementById("log-date").value;
-        const intensity = document.getElementById("intensity-select").value;
+        const intensity = document.getElementById("log-intensity").value;
         
         const formData = new FormData(e.target);
         let logData = {};
