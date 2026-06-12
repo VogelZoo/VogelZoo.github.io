@@ -623,3 +623,60 @@ function importData(event) {
     };
     reader.readAsText(file);
 }
+
+// --- EXPORT AS CSV ROUTINE ---
+function exportCSV() {
+    if (state.history.length === 0) {
+        alert("No historical workout log entries found to export.");
+        return;
+    }
+
+    // 1. Gather all unique metric tracking field keys present across the history timeline
+    const allMetricKeys = new Set();
+    state.history.forEach(entry => {
+        if (entry.data) {
+            Object.keys(entry.data).forEach(key => allMetricKeys.add(key));
+        }
+    });
+    const metricKeysArray = Array.from(allMetricKeys).sort();
+
+    // 2. Define baseline systemic tracking headers
+    const baseHeaders = ["ID", "Date", "Exercise Name", "Intensity"];
+    const fullHeaders = [...baseHeaders, ...metricKeysArray];
+
+    // 3. Compile Rows and map metrics cleanly into their respective static columns
+    const csvRows = [];
+    csvRows.push(fullHeaders.map(header => `"${header}"`).join(","));
+
+    state.history.forEach(entry => {
+        const rowData = [
+            entry.id,
+            entry.date,
+            entry.exerciseName,
+            entry.intensity || ""
+        ];
+
+        // Ensure dynamic cell validation strings step out safely into matching column indexes
+        metricKeysArray.forEach(key => {
+            const value = entry.data && entry.data[key] !== undefined ? entry.data[key] : "";
+            rowData.push(value);
+        });
+
+        // Map values to strings, escaping quotations to maintain CSV structural layout rules
+        const processedRow = rowData.map(val => {
+            const strVal = String(val).replace(/"/g, '""');
+            return `"${strVal}"`;
+        });
+        csvRows.push(processedRow.join(","));
+    });
+
+    // 4. Construct payload blob data stream and deploy via browser download trigger port
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + encodeURIComponent(csvRows.join("\n"));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", csvContent);
+    downloadAnchor.setAttribute("download", `engineered_exercise_history.csv`);
+    document.body.appendChild(downloadAnchor);
+    
+    downloadAnchor.click();
+    downloadAnchor.remove();
+}
