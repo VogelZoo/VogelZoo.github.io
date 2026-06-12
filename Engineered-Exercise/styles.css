@@ -311,4 +311,9 @@ select:focus, input:focus {
     .form-row {
         grid-template-columns: 1fr;
     }
+    
+    /* Stack Date/Intensity fields vertically */
+    div[style*="display: flex"][style*="gap: 1rem"] {
+        flex-direction: column !important;
+    }
 }
