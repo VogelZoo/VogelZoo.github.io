@@ -62,6 +62,26 @@ function saveState() {
     localStorage.setItem("ee_plans", JSON.stringify(state.plans));
 }
 
+// 1. Define an Emoji Map matching the options in your custom category form selector
+const categoryEmojis = {
+    'Strength': '💪',
+    'Core': '🧘‍♂️',
+    'Cardio': '🏃‍♂️',
+    'Mobility/Yoga': '🧘',
+    'Default': '🏋️' // Fallback option
+};
+
+// 2. Helper function to grab the correct emoji
+function getCategoryEmoji(category) {
+    return categoryEmojis[category] || categoryEmojis['Default'];
+}
+
+// EXAMPLE USAGE:
+// When generating lists or history logs dynamically, update your templates:
+// Instead of hardcoding: `<span>💪 ${exercise.name}</span>`
+// Use something like: `<span>${getCategoryEmoji(exercise.category)} ${exercise.name}</span>`
+
+
 // --- NAVIGATION ---
 function switchView(viewId) {
     document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
@@ -584,7 +604,7 @@ function renderPlanList() {
                 ${dayPlans.length === 0 ? '<p class="text-muted" style="font-size:0.8rem; padding:0.25rem 0;">Rest Day</p>' : '<ul class="list-group">'}
                 ${dayPlans.map(plan => `
                     <li class="list-group-item">
-                        <span>💪 ${plan.exercise}</span>
+                        <span>${getCategoryEmoji(exercise.category)} ${plan.exercise}</span>
                         <button onclick="deletePlan(${plan.id})" class="badge" style="background:#dc2626; border:none; color:white; cursor:pointer;">X</button>
                     </li>
                 `).join("")}
