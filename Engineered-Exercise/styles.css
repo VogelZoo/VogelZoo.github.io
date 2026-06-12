@@ -128,6 +128,7 @@ select:focus, input:focus {
 .btn-primary:hover { background-color: var(--accent-hover); }
 .btn-success { background-color: var(--success); }
 .btn-secondary { background-color: #4b5563; }
+.btn-danger { background-color: #dc2626; }
 
 .hidden { display: none !important; }
 .text-muted { color: var(--text-muted); font-size: 0.85rem; }
@@ -244,7 +245,7 @@ select:focus, input:focus {
 
 .checkbox-label input { width: auto; margin: 0; }
 
-/* Visual block separation for plans */
+/* Visual block separation for plans and grouped items */
 .schedule-section-title {
     font-size: 0.85rem;
     text-transform: uppercase;
@@ -255,7 +256,7 @@ select:focus, input:focus {
     font-weight: bold;
 }
 
-.plan-day-block {
+.plan-day-block, .history-day-block {
     background-color: var(--bg-primary);
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -263,7 +264,7 @@ select:focus, input:focus {
     margin-bottom: 0.75rem;
 }
 
-.plan-day-block-title {
+.plan-day-block-title, .history-day-block-title {
     font-size: 0.9rem;
     font-weight: bold;
     color: var(--text-main);
@@ -272,7 +273,29 @@ select:focus, input:focus {
     margin-bottom: 0.5rem;
 }
 
-/* SVG Chart Wrapper */
+.history-item-actions {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.action-link {
+    font-size: 0.75rem;
+    color: var(--accent);
+    text-decoration: none;
+    cursor: pointer;
+}
+.action-link.delete { color: #ef4444; }
+
+/* SVG Chart Legend Elements */
+.legend-container { display: flex; }
+.legend-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 0.2rem;
+}
+
 .svg-chart-container {
     background-color: var(--bg-primary);
     border: 1px solid var(--border);
