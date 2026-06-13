@@ -337,3 +337,39 @@ select:focus, input:focus {
     font-size: 0.9rem;
     cursor: pointer;
 }
+
+/* Fix double template mapping blocks */
+.view { display: block; }
+
+/* Modal helper utilities override */
+#confirmation-modal:not(.hidden) {
+    display: flex !important;
+}
+
+/* Exercise template card styles */
+.exercise-manage-item {
+    padding: 0.75rem;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Core Streak UI Badge Component */
+.streak-container {
+    background: linear-gradient(135deg, #1e3a8a, #0f172a);
+    border-left: 4px solid var(--success) !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.streak-count {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #10b981;
+    text-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+}
+
