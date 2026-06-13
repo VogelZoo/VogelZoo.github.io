@@ -36,6 +36,14 @@ const INTENSITY_COLORS = {
 const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAYS_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+const categoryEmojis = {
+    'Strength': '💪',
+    'Core': '🧘‍♂️',
+    'Cardio': '🏃‍♂️',
+    'Mobility/Yoga': '🧘',
+    'Default': '🏋️'
+};
+
 let state = {
     exercises: JSON.parse(localStorage.getItem("ee_exercises")) || DEFAULT_EXERCISES,
     history: JSON.parse(localStorage.getItem("ee_history")) || [],
@@ -54,6 +62,8 @@ function initApp() {
     renderPlanList();
     populateChartFilter();
     renderStats();
+    renderManageExercises();
+    renderStreakWidget();
 }
 
 function saveState() {
@@ -62,27 +72,11 @@ function saveState() {
     localStorage.setItem("ee_plans", JSON.stringify(state.plans));
 }
 
-// 1. Define an Emoji Map matching the options in your custom category form selector
-const categoryEmojis = {
-    'Strength': '💪',
-    'Core': '🧘‍♂️',
-    'Cardio': '🏃‍♂️',
-    'Mobility/Yoga': '🧘',
-    'Default': '🏋️' // Fallback option
-};
-
-// 2. Helper function to grab the correct emoji
 function getCategoryEmoji(category) {
     return categoryEmojis[category] || categoryEmojis['Default'];
 }
 
-// EXAMPLE USAGE:
-// When generating lists or history logs dynamically, update your templates:
-// Instead of hardcoding: `<span>💪 ${exercise.name}</span>`
-// Use something like: `<span>${getCategoryEmoji(exercise.category)} ${exercise.name}</span>`
-
-
-// --- NAVIGATION ---
+// --- SYSTEM NAVIGATION ---
 function switchView(viewId) {
     document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -90,15 +84,87 @@ function switchView(viewId) {
     document.getElementById(`view-${viewId}`).classList.remove('hidden');
     document.getElementById(`nav-${viewId}`).classList.add('active');
     
-    // Clear dynamic modifications if navigating out of edit mode context
     if (viewId !== 'track') cancelFormEdit();
+    if (viewId !== 'settings') cancelExerciseEdit();
 
-    if (viewId === 'track') evaluateTodayPlans();
+    if (viewId === 'track') { evaluateTodayPlans(); renderStreakWidget(); }
     if (viewId === 'plan') renderPlanList();
     if (viewId === 'stats') { populateChartFilter(); renderStats(); }
+    if (viewId === 'settings') renderManageExercises();
 }
 
-// --- ENGINE CALCULATIONS & HORIZONS ---
+// --- CORE STREAK TRACKING ENGINE ---
+function renderStreakWidget() {
+    let trackSection = document.getElementById("view-track");
+    let existingWidget = document.getElementById("streak-tracking-widget");
+    if (existingWidget) existingWidget.remove();
+
+    let currentStreak = calculateStreak();
+
+    let widgetHtml = document.createElement("div");
+    widgetHtml.id = "streak-tracking-widget";
+    widgetHtml.className = "card streak-container";
+    widgetHtml.innerHTML = `
+        <div>
+            <h3 style="margin-bottom: 0.15rem; color: #fff;">Consistency Streak</h3>
+            <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 0;">Logging active schedules & rest days</p>
+        </div>
+        <div class="streak-count">🔥 ${currentStreak} <span style="font-size:0.85rem; font-weight:normal; color:var(--text-muted);">Days</span></div>
+    `;
+    trackSection.insertBefore(widgetHtml, trackSection.firstChild);
+}
+
+function calculateStreak() {
+    let todayStr = new Date().toISOString().split('T')[0];
+    let checkDate = new Date(todayStr + "T00:00:00");
+    let streak = 0;
+
+    // Build unique tracking map of logged historical event dates
+    let historyDates = new Set(state.history.map(h => h.date));
+
+    // Guard checking if any action occurred today or yesterday to continue loop validation
+    let yesterdayStr = new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0];
+    if (!historyDates.has(todayStr) && !historyDates.has(yesterdayStr)) {
+        // If nothing logged today or yesterday, check if yesterday was an explicit scheduled plan rest day
+        let yesterdayPlan = getPlannedExercisesForDate(new Date(new Date().setDate(new Date().getDate() - 1)));
+        let yesterdayWasRest = (yesterdayPlan.length === 0 || isRestDayExplicitlyScheduled(new Date(new Date().setDate(new Date().getDate() - 1))));
+        if (!yesterdayWasRest) return 0;
+    }
+
+    // Step backwards through time to count consecutive successful days
+    for (let i = 0; i < 365; i++) {
+        let loopDateStr = checkDate.toISOString().split('T')[0];
+        let plannedExercises = getPlannedExercisesForDate(new Date(checkDate));
+        let isRestDay = (plannedExercises.length === 0 || isRestDayExplicitlyScheduled(new Date(checkDate)));
+
+        if (historyDates.has(loopDateStr) || isRestDay) {
+            streak++;
+        } else {
+            // Break loop if today is a non-rest day that has not been logged yet
+            if (i === 0 && loopDateStr === todayStr) {
+                // Skip breaking, user still has time to complete today's log
+            } else {
+                break;
+            }
+        }
+        checkDate.setDate(checkDate.getDate() - 1);
+    }
+    return streak;
+}
+
+function isRestDayExplicitlyScheduled(targetDate) {
+    let dayOfWeek = targetDate.getDay();
+    let explicitRest = false;
+
+    state.plans.forEach(plan => {
+        if (plan.exercise === "__rest__" && plan.type === 'weekly' && parseInt(plan.day) === dayOfWeek) {
+            explicitRest = true;
+        }
+    });
+    return explicitRest;
+}
+
+// --- INTERPOLATED ACTIVITY ENGINE & ADVANCED SCHEDULING ---
 function evaluateTodayPlans() {
     const selectedDateStr = document.getElementById("log-date").value;
     const selectedDate = selectedDateStr ? new Date(selectedDateStr + "T00:00:00") : new Date();
@@ -120,26 +186,52 @@ function evaluateTodayPlans() {
 }
 
 function getPlannedExercisesForDate(targetDate) {
-    const dayOfWeek = targetDate.getDay();
     let matches = [];
+    let queryDate = new Date(targetDate);
+    queryDate.setHours(0,0,0,0);
 
+    // 1. Process weekly scheduled routines
     state.plans.forEach(plan => {
-        if (plan.exercise === "__rest__") return;
-        if (plan.type === 'weekly' && parseInt(plan.day) === dayOfWeek) {
-            matches.push(plan.exercise);
-        } else if (plan.type === 'interval') {
-            const start = new Date(plan.startDate + "T00:00:00");
-            const current = new Date(targetDate);
-            current.setHours(0,0,0,0);
-            
-            const diffTime = current - start;
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            
-            if (diffDays >= 0 && diffDays % parseInt(plan.interval) === 0) {
+        if (plan.type === 'weekly' && plan.exercise !== "__rest__") {
+            if (parseInt(plan.day) === queryDate.getDay()) {
                 matches.push(plan.exercise);
             }
         }
     });
+
+    // 2. Process interval-based routines with rest-day adjustments
+    state.plans.forEach(plan => {
+        if (plan.type === 'interval') {
+            let start = new Date(plan.startDate + "T00:00:00");
+            start.setHours(0,0,0,0);
+            
+            if (queryDate < start) return;
+
+            // Step forward day by day from the start date to evaluate the intervals
+            let workingDate = new Date(start);
+            let intervalDayCounter = 0;
+
+            while (workingDate <= queryDate) {
+                let isWorkingRestDay = isRestDayExplicitlyScheduled(workingDate);
+
+                if (isWorkingRestDay) {
+                    // Rest days are skipped entirely for interval counting
+                    if (workingDate.getTime() === queryDate.getTime()) {
+                        return; // It's a rest day, so nothing is scheduled
+                    }
+                } else {
+                    if (intervalDayCounter % parseInt(plan.interval) === 0) {
+                        if (workingDate.getTime() === queryDate.getTime()) {
+                            matches.push(plan.exercise);
+                        }
+                    }
+                    intervalDayCounter++;
+                }
+                workingDate.setDate(workingDate.getDate() + 1);
+            }
+        }
+    });
+
     return matches;
 }
 
@@ -159,8 +251,6 @@ function render7DayHorizon(baseDate) {
         let dayCard = document.createElement("div");
         dayCard.className = `cal-day-card ${dateString === activeLogDate ? 'today' : ''}`;
         
-        // --- LAYOUT FIX FOR TEXT OVERFLOW / HEIGHT ---
-        // Ensures the card grows gracefully with the content instead of clipping
         dayCard.style.display = "flex";
         dayCard.style.flexDirection = "column";
         dayCard.style.minHeight = "fit-content"; 
@@ -173,14 +263,13 @@ function render7DayHorizon(baseDate) {
             evaluateTodayPlans();
         };
 
-        // Added styling adjustments inside the mapping loop to keep tag structures block-wrapped and neat
         let tagsHtml = dayTargets.map(t => `
             <span class="cal-event-tag" style="display: block; margin-top: 2px; word-break: break-word; font-size: 0.65rem;">
                 ${t}
             </span>
         `).join("");
         
-        if (dayTargets.length === 0) {
+        if (dayTargets.length === 0 || isRestDayExplicitlyScheduled(futureDate)) {
             tagsHtml = `<span class="text-muted" style="font-size:0.65rem; display:block; margin-top:2px;">Rest</span>`;
         }
 
@@ -193,10 +282,11 @@ function render7DayHorizon(baseDate) {
     }
 }
 
-// --- LOGGING INPUT FIELDS LOGIC ---
+// --- DROPDOWN ELEMENT SELECTOR INJECTIONS ---
 function renderExerciseSelectors(priorityList = []) {
     const selectLog = document.getElementById("exercise-select");
     const selectPlan = document.getElementById("plan-exercise");
+    if (!selectLog || !selectPlan) return;
     
     let organizedExercises = [...state.exercises].sort((a, b) => {
         let catA = a.category || "Uncategorized";
@@ -232,7 +322,6 @@ function renderExerciseSelectors(priorityList = []) {
     });
     selectPlan.innerHTML = planHtml;
     
-    // Check if we are currently editing an existing record before forcing field values updates
     const editingId = document.getElementById("edit-entry-id").value;
     if (!editingId && organizedExercises.length > 0) {
         buildDynamicFormFields(selectLog.value);
@@ -276,7 +365,133 @@ function getPreviousEntry(exerciseName) {
     return state.history.find(entry => entry.exerciseName === exerciseName);
 }
 
-// --- HISTORICAL EDIT/DELETE OPERATION PIPELINES ---
+// --- CUSTOM INTERACTIVE DIALOG MODAL CONTROLLER ---
+function triggerConfirmationModal(title, text, confirmCallback) {
+    const modal = document.getElementById("confirmation-modal");
+    document.getElementById("modal-title").innerText = title;
+    document.getElementById("modal-body").innerText = text;
+    
+    modal.classList.remove("hidden");
+
+    const cancelBtn = document.getElementById("modal-cancel-btn");
+    const confirmBtn = document.getElementById("modal-confirm-btn");
+
+    const closeHandler = () => {
+        modal.classList.add("hidden");
+        // Clear listeners to prevent duplicate triggers
+        confirmBtn.replaceWith(confirmBtn.cloneNode(true));
+        cancelBtn.replaceWith(cancelBtn.cloneNode(true));
+    };
+
+    cancelBtn.onclick = closeHandler;
+    confirmBtn.onclick = () => {
+        confirmCallback();
+        closeHandler();
+    };
+}
+
+// --- EXERCISE MANAGEMENT MODAL PANEL PIPELINES ---
+function renderManageExercises() {
+    const container = document.getElementById("manage-exercises-container");
+    if (!container) return;
+    container.innerHTML = "";
+
+    if (state.exercises.length === 0) {
+        container.innerHTML = `<p class="text-muted">No configuration templates available.</p>`;
+        return;
+    }
+
+    let sortedList = [...state.exercises].sort((a,b) => a.name.localeCompare(b.name));
+
+    sortedList.forEach(ex => {
+        const item = document.createElement("div");
+        item.className = "exercise-manage-item";
+        
+        let logCount = state.history.filter(h => h.exerciseName === ex.name).length;
+        let countBadge = logCount > 0 ? `<span class="badge" style="background:#1e293b; color:#9ca3af; margin-left:0.5rem;">${logCount} logged</span>` : '';
+
+        item.innerHTML = `
+            <div>
+                <strong>${getCategoryEmoji(ex.category)} ${ex.name}</strong> ${countBadge}
+                <div class="text-muted" style="font-size:0.75rem; margin-top:0.15rem;">Fields: ${ex.metrics.join(", ")}</div>
+            </div>
+            <div class="history-item-actions">
+                <span class="action-link" onclick="initExerciseEdit('${ex.name.replace(/'/g, "\\'")}')">Edit</span>
+                <span class="action-link delete" onclick="initExerciseDelete('${ex.name.replace(/'/g, "\\'")}')">Del</span>
+            </div>
+        `;
+        container.appendChild(item);
+    });
+}
+
+function initExerciseEdit(exName) {
+    const exIdx = state.exercises.findIndex(e => e.name === exName);
+    if (exIdx === -1) return;
+    const ex = state.exercises[exIdx];
+
+    document.getElementById("exercise-form-title").innerText = "Edit Custom Exercise";
+    document.getElementById("edit-exercise-index").value = exIdx;
+    document.getElementById("new-ex-name").value = ex.name;
+    document.getElementById("new-ex-category").value = ex.category;
+
+    const checkboxes = document.querySelectorAll('#custom-exercise-form input[name="metric"]');
+    checkboxes.forEach(cb => {
+        cb.checked = ex.metrics.includes(cb.value);
+    });
+
+    if (!document.getElementById("cancel-ex-edit-btn")) {
+        const btnContainer = document.getElementById("exercise-action-buttons");
+        btnContainer.style.gridTemplateColumns = "1fr 1fr";
+
+        const cancelBtn = document.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.id = "cancel-ex-edit-btn";
+        cancelBtn.className = "btn btn-secondary";
+        cancelBtn.innerText = "Cancel";
+        cancelBtn.onclick = cancelExerciseEdit;
+        btnContainer.appendChild(cancelBtn);
+    }
+    document.getElementById("submit-exercise-btn").innerText = "Update Template Specs";
+}
+
+function cancelExerciseEdit() {
+    document.getElementById("exercise-form-title").innerText = "Add Custom Exercise";
+    document.getElementById("edit-exercise-index").value = "";
+    document.getElementById("custom-exercise-form").reset();
+    document.getElementById("submit-exercise-btn").innerText = "Create Exercise";
+
+    const cancelBtn = document.getElementById("cancel-ex-edit-btn");
+    if (cancelBtn) {
+        cancelBtn.remove();
+        document.getElementById("exercise-action-buttons").style.gridTemplateColumns = "1fr";
+    }
+}
+
+function initExerciseDelete(exName) {
+    let logCount = state.history.filter(h => h.exerciseName === exName).length;
+
+    if (logCount > 0) {
+        triggerConfirmationModal(
+            "Cascade Dangerous Deletion", 
+            `Warning: "${exName}" contains ${logCount} logged activity entries. Deleting this exercise template will permanently wipe all associated historic logs.`, 
+            () => executeExerciseDeletion(exName)
+        );
+    } else {
+        executeExerciseDeletion(exName);
+    }
+}
+
+function executeExerciseDeletion(exName) {
+    state.exercises = state.exercises.filter(e => e.name !== exName);
+    state.history = state.history.filter(h => h.exerciseName !== exName);
+    state.plans = state.plans.filter(p => p.exercise !== exName);
+    
+    saveState();
+    initApp();
+    cancelExerciseEdit();
+}
+
+// --- HISTORICAL TRACK LOG EDIT PIPELINES ---
 function initEditEntry(id) {
     const entry = state.history.find(h => h.id === id);
     if (!entry) return;
@@ -288,13 +503,11 @@ function initEditEntry(id) {
     document.getElementById("log-date").value = entry.date;
     document.getElementById("log-intensity").value = entry.intensity || "";
     
-    // Repopulate dynamic drop select layouts cleanly
     evaluateTodayPlans();
     document.getElementById("exercise-select").value = entry.exerciseName;
     
     buildDynamicFormFields(entry.exerciseName, entry.data);
 
-    // Inject Cancel button block layout safely if not already existing
     if (!document.getElementById("cancel-edit-btn")) {
         const btnContainer = document.getElementById("form-action-buttons");
         btnContainer.style.gridTemplateColumns = "1fr 1fr";
@@ -329,7 +542,7 @@ function deleteEntry(id) {
     if (confirm("Are you sure you want to delete this historical entry?")) {
         state.history = state.history.filter(h => h.id !== id);
         saveState();
-        renderStats();
+        initApp();
     }
 }
 
@@ -337,17 +550,16 @@ function deletePlan(id) {
     if (confirm("Are you sure you want to delete this plan?")) {
         state.plans = state.plans.filter(p => p.id !== id);
         saveState();
-        renderPlanList();
-        evaluateTodayPlans();
+        initApp();
     }
 }
 
-// --- STATS VIEW & COMPACT DAY GROUPING ---
+// --- COMPREHENSIVE PROGRESS MATRIX INTERACTIVE GRAPH Engine ---
 function populateChartFilter() {
     const filterSelect = document.getElementById("chart-exercise-select");
     const wrapper = document.getElementById("chart-filter-wrapper");
+    if (!filterSelect || !wrapper) return;
     
-    // Filter array: Evaluate exercises containing 2 or more complete records explicitly
     let chartableExercises = state.exercises.filter(ex => {
         let count = state.history.filter(h => h.exerciseName === ex.name).length;
         return count >= 2;
@@ -378,7 +590,7 @@ function renderStats() {
         summary.innerHTML = `<p class="text-muted">Complete your first log to start tracking metrics.</p>`;
         groupedContainer.innerHTML = `<p class="text-muted">No historic timeline data logs detected.</p>`;
         graphContainer.innerHTML = "";
-        legendBlock.style.display = "none";
+        if (legendBlock) legendBlock.style.display = "none";
         return;
     }
 
@@ -391,54 +603,133 @@ function renderStats() {
             .sort((a, b) => new Date(a.date) - new Date(b.date));
     }
 
-    // Graph guard rails validation condition check
     if (!targetExercise || exerciseHistory.length < 2) {
         graphContainer.innerHTML = `<p class="text-muted" style="text-align:center; padding:1rem; border:1px dashed var(--border); border-radius:8px;">Select or complete an exercise with 2+ entries to view progression.</p>`;
-        legendBlock.style.display = "none";
+        if (legendBlock) legendBlock.style.display = "none";
     } else {
-        legendBlock.style.display = "flex";
+        if (legendBlock) legendBlock.style.display = "flex";
+        
         let sampleEntry = exerciseHistory[0].data;
-        let chartMetricKey = Object.keys(sampleEntry).includes("weight") ? "weight" : 
-                             Object.keys(sampleEntry).includes("distance") ? "distance" : 
-                             Object.keys(sampleEntry).includes("timeSeconds") ? "timeSeconds" : "timeMinutes";
+        let keys = Object.keys(sampleEntry);
 
-        let metricLabel = FIELD_LABELS[chartMetricKey].label;
-        let values = exerciseHistory.map(h => h.data[chartMetricKey]);
-        let minVal = Math.min(...values) * 0.9;
-        let maxVal = Math.max(...values) * 1.1;
-        if(maxVal === minVal) { minVal -= 10; maxVal += 10; }
-        let valRange = maxVal - minVal;
+        // Standard Primary Axis Configurations
+        let primaryMetricKey = keys.includes("weight") ? "weight" : 
+                             keys.includes("distance") ? "distance" : 
+                             keys.includes("timeSeconds") ? "timeSeconds" : "timeMinutes";
 
-        const width = 400;
-        const height = 180;
-        const padding = 30;
+        if (!keys.includes(primaryMetricKey) && keys.length > 0) {
+            primaryMetricKey = keys[0]; // Adaptive fallback
+        }
 
-        let points = exerciseHistory.map((entry, index) => {
-            let x = padding + (index / (exerciseHistory.length - 1)) * (width - padding * 2);
-            let y = (height - padding) - ((entry.data[chartMetricKey] - minVal) / valRange) * (height - padding * 2);
-            return {x, y, date: entry.date, val: entry.data[chartMetricKey], intensity: entry.intensity};
+        let secondaryMetricLabel = "";
+        let hasSecondaryAxis = false;
+
+        // Dynamic Dual-Axis Calculation Configurations
+        let calculatedData = exerciseHistory.map(entry => {
+            let primaryVal = entry.data[primaryMetricKey] || 0;
+            let secondaryVal = 0;
+
+            if (keys.includes("sets") && keys.includes("reps") && keys.includes("weight")) {
+                secondaryMetricLabel = "Volume (sets×reps×wt)";
+                secondaryVal = (entry.data["sets"] || 0) * (entry.data["reps"] || 0) * (entry.data["weight"] || 0);
+                hasSecondaryAxis = true;
+            } else if (keys.includes("sets") && keys.includes("reps")) {
+                secondaryMetricLabel = "Volume (sets×reps)";
+                secondaryVal = (entry.data["sets"] || 0) * (entry.data["reps"] || 0);
+                hasSecondaryAxis = true;
+            } else if (keys.includes("sets") && (keys.includes("timeSeconds") || keys.includes("timeMinutes"))) {
+                let timeKey = keys.includes("timeSeconds") ? "timeSeconds" : "timeMinutes";
+                secondaryMetricLabel = "Volume (sets×time)";
+                secondaryVal = (entry.data["sets"] || 0) * (entry.data[timeKey] || 0);
+                hasSecondaryAxis = true;
+            } else if (keys.includes("distance") && (keys.includes("timeMinutes") || keys.includes("timeSeconds"))) {
+                secondaryMetricLabel = "Speed (MPH)";
+                let minutes = keys.includes("timeMinutes") ? (entry.data["timeMinutes"] || 0) : ((entry.data["timeSeconds"] || 0) / 60);
+                secondaryVal = minutes > 0 ? ((entry.data["distance"] || 0) / (minutes / 60)) : 0;
+                secondaryVal = parseFloat(secondaryVal.toFixed(2));
+                hasSecondaryAxis = true;
+            }
+
+            return {
+                date: entry.date,
+                intensity: entry.intensity,
+                primary: primaryVal,
+                secondary: secondaryVal
+            };
         });
 
-        let pathD = `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(" ");
+        // Compute Boundary Limits
+        let primaryVals = calculatedData.map(d => d.primary);
+        let minPri = Math.min(...primaryVals) * 0.9;
+        let maxPri = Math.max(...primaryVals) * 1.1;
+        if (maxPri === minPri) { minPri -= 10; maxPri += 10; }
+        if (minPri < 0) minPri = 0;
+        let rangePri = maxPri - minPri;
 
-        let dotsHtml = points.map(p => {
-            let dotColor = INTENSITY_COLORS[p.intensity] || INTENSITY_COLORS["Default"];
+        let minSec = 0, maxSec = 0, rangeSec = 1;
+        if (hasSecondaryAxis) {
+            let secondaryVals = calculatedData.map(d => d.secondary);
+            minSec = Math.min(...secondaryVals) * 0.9;
+            maxSec = Math.max(...secondaryVals) * 1.1;
+            if (maxSec === minSec) { minSec -= 10; maxSec += 10; }
+            if (minSec < 0) minSec = 0;
+            rangeSec = maxSec - minSec;
+        }
+
+        const width = 440;
+        const height = 200;
+        const paddingLeft = 40;
+        const paddingRight = hasSecondaryAxis ? 40 : 20;
+        const paddingTop = 30;
+        const paddingBottom = 30;
+
+        let points = calculatedData.map((d, idx) => {
+            let x = paddingLeft + (idx / (calculatedData.length - 1)) * (width - paddingLeft - paddingRight);
+            let yPri = (height - paddingBottom) - ((d.primary - minPri) / rangePri) * (height - paddingTop - paddingBottom);
+            let ySec = hasSecondaryAxis ? ((height - paddingBottom) - ((d.secondary - minSec) / rangeSec) * (height - paddingTop - paddingBottom)) : 0;
+            return { x, yPri, ySec, ...d };
+        });
+
+        let primaryLinePath = `M ${points[0].x} ${points[0].yPri} ` + points.slice(1).map(p => `L ${p.x} ${p.yPri}`).join(" ");
+        let secondaryLinePath = hasSecondaryAxis ? (`M ${points[0].x} ${points[0].ySec} ` + points.slice(1).map(p => `L ${p.x} ${p.ySec}`).join(" ")) : "";
+
+        let primaryDots = points.map(p => {
+            let color = INTENSITY_COLORS[p.intensity] || INTENSITY_COLORS["Default"];
             return `
-                <circle cx="${p.x}" cy="${p.y}" r="4.5" fill="${dotColor}" stroke="#1e1e24" stroke-width="1"/>
-                <text x="${p.x}" y="${p.y - 8}" font-size="8" font-weight="bold" fill="#f3f4f6" text-anchor="middle">${p.val}</text>
+                <circle cx="${p.x}" cy="${p.yPri}" r="4" fill="${color}" stroke="#1e1e24" stroke-width="1"/>
+                <text x="${p.x}" y="${p.yPri - 6}" font-size="7" font-weight="bold" fill="#f3f4f6" text-anchor="middle">${p.primary}</text>
             `;
         }).join("");
 
+        let secondaryDots = hasSecondaryAxis ? points.map(p => `
+            <circle cx="${p.x}" cy="${p.ySec}" r="3.5" fill="#10b981" stroke="#1e1e24" stroke-width="1"/>
+            <text x="${p.x}" y="${p.ySec + 11}" font-size="7" font-weight="bold" fill="#10b981" text-anchor="middle">${p.secondary}</text>
+        `).join("") : "";
+
+        let secondaryAxisHtml = hasSecondaryAxis ? `
+            <line x1="${width - paddingRight}" y1="${paddingTop}" x2="${width - paddingRight}" y2="${height - paddingBottom}" stroke="#10b981" stroke-width="1" stroke-opacity="0.5"/>
+            <text x="${width - paddingRight + 5}" y="${paddingTop - 10}" font-size="8" fill="#10b981" text-anchor="end">${secondaryMetricLabel}</text>
+        ` : '';
+
         graphContainer.innerHTML = `
             <div class="svg-chart-container">
-                <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.25rem; text-align:center;">Progression Matrix: ${metricLabel}</div>
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.5rem; text-align:center; display:flex; justify-content:center; gap:1rem;">
+                    <span><span style="display:inline-block; width:10px; height:2px; background:#9ca3af; margin-right:3px; vertical-align:middle;"></span>${FIELD_LABELS[primaryMetricKey].label} (Solid)</span>
+                    ${hasSecondaryAxis ? `<span><span style="display:inline-block; width:10px; height:2px; background:#10b981; margin-right:3px; vertical-align:middle;"></span>${secondaryMetricLabel} (Green)</span>` : ''}
+                </div>
                 <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%">
-                    <line x1="${padding}" y1="${padding}" x2="${padding}" y2="${height-padding}" stroke="#374151" stroke-width="1"/>
-                    <line x1="${padding}" y1="${height-padding}" x2="${width-padding}" y2="${height-padding}" stroke="#374151" stroke-width="1"/>
-                    <path d="${pathD}" fill="none" stroke="#374151" stroke-width="1.5" stroke-dasharray="3,3" stroke-linecap="round" stroke-linejoin="round"/>
-                    ${dotsHtml}
-                    <text x="${points[0].x}" y="${height-10}" font-size="8" fill="#9ca3af" text-anchor="start">${points[0].date.substring(5)}</text>
-                    <text x="${points[points.length-1].x}" y="${height-10}" font-size="8" fill="#9ca3af" text-anchor="end">${points[points.length-1].date.substring(5)}</text>
+                    <line x1="${paddingLeft}" y1="${paddingTop}" x2="${paddingLeft}" y2="${height - paddingBottom}" stroke="#374151" stroke-width="1"/>
+                    <line x1="${paddingLeft}" y1="${height - paddingBottom}" x2="${width - paddingRight}" y2="${height - paddingBottom}" stroke="#374151" stroke-width="1"/>
+                    ${secondaryAxisHtml}
+
+                    <path d="${primaryLinePath}" fill="none" stroke="#9ca3af" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    ${hasSecondaryAxis ? `<path d="${secondaryLinePath}" fill="none" stroke="#10b981" stroke-width="1.5" stroke-dasharray="2,2" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
+                    
+                    ${primaryDots}
+                    ${secondaryDots}
+
+                    <text x="${points[0].x}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="start">${points[0].date.substring(5)}</text>
+                    <text x="${points[points.length - 1].x}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="end">${points[points.length - 1].date.substring(5)}</text>
                 </svg>
             </div>
         `;
@@ -446,14 +737,13 @@ function renderStats() {
 
     summary.innerHTML = `<p><strong>Total Lifetime Logs:</strong> ${state.history.length} sessions</p>`;
 
-    // --- COMPACT GROUP BY DAY MAP COMPILATION ---
+    // --- COMPACT GROUP BY DAY TIMELINE COMPILATION ---
     let dailyGroups = {};
     state.history.forEach(entry => {
         if (!dailyGroups[entry.date]) dailyGroups[entry.date] = [];
         dailyGroups[entry.date].push(entry);
     });
 
-    // Sort explicit key index clusters sequentially back descending
     let sortedDaysKeys = Object.keys(dailyGroups).sort((a,b) => new Date(b) - new Date(a));
 
     groupedContainer.innerHTML = sortedDaysKeys.map(dateStr => {
@@ -475,7 +765,7 @@ function renderStats() {
 
                         return `
                             <li class="list-group-item">
-                                <div><strong>${item.exerciseName}</strong>${intBadge}<br><span class="text-muted" style="font-size:0.8rem;">${metricStr}</span></div>
+                                <div><strong>${getCategoryEmoji(state.exercises.find(e => e.name === item.exerciseName)?.category)} ${item.exerciseName}</strong>${intBadge}<br><span class="text-muted" style="font-size:0.8rem;">${metricStr}</span></div>
                                 <div class="history-item-actions">
                                     <span class="action-link" onclick="initEditEntry(${item.id})">Edit</span>
                                     <span class="action-link delete" onclick="deleteEntry(${item.id})">Del</span>
@@ -489,7 +779,7 @@ function renderStats() {
     }).join("");
 }
 
-// --- ORGANIZED APP EVENT LISTENER ATTACHMENTS ---
+// --- APP EVENT LISTENER ATTACHMENTS ---
 function setupEventListeners() {
     document.getElementById("log-date").addEventListener("change", () => {
         const editingId = document.getElementById("edit-entry-id").value;
@@ -512,11 +802,10 @@ function setupEventListeners() {
         let logData = {};
         
         exercise.metrics.forEach(fieldKey => {
-            logData[fieldKey] = parseFloat(formData.get(fieldKey));
+            logData[fieldKey] = parseFloat(formData.get(fieldKey)) || 0;
         });
 
         if (editingId) {
-            // Processing updates on an existing configuration record node
             let index = state.history.findIndex(h => h.id === parseInt(editingId));
             if (index !== -1) {
                 state.history[index].date = selectedDate;
@@ -524,9 +813,7 @@ function setupEventListeners() {
                 state.history[index].intensity = intensity || null;
                 state.history[index].data = logData;
             }
-            alert(`Log entry updated!`);
         } else {
-            // standard appending routine execution
             const newEntry = {
                 id: Date.now(),
                 date: selectedDate,
@@ -539,9 +826,8 @@ function setupEventListeners() {
 
         state.history.sort((a,b) => new Date(b.date) - new Date(a.date));
         saveState();
-        
-        // Reset dynamic elements cleanly back to standard defaults tracking configurations
         cancelFormEdit();
+        initApp();
     });
 
     document.getElementById("plan-form").addEventListener("submit", (e) => {
@@ -561,12 +847,12 @@ function setupEventListeners() {
 
         state.plans.push(newPlan);
         saveState();
-        renderPlanList();
-        evaluateTodayPlans();
+        initApp();
     });
 
     document.getElementById("custom-exercise-form").addEventListener("submit", (e) => {
         e.preventDefault();
+        const editIdxStr = document.getElementById("edit-exercise-index").value;
         const name = document.getElementById("new-ex-name").value.trim();
         const category = document.getElementById("new-ex-category").value;
         const checkedBoxes = e.target.querySelectorAll('input[name="metric"]:checked');
@@ -576,17 +862,40 @@ function setupEventListeners() {
             alert("Please check at least one tracking field metric.");
             return;
         }
-        if (state.exercises.some(ex => ex.name.toLowerCase() === name.toLowerCase())) {
-            alert("This exercise name already exists.");
-            return;
+
+        if (editIdxStr !== "") {
+            // Processing structural template update updates
+            let idx = parseInt(editIdxStr);
+            let oldName = state.exercises[idx].name;
+
+            // Retain historical logging sync maps across downstream children logs if name changed
+            if (oldName.toLowerCase() !== name.toLowerCase() && state.exercises.some(ex => ex.name.toLowerCase() === name.toLowerCase())) {
+                alert("This exercise name already exists.");
+                return;
+            }
+
+            state.history.forEach(h => {
+                if (h.exerciseName === oldName) h.exerciseName = name;
+            });
+            state.plans.forEach(p => {
+                if (p.exercise === oldName) p.exercise = name;
+            });
+
+            state.exercises[idx] = { name, category, metrics: selectedMetrics };
+            alert("Exercise configuration template updated successfully!");
+        } else {
+            // Standard creation appending routine
+            if (state.exercises.some(ex => ex.name.toLowerCase() === name.toLowerCase())) {
+                alert("This exercise name already exists.");
+                return;
+            }
+            state.exercises.push({ name: name, category: category, metrics: selectedMetrics });
+            alert(`Created custom template for: ${name}`);
         }
 
-        state.exercises.push({ name: name, category: category, metrics: selectedMetrics });
         saveState();
-        renderExerciseSelectors();
-        populateChartFilter();
-        e.target.reset();
-        alert(`Created custom template for: ${name}`);
+        cancelExerciseEdit();
+        initApp();
     });
 }
 
@@ -598,6 +907,7 @@ function toggleScheduleInputs() {
 
 function renderPlanList() {
     const container = document.getElementById("organized-plan-view");
+    if (!container) return;
     container.innerHTML = "";
 
     if (state.plans.length === 0) {
@@ -677,14 +987,12 @@ function importData(event) {
     reader.readAsText(file);
 }
 
-// --- EXPORT AS CSV ROUTINE ---
 function exportCSV() {
     if (state.history.length === 0) {
         alert("No historical workout log entries found to export.");
         return;
     }
 
-    // 1. Gather all unique metric tracking field keys present across the history timeline
     const allMetricKeys = new Set();
     state.history.forEach(entry => {
         if (entry.data) {
@@ -693,11 +1001,9 @@ function exportCSV() {
     });
     const metricKeysArray = Array.from(allMetricKeys).sort();
 
-    // 2. Define baseline systemic tracking headers
     const baseHeaders = ["ID", "Date", "Exercise Name", "Intensity"];
     const fullHeaders = [...baseHeaders, ...metricKeysArray];
 
-    // 3. Compile Rows and map metrics cleanly into their respective static columns
     const csvRows = [];
     csvRows.push(fullHeaders.map(header => `"${header}"`).join(","));
 
@@ -709,13 +1015,11 @@ function exportCSV() {
             entry.intensity || ""
         ];
 
-        // Ensure dynamic cell validation strings step out safely into matching column indexes
         metricKeysArray.forEach(key => {
             const value = entry.data && entry.data[key] !== undefined ? entry.data[key] : "";
             rowData.push(value);
         });
 
-        // Map values to strings, escaping quotations to maintain CSV structural layout rules
         const processedRow = rowData.map(val => {
             const strVal = String(val).replace(/"/g, '""');
             return `"${strVal}"`;
@@ -723,7 +1027,6 @@ function exportCSV() {
         csvRows.push(processedRow.join(","));
     });
 
-    // 4. Construct payload blob data stream and deploy via browser download trigger port
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + encodeURIComponent(csvRows.join("\n"));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute("href", csvContent);
