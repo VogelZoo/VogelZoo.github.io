@@ -147,8 +147,9 @@
         <!-- ===== DATA ===== -->
         <section id="view-settings" class="view hidden">
             <div class="card">
-                <h2>Add Custom Exercise</h2>
+                <h2 id="exercise-form-title">Add Custom Exercise</h2>
                 <form id="custom-exercise-form">
+                    <input type="hidden" id="edit-exercise-index" value="">
                     <div class="form-group">
                         <label for="new-ex-name">Name</label>
                         <input type="text" id="new-ex-name" required placeholder="e.g., Romanian Deadlift">
@@ -173,8 +174,15 @@
                             <label class="checkbox-label"><input type="checkbox" name="metric" value="distance"> Distance</label>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary">Create Exercise</button>
+                    <div id="exercise-action-buttons" class="form-action-row">
+                        <button type="submit" class="btn btn-primary" id="submit-exercise-btn">Create Exercise</button>
+                    </div>
                 </form>
+            </div>
+
+            <div class="card">
+                <h3>Manage Existing Exercises</h3>
+                <div id="manage-exercises-container" style="margin-top: 1rem;"></div>
             </div>
 
             <div class="card">
@@ -192,7 +200,6 @@
                 </div>
             </div>
         </section>
-
     </main>
 
     <script src="app.js"></script>
@@ -204,5 +211,15 @@
             exGroup.style.pointerEvents = isRest ? "none" : "auto";
         }
     </script>
+    <div id="confirmation-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1rem;">
+        <div class="card" style="max-width: 400px; width: 100%; margin-bottom: 0; border-top: 4px solid var(--accent);">
+            <h2 id="modal-title" style="color: #f3f4f6;">Confirm Action</h2>
+            <p id="modal-body" class="text-muted" style="margin-bottom: 1.5rem; font-size: 0.95rem; line-height: 1.4;"></p>
+            <div class="form-row">
+                <button id="modal-cancel-btn" class="btn btn-secondary">Cancel</button>
+                <button id="modal-confirm-btn" class="btn btn-danger">Delete Everything</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
