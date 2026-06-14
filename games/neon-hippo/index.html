@@ -324,7 +324,7 @@ function resize() {
   H = canvas.height = window.innerHeight;
   ballR      = Math.max(7, Math.min(W, H) * 0.022);
   hippoR     = Math.max(30, Math.min(W, H) * 0.09);
-  neckMaxLen = Math.min(W, H) * 0.28;
+  neckMaxLen = Math.min(W, H) * 0.55;
 }
 
 window.addEventListener('resize', () => { resize(); if (!gameRunning) drawIdle(); });
