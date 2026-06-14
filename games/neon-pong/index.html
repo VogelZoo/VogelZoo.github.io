@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>NEON PONG // VECTOR ARENA</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cyan:    #00f5ff;
+    --magenta: #ff00aa;
+    --yellow:  #ffee00;
+    --green:   #00ff88;
+    --dark:    #050810;
+    --dark2:   #0a1020;
+    --g0: 0 0 10px #00f5ff, 0 0 24px #00f5ff55;
+    --g1: 0 0 10px #ff00aa, 0 0 24px #ff00aa55;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  html, body {
+    width:100%; height:100%;
+    background: var(--dark);
+    font-family: 'Share Tech Mono', monospace;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: none;
+  }
+
+  /* Full-screen canvas layer */
+  #game-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* Score Dashboard overlay (Top Bar) */
+  #dash-wrap {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 80px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 60px;
+    pointer-events: none;
+    z-index: 20;
+  }
+
+  .dash-block {
+    display: flex;
+    flex-direction: column;
+  }
+  .dash-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(0.55rem, 2vmin, 0.8rem);
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--cyan);
+    text-shadow: var(--g0);
+  }
+  .dash-val {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(1.5rem, 5vmin, 2.5rem);
+    font-weight: 900;
+    line-height: 1.1;
+    color: #fff;
+  }
+  #dash-p2 .dash-label {
+    color: var(--magenta);
+    text-shadow: var(--g1);
+    text-align: right;
+  }
+  #dash-p2 .dash-val {
+    text-align: right;
+    color: var(--magenta);
+  }
+
+  /* Overlay modals */
+  .overlay {
+    position: fixed; inset:0;
+    background: rgba(5,8,16,0.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .overlay.show { display:flex; }
+
+  .modal {
+    border: 1px solid var(--cyan);
+    background: var(--dark2);
+    padding: 28px 36px;
+    box-shadow: 0 0 8px #00f5ff, 0 0 40px #00f5ff33, 0 0 80px #00f5ff15;
+    clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+    text-align: center;
+    max-width: min(90vw, 440px);
+    width: 100%;
+  }
+
+  .modal-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(1.2rem, 4vw, 2rem);
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    background: linear-gradient(90deg, var(--cyan), var(--magenta), var(--green), var(--yellow));
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s linear infinite;
+    margin-bottom: 6px;
+  }
+  @keyframes shimmer { 0%{background-position:0%}100%{background-position:200%} }
+
+  .modal-sub {
+    font-size: clamp(0.5rem, 1.5vw, 0.7rem);
+    letter-spacing: 0.35em;
+    color: var(--yellow);
+    text-shadow: 0 0 8px var(--yellow);
+    margin-bottom: 20px;
+  }
+
+  .final-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 22px;
+  }
+  .fs-cell {
+    padding: 8px 10px;
+    border: 1px solid var(--cyan);
+    background: rgba(255,255,255,0.03);
+    clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+  }
+  .fs-name { font-size: 0.55rem; letter-spacing: 0.2em; opacity: 0.7; color: var(--cyan); }
+  .fs-val  { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; font-weight:900; color: #fff; }
+
+  .action-btn {
+    padding: 10px 28px;
+    border: 1px solid var(--cyan);
+    background: transparent;
+    color: var(--cyan);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.68rem;
+    letter-spacing: 0.3em;
+    cursor: pointer;
+    clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+    transition: all 0.2s;
+    text-shadow: 0 0 8px #00f5ff;
+    box-shadow: 0 0 8px #00f5ff, 0 0 20px #00f5ff55;
+  }
+  .action-btn:hover { background: rgba(0,245,255,0.1); transform: scale(1.03); }
+</style>
+</head>
+<body>
+
+<canvas id="game-canvas"></canvas>
+
+<div id="dash-wrap">
+  <div class="dash-block" id="dash-p1">
+    <div class="dash-label">P1 METRIC</div>
+    <div class="dash-val" id="p1-score">00</div>
+  </div>
+  <div class="dash-block" id="dash-p2">
+    <div class="dash-label">P2 METRIC</div>
+    <div class="dash-val" id="p2-score">00</div>
+  </div>
+</div>
+
+<div class="overlay show" id="start-overlay">
+  <div class="modal">
+    <div class="modal-title">NEON PONG</div>
+    <div class="modal-sub">// VECTOR ARENA PROTOCOL //</div>
+    <div style="font-size:clamp(0.5rem,1.5vw,0.68rem);letter-spacing:0.18em;opacity:0.65;line-height:2;margin-bottom:22px;color:#ccd6f6; text-align: left; padding-left: 10px;">
+      KEYBOARD CONTROLS:<br>
+      • PLAYER 1 (LEFT):  [W] UP — [S] DOWN<br>
+      • PLAYER 2 (RIGHT): [UP] UP — [DOWN] DOWN<br><br>
+      TOUCH CONTROLS:<br>
+      • DRAG VERTICALLY ON LEFT HALF FOR P1<br>
+      • DRAG VERTICALLY ON RIGHT HALF FOR P2<br><br>
+      CRITICAL THRESHOLD: FIRST TO 7 MATRIX POINTS WINS.
+    </div>
+    <button class="action-btn" onclick="initGame()">// ENGAGE ARENA //</button>
+  </div>
+</div>
+
+<div class="overlay" id="end-overlay">
+  <div class="modal">
+    <div class="modal-title" id="end-title">ARENA CONCLUDED</div>
+    <div class="modal-sub" id="end-sub">// MATRIX COMPILATION COMPLETE //</div>
+    <div class="final-stats">
+      <div class="fs-cell">
+        <div class="fs-name">P1 FINAL</div>
+        <div class="fs-val" id="final-p1">0</div>
+      </div>
+      <div class="fs-cell">
+        <div class="fs-name">P2 FINAL</div>
+        <div class="fs-val" id="final-p2">0</div>
+      </div>
+    </div>
+    <button class="action-btn" onclick="initGame()">// REBOOT PROTOCOL //</button>
+  </div>
+</div>
+
+<script>
+// ===================== CONFIG & STATE CONSTANTS =====================
+const WIN_SCORE = 7;
+const PADDLE_SPEED = 7.5;
+const BALL_SPEED_START = 5.5;
+const BALL_ACCEL = 1.06;
+const BALL_MAX_SPEED = 16;
+
+let canvas, ctx, W, H;
+let p1, p2, ball, particles;
+let p1Score, p2Score, gameRunning = false;
+
+// Input processing tracker dictionaries
+let keys = { w: false, s: false, ArrowUp: false, ArrowDown: false };
+
+canvas = document.getElementById('game-canvas');
+ctx = canvas.getContext('2d');
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ===================== GAME INITIALIZATION =====================
+function initGame() {
+  document.getElementById('start-overlay').classList.remove('show');
+  document.getElementById('end-overlay').classList.remove('show');
+  resize();
+
+  p1Score = 0;
+  p2Score = 0;
+  particles = [];
+
+  const padW = 14;
+  const padH = Math.max(90, H * 0.16);
+
+  p1 = { x: 40, y: H / 2 - padH / 2, w: padW, h: padH, score: 0 };
+  p2 = { x: W - 40 - padW, y: H / 2 - padH / 2, w: padW, h: padH, score: 0 };
+
+  ball = {
+    r: Math.max(7, Math.min(W, H) * 0.012),
+    x: W / 2,
+    y: H / 2,
+    vx: 0,
+    vy: 0
+  };
+
+  resetBall(Math.random() < 0.5 ? 1 : -1);
+  updateUI();
+  gameRunning = true;
+  requestAnimationFrame(gameLoop);
+}
+
+function resetBall(direction) {
+  ball.x = W / 2;
+  ball.y = H / 2;
+  
+  // Set calculated angle vector trajectory
+  let angle = (Math.random() * 0.4 - 0.2) * Math.PI; 
+  if (direction === -1) angle = Math.PI - angle;
+
+  ball.vx = Math.cos(angle) * BALL_SPEED_START;
+  ball.vy = Math.sin(angle) * BALL_SPEED_START;
+}
+
+// ===================== RUNTIME MATHEMATICS ENGINE =====================
+function gameLoop() {
+  if (!gameRunning) return;
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+function update() {
+  // 1. Paddle Vector Tracking Processes
+  if (keys.w && p1.y > 0) p1.y -= PADDLE_SPEED;
+  if (keys.s && p1.y + p1.h < H) p1.y += PADDLE_SPEED;
+
+  if (keys.ArrowUp && p2.y > 0) p2.y -= PADDLE_SPEED;
+  if (keys.ArrowDown && p2.y + p2.h < H) p2.y += PADDLE_SPEED;
+
+  // 2. Ball Core Acceleration Physics
+  ball.x += ball.vx;
+  ball.y += ball.vy;
+
+  // Floor and Ceiling perimeter ceiling deflection checks
+  if (ball.y - ball.r < 0) {
+    ball.y = ball.r;
+    ball.vy = -ball.vy;
+    spawnImpactParticles(ball.x, ball.y, '#fff', 3);
+  }
+  if (ball.y + ball.r > H) {
+    ball.y = H - ball.r;
+    ball.vy = -ball.vy;
+    spawnImpactParticles(ball.x, ball.y, '#fff', 3);
+  }
+
+  // 3. Collision Intersection Checks (Paddle 1 Left Area)
+  if (ball.vx < 0 &&
+      ball.x - ball.r <= p1.x + p1.w &&
+      ball.x + ball.r >= p1.x &&
+      ball.y >= p1.y &&
+      ball.y <= p1.y + p1.h) {
+    
+    ball.x = p1.x + p1.w + ball.r;
+    
+    // Normalized structural deflection calculations
+    let hitRelative = ((ball.y - (p1.y + p1.h / 2)) / (p1.h / 2));
+    let angle = hitRelative * (Math.PI / 3); // Max deflection 60 degrees
+
+    let speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+    speed = Math.min(speed * BALL_ACCEL, BALL_MAX_SPEED);
+
+    ball.vx = Math.cos(angle) * speed;
+    ball.vy = Math.sin(angle) * speed;
+
+    spawnImpactParticles(ball.x, ball.y, 'var(--cyan)', 6);
+  }
+
+  // Collision Intersection Checks (Paddle 2 Right Area)
+  if (ball.vx > 0 &&
+      ball.x + ball.r >= p2.x &&
+      ball.x - ball.r <= p2.x + p2.w &&
+      ball.y >= p2.y &&
+      ball.y <= p2.y + p2.h) {
+    
+    ball.x = p2.x - ball.r;
+
+    let hitRelative = ((ball.y - (p2.y + p2.h / 2)) / (p2.h / 2));
+    let angle = hitRelative * (Math.PI / 3);
+
+    let speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+    speed = Math.min(speed * BALL_ACCEL, BALL_MAX_SPEED);
+
+    ball.vx = -Math.cos(angle) * speed;
+    ball.vy = Math.sin(angle) * speed;
+
+    spawnImpactParticles(ball.x, ball.y, 'var(--magenta)', 6);
+  }
+
+  // 4. Out-of-Bounds Metric Integration (Goal Checking)
+  if (ball.x - ball.r < 0) {
+    p2Score++;
+    spawnImpactParticles(ball.x, ball.y, 'var(--magenta)', 20);
+    updateUI();
+    if (p2Score >= WIN_SCORE) {
+      endGame(2);
+      return;
+    } else {
+      resetBall(1); // Launch back toward Player 1
+    }
+  }
+
+  if (ball.x + ball.r > W) {
+    p1Score++;
+    spawnImpactParticles(ball.x, ball.y, 'var(--cyan)', 20);
+    updateUI();
+    if (p1Score >= WIN_SCORE) {
+      endGame(1);
+      return;
+    } else {
+      resetBall(-1); // Launch back toward Player 2
+    }
+  }
+
+  // 5. Ambient FX Pipeline loops Processing
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.alpha -= 0.024;
+    if (p.alpha <= 0) particles.splice(i, 1);
+  }
+}
+
+// ===================== RENDERING PARALLEL ENGINE =====================
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  
+  // Solid Base Vector Background Clear Fill
+  ctx.fillStyle = '#050810';
+  ctx.fillRect(0, 0, W, H);
+
+  // Background Arena Grid Matrix Wire Simulation
+  ctx.strokeStyle = 'rgba(0, 245, 255, 0.022)';
+  ctx.lineWidth = 1;
+  const gridSize = 50;
+  for (let x = 0; x < W; x += gridSize) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 0; y < H; y += gridSize) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // Draw Center Court Separation Dashed Wire Mesh
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
+  ctx.lineWidth = 4;
+  ctx.setLineDash([15, 15]);
+  ctx.beginPath();
+  ctx.moveTo(W / 2, 0);
+  ctx.lineTo(W / 2, H);
+  ctx.stroke();
+  ctx.setLineDash([]); // clear mapping array
+
+  // Draw Paddle 1 (Left Player)
+  ctx.save();
+  ctx.shadowColor = 'var(--cyan)';
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = 'var(--cyan)33';
+  ctx.fillRect(p1.x, p1.y, p1.w, p1.h);
+  ctx.strokeStyle = 'var(--cyan)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(p1.x, p1.y, p1.w, p1.h);
+  ctx.restore();
+
+  // Draw Paddle 2 (Right Player)
+  ctx.save();
+  ctx.shadowColor = 'var(--magenta)';
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = 'var(--magenta)33';
+  ctx.fillRect(p2.x, p2.y, p2.w, p2.h);
+  ctx.strokeStyle = 'var(--magenta)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(p2.x, p2.y, p2.w, p2.h);
+  ctx.restore();
+
+  // Draw Energy Core Ball
+  ctx.save();
+  ctx.shadowColor = '#ffffff';
+  ctx.shadowBlur = 16;
+  let bGrad = ctx.createRadialGradient(ball.x, ball.y, ball.r * 0.1, ball.x, ball.y, ball.r);
+  bGrad.addColorStop(0, '#ffffff');
+  bGrad.addColorStop(0.4, 'var(--cyan)');
+  bGrad.addColorStop(1, '#050810');
+  ctx.fillStyle = bGrad;
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Draw Visual Particle Streams Matrix
+  particles.forEach(p => {
+    ctx.save();
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  });
+}
+
+// ===================== UTILITY FX MODULES =====================
+function spawnImpactParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    let angle = Math.random() * Math.PI * 2;
+    let speed = 0.5 + Math.random() * 3.5;
+    particles.push({
+      x: x,
+      y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      size: 1 + Math.random() * 2,
+      color: color,
+      alpha: 1
+    });
+  }
+}
+
+// ===================== INPUT DEVICE CONTROL INTERFACES =====================
+window.addEventListener('keydown', e => {
+  if (['ArrowUp', 'ArrowDown', 'KeyW', 'KeyS'].includes(e.code)) {
+    // block window browser screen jumping shifts
+  }
+  if (e.key === 'w' || e.key === 'W') keys.w = true;
+  if (e.key === 's' || e.key === 'S') keys.s = true;
+  if (e.key === 'ArrowUp')            keys.ArrowUp = true;
+  if (e.key === 'ArrowDown')          keys.ArrowDown = true;
+});
+
+window.addEventListener('keyup', e => {
+  if (e.key === 'w' || e.key === 'W') keys.w = false;
+  if (e.key === 's' || e.key === 'S') keys.s = false;
+  if (e.key === 'ArrowUp')            keys.ArrowUp = false;
+  if (e.key === 'ArrowDown')          keys.ArrowDown = false;
+});
+
+// Dual Screen Touch Matrix Splits Configuration
+function handleTouch(e) {
+  e.preventDefault();
+  for (let i = 0; i < e.touches.length; i++) {
+    let touch = e.touches[i];
+    // Left half splits tracking bounds for Player 1
+    if (touch.clientX < W / 2) {
+      p1.y = touch.clientY - p1.h / 2;
+      if (p1.y < 0) p1.y = 0;
+      if (p1.y + p1.h > H) p1.y = H - p1.h;
+    } 
+    // Right half splits tracking bounds for Player 2
+    else {
+      p2.y = touch.clientY - p2.h / 2;
+      if (p2.y < 0) p2.y = 0;
+      if (p2.y + p2.h > H) p2.y = H - p2.h;
+    }
+  }
+}
+window.addEventListener('touchstart', handleTouch, { passive: false });
+window.addEventListener('touchmove', handleTouch, { passive: false });
+
+// ===================== DASHBOARD METRIC MONITOR WRITERS =====================
+function updateUI() {
+  document.getElementById('p1-score').textContent = String(p1Score).padStart(2, '0');
+  document.getElementById('p2-score').textContent = String(p2Score).padStart(2, '0');
+}
+
+function endGame(winnerIndex) {
+  gameRunning = false;
+  
+  const title = document.getElementById('end-title');
+  const sub = document.getElementById('end-sub');
+  
+  if (winnerIndex === 1) {
+    title.textContent = "PLAYER 1 DOMINANT";
+    title.style.color = "var(--cyan)";
+    sub.textContent = "// CYAN MATRIX DECRYPT INTEGRITY SUCCESSFUL //";
+  } else {
+    title.textContent = "PLAYER 2 DOMINANT";
+    title.style.color = "var(--magenta)";
+    sub.textContent = "// MAGENTA MATRIX DECRYPT INTEGRITY SUCCESSFUL //";
+  }
+
+  document.getElementById('final-p1').textContent = p1Score;
+  document.getElementById('final-p2').textContent = p2Score;
+  document.getElementById('end-overlay').classList.add('show');
+}
+</script>
+</body>
+</html>
