@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Touch Artillery Sandbox</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #111;
+            font-family: sans-serif;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            background: linear-gradient(to bottom, #1a0b2e, #0b0518);
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+        /* Rotated UI for Player 2 at the top */
+        .ui-panel {
+            position: absolute;
+            padding: 15px;
+            color: #fff;
+            font-weight: bold;
+            pointer-events: none;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        #ui-p2 {
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            transform: rotate(180deg);
+            text-align: right;
+        }
+        #ui-p1 {
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+        }
+        .turn-indicator {
+            color: #ff3366;
+            animation: pulse 1s infinite alternate;
+        }
+        @keyframes pulse {
+            from { opacity: 0.6; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="gameContainer">
+    <div id="ui-p2" class="ui-panel">
+        <div>Player 2 (Green)</div>
+        <div id="p2-status">Drag behind tank to Aim & Fire</div>
+        <div id="p2-turn" class="turn-indicator"></div>
+    </div>
+    
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="ui-p1" class="ui-panel">
+        <div id="p1-turn" class="turn-indicator"></div>
+        <div id="p1-status">Drag behind tank to Aim & Fire</div>
+        <div>Player 1 (Pink)</div>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Game state constants
+const GRAVITY = 0.2;
+const TANK_RADIUS = 12;
+const BLAST_RADIUS = 35;
+
+let width, height;
+let terrainImgData = null; // Store terrain pixels for quick destruction
+let wind = 0;
+
+let game = {
+    turn: 1, // 1 or 2
+    state: 'aiming', // 'aiming', 'projectile_flying', 'explosion', 'game_over'
+    winner: null
+};
+
+let players = {
+    1: { x: 0, y: 0, color: '#ff3366', alive: true },
+    2: { x: 0, y: 0, color: '#33ff66', alive: true }
+};
+
+let projectile = {
+    x: 0, y: 0, vx: 0, vy: 0, active: false
+};
+
+let touchStart = { x: 0, y: 0 };
+let isDragging = false;
+let currentDrag = { x: 0, y: 0 };
+
+// Prevent long-press menus
+window.addEventListener('contextmenu', e => e.preventDefault());
+
+function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+    generateTerrain();
+    placePlayers();
+    generateWind();
+    updateUI();
+}
+
+function generateWind() {
+    wind = (Math.random() * 0.1 - 0.05); // Subtle left/right wind push
+}
+
+function generateTerrain() {
+    // Fill background/sky on canvas first
+    ctx.clearRect(0, 0, width, height);
+    
+    // Draw procedural mountains using sine waves
+    ctx.fillStyle = '#4a3728';
+    ctx.beginPath();
+    ctx.moveTo(0, height);
+    
+    let baseHeight = height * 0.6;
+    let h1 = Math.random() * 80 + 40;
+    let h2 = Math.random() * 40 + 10;
+    let f1 = Math.random() * 0.005 + 0.002;
+    let f2 = Math.random() * 0.02 + 0.005;
+
+    for (let x = 0; x <= width; x++) {
+        let y = baseHeight + Math.sin(x * f1) * h1 + Math.cos(x * f2) * h2;
+        ctx.lineTo(x, y);
+    }
+    ctx.lineTo(width, height);
+    ctx.closePath();
+    ctx.fill();
+
+    // Add a layer of green grass on top surface
+    ctx.fillStyle = '#2d7c2b';
+    ctx.globalCompositeOperation = 'source-atop';
+    ctx.fillRect(0, 0, width, height);
+    ctx.globalCompositeOperation = 'source-over';
+
+    // Cache the drawn terrain as clean pixel data for fast pixel-perfect collision/destruction
+    terrainImgData = ctx.getImageData(0, 0, width, height);
+}
+
+function getTerrainHeight(x) {
+    if (x < 0 || x >= width) return height;
+    // Scan down from top to find first non-transparent pixel
+    for (let y = 0; y < height; y++) {
+        let alphaIndex = (Math.floor(y) * width + Math.floor(x)) * 4 + 3;
+        if (terrainImgData.data[alphaIndex] > 0) {
+            return y;
+        }
+    }
+    return height;
+}
+
+function placePlayers() {
+    players[1].x = width * 0.15;
+    players[1].y = getTerrainHeight(players[1].x) - TANK_RADIUS;
+    
+    players[2].x = width * 0.85;
+    players[2].y = getTerrainHeight(players[2].x) - TANK_RADIUS;
+    
+    players[1].alive = true;
+    players[2].alive = true;
+    game.winner = null;
+    game.state = 'aiming';
+    game.turn = 1;
+}
+
+// Check if pixel coordinates match solid terrain
+function isSolid(x, y) {
+    if (x < 0 || x >= width || y < 0 || y >= height) return false;
+    let idx = (Math.floor(y) * width + Math.floor(x)) * 4 + 3;
+    return terrainImgData.data[idx] > 0;
+}
+
+// Destruction algorithm: Clears out a circular radial bite out of the cached pixel grid
+function destroyTerrain(cx, cy, radius) {
+    let startX = Math.max(0, Math.floor(cx - radius));
+    let endX = Math.min(width - 1, Math.floor(cx + radius));
+    let startY = Math.max(0, Math.floor(cy - radius));
+    let endY = Math.min(height - 1, Math.floor(cy + radius));
+
+    for (let x = startX; x <= endX; x++) {
+        for (let y = startY; y <= endY; y++) {
+            let dx = x - cx;
+            let dy = y - cy;
+            if (dx * dx + dy * dy <= radius * radius) {
+                let idx = (y * width + x) * 4;
+                terrainImgData.data[idx + 3] = 0; // Alpha channel to 0 (transparent)
+            }
+        }
+    }
+    
+    // Settle tanks down if earth beneath them vanished
+    settleTanks();
+}
+
+function settleTanks() {
+    for (let p in players) {
+        let newY = getTerrainHeight(players[p].x) - TANK_RADIUS;
+        if (newY >= height - TANK_RADIUS * 2) {
+            players[p].alive = false; // Tank fell off map bounds
+            checkGameOver();
+        } else {
+            players[p].y = newY;
+        }
+    }
+}
+
+function checkGameOver() {
+    if (!players[1].alive && !players[2].alive) {
+        game.winner = "Draw!";
+        game.state = 'game_over';
+    } else if (!players[1].alive) {
+        game.winner = "Player 2 Wins!";
+        game.state = 'game_over';
+    } else if (!players[2].alive) {
+        game.winner = "Player 1 Wins!";
+        game.state = 'game_over';
+    }
+}
+
+function fire(vx, vy) {
+    let activeTank = players[game.turn];
+    projectile.x = activeTank.x;
+    projectile.y = activeTank.y - 12;
+    projectile.vx = vx;
+    projectile.vy = vy;
+    projectile.active = true;
+    game.state = 'projectile_flying';
+    updateUI();
+}
+
+function triggerExplosion(ex, ey) {
+    game.state = 'explosion';
+    destroyTerrain(ex, ey, BLAST_RADIUS);
+    
+    // Check damage to players
+    for (let p in players) {
+        let dx = players[p].x - ex;
+        let dy = (players[p].y + TANK_RADIUS) - ey;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < BLAST_RADIUS) {
+            players[p].alive = false; // Instant kill if inside blast radius
+        }
+    }
+
+    checkGameOver();
+
+    // Explosion visual hold frame
+    setTimeout(() => {
+        if (game.state !== 'game_over') {
+            game.turn = game.turn === 1 ? 2 : 1;
+            generateWind();
+            game.state = 'aiming';
+        }
+        updateUI();
+    }, 400);
+}
+
+// Handle Touch Inputs
+function getTouchPos(e) {
+    let t = e.touches[0];
+    return { x: t.clientX, y: t.clientY };
+}
+
+window.addEventListener('touchstart', (e) => {
+    if (game.state !== 'aiming') return;
+    isDragging = true;
+    let pos = getTouchPos(e);
+    touchStart = pos;
+    currentDrag = pos;
+});
+
+window.addEventListener('touchmove', (e) => {
+    if (!isDragging) return;
+    currentDrag = getTouchPos(e);
+});
+
+window.addEventListener('touchend', () => {
+    if (!isDragging) return;
+    isDragging = false;
+
+    let dx = touchStart.x - currentDrag.x;
+    let dy = touchStart.y - currentDrag.y;
+
+    // Flip math calculations contextually for P2 upside down position
+    if (game.turn === 2) {
+        dx = -dx;
+        dy = -dy;
+    }
+
+    // Fire if pull strength is substantial
+    let force = Math.sqrt(dx*dx + dy*dy);
+    if (force > 10) {
+        // Map pull vectors straight into velocity trajectories
+        fire(dx * 0.12, dy * 0.12);
+    }
+});
+
+function updateUI() {
+    const p1T = document.getElementById('p1-turn');
+    const p2T = document.getElementById('p2-turn');
+    const p1S = document.getElementById('p1-status');
+    const p2S = document.getElementById('p2-status');
+
+    p1T.innerText = (game.turn === 1 && game.state === 'aiming') ? "YOUR TURN" : "";
+    p2T.innerText = (game.turn === 2 && game.state === 'aiming') ? "YOUR TURN" : "";
+
+    let windText = `Wind: ${wind > 0 ? '→' : '←'} ${Math.abs(wind * 200).toFixed(1)}`;
+    
+    if (game.state === 'game_over') {
+        p1S.innerText = game.winner;
+        p2S.innerText = game.winner;
+    } else {
+        p1S.innerText = windText;
+        p2S.innerText = windText;
+    }
+}
+
+// Game Core Engine Loop
+function update() {
+    if (game.state === 'projectile_flying' && projectile.active) {
+        // Physics integration steps
+        projectile.vx += wind;
+        projectile.vy += GRAVITY;
+        projectile.x += projectile.vx;
+        projectile.y += projectile.vy;
+
+        // Wall limits
+        if (projectile.x < 0 || projectile.x > width || projectile.y > height) {
+            projectile.active = false;
+            game.turn = game.turn === 1 ? 2 : 1;
+            generateWind();
+            game.state = 'aiming';
+            updateUI();
+        }
+
+        // Direct ground/terrain impact detection
+        if (isSolid(projectile.x, projectile.y)) {
+            projectile.active = false;
+            triggerExplosion(projectile.x, projectile.y);
+        }
+    }
+}
+
+function draw() {
+    // Clear backbuffer frame
+    ctx.clearRect(0,0,width,height);
+
+    // Blit updated terrain map
+    if (terrainImgData) {
+        ctx.putImageData(terrainImgData, 0, 0);
+    }
+
+    // Render remaining living players
+    for (let p in players) {
+        let tank = players[p];
+        if (!tank.alive) continue;
+
+        ctx.fillStyle = tank.color;
+        ctx.beginPath();
+        // Draw dome chassis base
+        ctx.arc(tank.x, tank.y, TANK_RADIUS, Math.PI, 0);
+        ctx.fill();
+        
+        // Underbelly square base
+        ctx.fillRect(tank.x - TANK_RADIUS, tank.y, TANK_RADIUS * 2, 5);
+    }
+
+    // Render real-time slingshot dragging reticle target guide lines
+    if (isDragging && game.state === 'aiming') {
+        let activeTank = players[game.turn];
+        ctx.strokeStyle = activeTank.color;
+        ctx.lineWidth = 3;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(activeTank.x, activeTank.y - 12);
+
+        let dx = touchStart.x - currentDrag.x;
+        let dy = touchStart.y - currentDrag.y;
+        
+        if (game.turn === 2) {
+            dx = -dx;
+            dy = -dy;
+        }
+
+        // Target intercept layout prediction line visualizer
+        ctx.lineTo(activeTank.x + dx, (activeTank.y - 12) + dy);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    // Draw bullet tracking point
+    if (game.state === 'projectile_flying' && projectile.active) {
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#ffffaa';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(projectile.x, projectile.y, 4, 0, Math.PI*2);
+        ctx.fill();
+        ctx.shadowBlur = 0; // reset
+    }
+
+    // Draw momentary flash burst ring frame
+    if (game.state === 'explosion') {
+        ctx.fillStyle = '#ffaa44';
+        ctx.beginPath();
+        // Animate shell impact visuals locally
+        ctx.arc(projectile.x, projectile.y, BLAST_RADIUS, 0, Math.PI*2);
+        ctx.fill();
+    }
+}
+
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+// Launch application init triggers
+window.addEventListener('resize', resize);
+resize();
+loop();
+
+</script>
+</body>
+</html>
