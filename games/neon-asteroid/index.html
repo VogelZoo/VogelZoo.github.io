@@ -157,7 +157,7 @@
   }
   .action-btn:hover { background: rgba(0,245,255,0.1); transform: scale(1.03); }
 
-  /* Touch controls (Hidden on desktop via JavaScript checking) */
+  /* Touch controls (Auto visible on mobile) */
   #touch-controls {
     position: fixed;
     bottom: 30px; left: 0; right: 0;
@@ -168,10 +168,10 @@
     z-index: 50;
   }
   .touch-zone {
-    width: 90px; height: 90px;
+    width: 95px; height: 95px;
     border-radius: 50%;
     border: 2px solid var(--cyan);
-    background: rgba(10, 16, 32, 0.6);
+    background: rgba(10, 16, 32, 0.75);
     box-shadow: var(--g0);
     display: flex; align-items: center; justify-content: center;
     color: var(--cyan); font-family: 'Orbitron', sans-serif;
@@ -242,7 +242,7 @@
 <script>
 // ===================== CONFIG & STATE CONSTANTS =====================
 const ASTEROID_COLORS = ['#ff00aa', '#00f5ff', '#00ff88', '#ffee00'];
-const SHIP_SIZE = 16;
+const SHIP_SIZE = 18; // Slightly larger for better tracking visibility
 const LASER_MAX_LIFE = 60;
 const IMMUNITY_MAX_LIFE = 120;
 
@@ -250,10 +250,11 @@ let canvas, ctx, W, H;
 let ship, lasers, asteroids, particles;
 let score, lives, anomaliesCleared, gameRunning = false;
 
-// Controller inputs dictionaries
+// Tracking inputs map dicts
 let keys = { ArrowUp: false, ArrowLeft: false, ArrowRight: false, Space: false };
 let isTouchDevice = false;
 
+// Initialize layout context
 canvas = document.getElementById('game-canvas');
 ctx = canvas.getContext('2d');
 
@@ -264,7 +265,7 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// Detect Input Hardware configurations
+// Check interface touch options
 if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
   isTouchDevice = true;
   document.getElementById('touch-controls').style.display = 'flex';
@@ -283,23 +284,23 @@ function initGame() {
   asteroids = [];
   particles = [];
 
-  // Re-map physics container inside ship
+  // Reset ship core vectors right in center of view
   ship = {
     x: W / 2,
     y: H / 2,
     r: SHIP_SIZE,
-    angle: -Math.PI / 2, // point upwards initially
-    rotSpeed: 0.06,
+    angle: -Math.PI / 2, 
+    rotSpeed: 0.065,
     vx: 0,
     vy: 0,
-    thrust: 0.12,
-    friction: 0.985,
+    thrust: 0.14,
+    friction: 0.982,
     laserCooldown: 0,
     immunity: IMMUNITY_MAX_LIFE
   };
 
-  // Generate initial generation of Asteroids matrix
-  for(let i=0; i<6; i++) {
+  // Build secure array matrix of initial anomalies cleanly pushed to edges
+  for(let i = 0; i < 5; i++) {
     spawnAsteroidOutsideCenter();
   }
 
@@ -317,25 +318,21 @@ function gameLoop() {
 }
 
 function update() {
-  // 1. Ship Physics & Inputs Mapping Engine
+  // 1. Interceptor Mechanics & Inputs Integration Loop
   if (isTouchDevice) {
-    // Mobile Pointer Directional Mapping
     let dx = pointerX - ship.x;
     let dy = pointerY - ship.y;
     if(Math.abs(dx) > 10 || Math.abs(dy) > 10) {
       ship.angle = Math.atan2(dy, dx);
     }
   } else {
-    // Keyboard Rotational mappings
     if (keys.ArrowLeft)  ship.angle -= ship.rotSpeed;
     if (keys.ArrowRight) ship.angle += ship.rotSpeed;
   }
 
-  // Acceleration handling
   if (keys.ArrowUp) {
     ship.vx += Math.cos(ship.angle) * ship.thrust;
     ship.vy += Math.sin(ship.angle) * ship.thrust;
-    // Spawn faint propulsion exhaust particles
     if(Math.random() < 0.4) {
       let eX = ship.x - Math.cos(ship.angle) * ship.r;
       let eY = ship.y - Math.sin(ship.angle) * ship.r;
@@ -343,24 +340,21 @@ function update() {
     }
   }
 
-  // Apply kinetic dampening resistance environment values
   ship.vx *= ship.friction;
   ship.vy *= ship.friction;
   ship.x += ship.vx;
   ship.y += ship.vy;
 
-  // Screen wrap boundaries for space entity simulation
   wrapEntity(ship);
 
   if (ship.laserCooldown > 0) ship.laserCooldown--;
   if (ship.immunity > 0) ship.immunity--;
 
-  // Weapon Fire evaluation mapping triggers
   if (keys.Space && ship.laserCooldown === 0) {
     fireLaser();
   }
 
-  // 2. Weapon Processing Subsystems
+  // 2. Weapons Subsystem Iterations
   for (let i = lasers.length - 1; i >= 0; i--) {
     let l = lasers[i];
     l.x += l.vx;
@@ -373,7 +367,7 @@ function update() {
     }
   }
 
-  // 3. Hazard Geometry Movement Loop
+  // 3. Asteroid Track Processing
   asteroids.forEach(ast => {
     ast.x += ast.vx;
     ast.y += ast.vy;
@@ -381,19 +375,17 @@ function update() {
     wrapEntity(ast);
   });
 
-  // 4. Kinetic Iteration Intersections & Destruction
+  // 4. Hit Detection Intersections
   laserLoop:
   for (let i = lasers.length - 1; i >= 0; i--) {
     let l = lasers[i];
     for (let j = asteroids.length - 1; j >= 0; j--) {
       let ast = asteroids[j];
-      
       let distSq = (l.x - ast.x)**2 + (l.y - ast.y)**2;
-      if (distSq < (ast.r + 2)**2) {
-        // Impact resolved
+      if (distSq < (ast.r + 4)**2) {
         lasers.splice(i, 1);
         shatterAsteroid(ast, j);
-        score += Math.floor(100 / ast.generation);
+        score += Math.floor(120 / ast.generation);
         anomaliesCleared++;
         updateUI();
         continue laserLoop;
@@ -401,14 +393,13 @@ function update() {
     }
   }
 
-  // Ship Matrix Impact Intersections tracking
+  // Ship Defect Impact Tracking
   if (ship.immunity === 0) {
     for (let i = 0; i < asteroids.length; i++) {
       let ast = asteroids[i];
       let distSq = (ship.x - ast.x)**2 + (ship.y - ast.y)**2;
-      if (distSq < (ship.r + ast.r * 0.85)**2) {
-        // Direct crash collision triggered
-        spawnParticles(ship.x, ship.y, 'var(--magenta)', 25, 5);
+      if (distSq < (ship.r + ast.r * 0.82)**2) {
+        spawnParticles(ship.x, ship.y, 'var(--magenta)', 30, 6);
         lives--;
         updateUI();
 
@@ -416,7 +407,7 @@ function update() {
           endGame();
           return;
         } else {
-          // Soft Respawn protection sequences
+          // Hard safety reset configuration parameters
           ship.x = W / 2;
           ship.y = H / 2;
           ship.vx = 0;
@@ -428,7 +419,7 @@ function update() {
     }
   }
 
-  // 5. Environmental FX Particles Pipeline Iteration
+  // 5. Particles Pipeline Processing
   for (let i = particles.length - 1; i >= 0; i--) {
     let p = particles[i];
     p.x += p.vx;
@@ -437,7 +428,7 @@ function update() {
     if (p.alpha <= 0) particles.splice(i, 1);
   }
 
-  // System continuous threat reproduction checking
+  // Continuous loop generation balancing
   if(asteroids.length < 4) {
     spawnAsteroidOutsideCenter();
   }
@@ -447,14 +438,14 @@ function update() {
 function draw() {
   ctx.clearRect(0, 0, W, H);
   
-  // Background Core Fill
+  // Base Screen Background 
   ctx.fillStyle = '#050810';
   ctx.fillRect(0, 0, W, H);
 
-  // Background Cyber Line Matrix Array Simulation
-  ctx.strokeStyle = 'rgba(0, 245, 255, 0.02)';
+  // Background Arena Grid Matrix Wire Simulation
+  ctx.strokeStyle = 'rgba(0, 245, 255, 0.025)';
   ctx.lineWidth = 1;
-  const gridSize = 50;
+  const gridSize = 55;
   for (let x = 0; x < W; x += gridSize) {
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
   }
@@ -462,28 +453,28 @@ function draw() {
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
   }
 
-  // Draw Lasers Pipelines
+  // Draw Weapons Discharge Paths
   lasers.forEach(l => {
     ctx.save();
     ctx.shadowColor = 'var(--cyan)';
-    ctx.shadowBlur = 8;
+    ctx.shadowBlur = 10;
     ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 3.5;
     ctx.beginPath();
     ctx.moveTo(l.x, l.y);
-    ctx.lineTo(l.x - Math.cos(l.angle)*10, l.y - Math.sin(l.angle)*10);
+    ctx.lineTo(l.x - Math.cos(l.angle)*12, l.y - Math.sin(l.angle)*12);
     ctx.stroke();
     ctx.restore();
   });
 
-  // Draw Hazard Asteroid Matrix
+  // Draw Asteroid Grids
   asteroids.forEach(ast => {
     ctx.save();
     ctx.shadowColor = ast.color;
     ctx.shadowBlur = 10;
     ctx.strokeStyle = ast.color;
-    ctx.fillStyle = ast.color + '1a'; // Dim vector inner shade
-    ctx.lineWidth = 1.5;
+    ctx.fillStyle = ast.color + '1a'; 
+    ctx.lineWidth = 1.8;
 
     ctx.translate(ast.x, ast.y);
     ctx.rotate(ast.angle);
@@ -500,23 +491,31 @@ function draw() {
     ctx.restore();
   });
 
-  // Draw Ship Vector Graph
+  // Draw Interceptor Ship
   ctx.save();
-  if (ship.immunity > 0 && Math.floor(ship.immunity / 4) % 2 === 0) {
-    // Flash interceptor body transparently during tracking immunity phase
-    ctx.globalAlpha = 0.2;
-  }
   ctx.shadowColor = 'var(--cyan)';
-  ctx.shadowBlur = 12;
+  ctx.shadowBlur = 14;
   ctx.strokeStyle = 'var(--cyan)';
   ctx.fillStyle = '#0a1020';
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 2.5;
 
   ctx.translate(ship.x, ship.y);
   ctx.rotate(ship.angle);
 
+  // Draw flashing shield ring indicator if ship holds spawn immunity
+  if (ship.immunity > 0) {
+    ctx.save();
+    ctx.strokeStyle = (Math.floor(ship.immunity / 6) % 2 === 0) ? 'rgba(0, 245, 255, 0.45)' : 'rgba(255, 0, 170, 0.2)';
+    ctx.shadowColor = 'var(--cyan)';
+    ctx.shadowBlur = 6;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, ship.r * 1.6, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   ctx.beginPath();
-  // Standard geometric triangle geometry interceptor
   ctx.moveTo(ship.r, 0);
   ctx.lineTo(-ship.r * 0.8, -ship.r * 0.7);
   ctx.lineTo(-ship.r * 0.4, 0);
@@ -525,21 +524,22 @@ function draw() {
   ctx.fill();
   ctx.stroke();
 
-  // Engine fire visual indicator matching key map down acceleration
+  // Engine fire visual trace
   if (keys.ArrowUp) {
     ctx.strokeStyle = 'var(--yellow)';
     ctx.shadowColor = 'var(--yellow)';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(-ship.r * 0.5, 0);
-    ctx.lineTo(-ship.r * 1.1, -ship.r * 0.25);
-    ctx.lineTo(-ship.r * 1.5, 0);
-    ctx.lineTo(-ship.r * 1.1, ship.r * 0.25);
+    ctx.lineTo(-ship.r * 1.2, -ship.r * 0.25);
+    ctx.lineTo(-ship.r * 1.6, 0);
+    ctx.lineTo(-ship.r * 1.2, ship.r * 0.25);
     ctx.closePath();
     ctx.stroke();
   }
   ctx.restore();
 
-  // Render FX Particles Graph Array
+  // Draw FX Particles Graph Matrix
   particles.forEach(p => {
     ctx.save();
     ctx.globalAlpha = p.alpha;
@@ -553,12 +553,12 @@ function draw() {
   });
 }
 
-// ===================== BEHAVIOR ARCHITECTURAL HELPER METHODS =====================
+// ===================== STRUCTURAL UTILITY CALCULATIONS =====================
 function wrapEntity(ent) {
-  if (ent.x < -20) ent.x = W + 20;
-  if (ent.x > W + 20) ent.x = -20;
-  if (ent.y < -20) ent.y = H + 20;
-  if (ent.y > H + 20) ent.y = -20;
+  if (ent.x < -30) ent.x = W + 30;
+  if (ent.x > W + 30) ent.x = -30;
+  if (ent.y < -30) ent.y = H + 30;
+  if (ent.y > H + 30) ent.y = -30;
 }
 
 function fireLaser() {
@@ -566,61 +566,67 @@ function fireLaser() {
     x: ship.x + Math.cos(ship.angle) * ship.r,
     y: ship.y + Math.sin(ship.angle) * ship.r,
     angle: ship.angle,
-    vx: Math.cos(ship.angle) * 9 + ship.vx * 0.5,
-    vy: Math.sin(ship.angle) * 9 + ship.vy * 0.5,
+    vx: Math.cos(ship.angle) * 9.5 + ship.vx * 0.4,
+    vy: Math.sin(ship.angle) * 9.5 + ship.vy * 0.4,
     life: LASER_MAX_LIFE
   });
-  ship.laserCooldown = 12; // rate limiting cadence
+  ship.laserCooldown = 11; 
 }
 
 function spawnAsteroidOutsideCenter() {
-  let x, y, dist;
-  // Make certain hazards do not spawn on top of center coordinates initial ship configuration
-  do {
+  let x, y, distanceToCenter;
+  let maxTries = 100;
+  
+  // FIX: Force spawn locations out towards screen bounds perimeter context
+  // This constructs a dedicated center safe buffer radius loop box
+  for (let i = 0; i < maxTries; i++) {
     x = Math.random() * W;
     y = Math.random() * H;
-    dist = Math.sqrt((x - W/2)**2 + (y - H/2)**2);
-  } while (dist < 160);
+    distanceToCenter = Math.sqrt((x - W / 2) ** 2 + (y - H / 2) ** 2);
+    
+    // Require a healthy radial buffer zone clearance space 
+    if (distanceToCenter > Math.min(W, H) * 0.35) {
+      break;
+    }
+  }
 
-  createAsteroidInstance(x, y, 45, 1);
+  createAsteroidInstance(x, y, Math.max(35, Math.min(W, H) * 0.06), 1);
 }
 
 function createAsteroidInstance(x, y, radius, gen) {
-  // Generate random bumpy visual jagged matrix vector mapping array profiles
   let points = [];
-  let segments = 8 + Math.floor(Math.random() * 6);
+  let segments = 9 + Math.floor(Math.random() * 5);
   for (let i = 0; i < segments; i++) {
     let angle = (i / segments) * Math.PI * 2;
-    let lengthOffset = radius * (0.75 + Math.random() * 0.4);
+    let lengthOffset = radius * (0.72 + Math.random() * 0.45);
     points.push({
       x: Math.cos(angle) * lengthOffset,
       y: Math.sin(angle) * lengthOffset
     });
   }
 
-  let speedFactor = 0.6 + (gen * 0.4);
+  let speedFactor = 0.5 + (gen * 0.45);
   asteroids.push({
     x: x,
     y: y,
-    vx: (Math.random() - 0.5) * 3.5 * speedFactor,
-    vy: (Math.random() - 0.5) * 3.5 * speedFactor,
+    vx: (Math.random() - 0.5) * 3.8 * speedFactor,
+    vy: (Math.random() - 0.5) * 3.8 * speedFactor,
     r: radius,
-    generation: gen, // 1 = Big, 2 = Medium, 3 = Fragmented mini
+    generation: gen, 
     angle: Math.random() * Math.PI * 2,
-    rotSpeed: (Math.random() - 0.5) * 0.03,
+    rotSpeed: (Math.random() - 0.5) * 0.025,
     points: points,
     color: ASTEROID_COLORS[Math.floor(Math.random() * ASTEROID_COLORS.length)]
   });
 }
 
 function shatterAsteroid(ast, index) {
-  spawnParticles(ast.x, ast.y, ast.color, ast.generation * 8, 3.5);
+  spawnParticles(ast.x, ast.y, ast.color, ast.generation * 10, 4);
   asteroids.splice(index, 1);
 
-  // Divide into separate directional subcomponents if structural geometry allows breaking down
   if (ast.generation < 3) {
     let nextGen = ast.generation + 1;
-    let nextRadius = ast.r * 0.55;
+    let nextRadius = ast.r * 0.52;
     createAsteroidInstance(ast.x, ast.y, nextRadius, nextGen);
     createAsteroidInstance(ast.x, ast.y, nextRadius, nextGen);
   }
@@ -629,22 +635,21 @@ function shatterAsteroid(ast, index) {
 function spawnParticles(x, y, color, count, maxVelocity) {
   for (let i = 0; i < count; i++) {
     let angle = Math.random() * Math.PI * 2;
-    let speed = 0.5 + Math.random() * maxVelocity;
+    let speed = 0.6 + Math.random() * maxVelocity;
     particles.push({
       x: x,
       y: y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      size: 1 + Math.random() * 2,
+      size: 1.2 + Math.random() * 2.2,
       color: color,
       alpha: 1,
-      decay: 0.015 + Math.random() * 0.02
+      decay: 0.014 + Math.random() * 0.018
     });
   }
 }
 
-// ===================== INTERACTION DEVICE EVENT MANAGEMENT =====================
-// Keyboard Handlers
+// ===================== INPUT CONTROL DEVICE CAPTURES =====================
 window.addEventListener('keydown', e => {
   if (['ArrowUp', 'ArrowLeft', 'ArrowRight', 'Space', ' '].includes(e.code)) {
     e.preventDefault();
@@ -652,17 +657,16 @@ window.addEventListener('keydown', e => {
   if (e.code === 'ArrowUp')    keys.ArrowUp = true;
   if (e.code === 'ArrowLeft')  keys.ArrowLeft = true;
   if (e.code === 'ArrowRight') keys.ArrowRight = true;
-  if (e.code === 'Space' || e.code === 'KeyK') keys.Space = true;
+  if (e.code === 'Space')      keys.Space = true;
 });
 
 window.addEventListener('keyup', e => {
   if (e.code === 'ArrowUp')    keys.ArrowUp = false;
   if (e.code === 'ArrowLeft')  keys.ArrowLeft = false;
   if (e.code === 'ArrowRight') keys.ArrowRight = false;
-  if (e.code === 'Space' || e.code === 'KeyK') keys.Space = false;
+  if (e.code === 'Space')      keys.Space = false;
 });
 
-// Mobile Pointer Positioning Handlers
 let pointerX = 0, pointerY = 0;
 function trackPointer(e) {
   let clientX, clientY;
@@ -679,7 +683,7 @@ function trackPointer(e) {
 window.addEventListener('mousemove', trackPointer);
 window.addEventListener('touchmove', trackPointer, { passive: false });
 
-// Virtual Pad Button Mappings 
+// Bind virtual Mobile touch controls 
 const vThrust = document.getElementById('touch-thrust');
 const vFire = document.getElementById('touch-fire');
 
@@ -691,13 +695,13 @@ if (isTouchDevice) {
   vFire.addEventListener('touchend', e => { e.preventDefault(); keys.Space = false; });
 }
 
-// ===================== INTERFACE UTILITY TRANSLATION =====================
+// ===================== TELEMETRY MONITOR FORMATS =====================
 function updateUI() {
   let padScore = String(score).padStart(5, '0');
   document.getElementById('score-val').textContent = padScore;
   
   let livesGraphic = '';
-  for(let i=0; i<lives; i++) livesGraphic += '▲ ';
+  for(let i = 0; i < lives; i++) livesGraphic += '▲ ';
   document.getElementById('lives-val').textContent = livesGraphic || 'CONTAINMENT VOID';
 }
 
