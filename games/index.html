@@ -185,4 +185,227 @@
     }
     .gfx-snake .node:nth-child(1) { transform: translate(-28px, 10px); }
     .gfx-snake .node:nth-child(2) { transform: translate(-14px, 10px); }
-    .gfx-snake .node
+    .gfx-snake .node:nth-child(3) { transform: translate(0px, 10px); }
+    .gfx-snake .node:nth-child(4) { transform: translate(0px, -4px); }
+    .gfx-snake .node:nth-child(5) { transform: translate(14px, -4px); background: var(--magenta); box-shadow: 0 0 12px var(--magenta); }
+
+    /* Hippo Graphic */
+    .gfx-hippo .ring {
+      width: 90px; height: 90px; border: 2px dashed rgba(0, 245, 255, 0.4); border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    }
+    .gfx-hippo .jaw {
+      width: 24px; height: 24px; background: var(--magenta); position: absolute; box-shadow: 0 0 12px var(--magenta);
+    }
+    .gfx-hippo .jaw:nth-child(1) { transform: translate(-35px, -35px) rotate(45deg); }
+    .gfx-hippo .jaw:nth-child(2) { transform: translate(35px, 35px) rotate(45deg); background: var(--cyan); box-shadow: 0 0 12px var(--cyan); }
+    .gfx-hippo .pellet { width: 10px; height: 10px; background: var(--yellow); border-radius: 50%; box-shadow: 0 0 10px var(--yellow); }
+
+    /* Glide Graphic */
+    .gfx-glide .horizon {
+      width: 120%; height: 2px; background: var(--cyan); position: absolute; bottom: 40px; box-shadow: 0 0 8px var(--cyan); transform: rotate(-5deg);
+    }
+    .gfx-glide .glider {
+      width: 0; height: 0; border-left: 20px solid transparent; border-right: 20px solid transparent; border-bottom: 30px solid var(--green);
+      filter: drop-shadow(0 0 10px var(--green)); transform: rotate(65deg) translate(-10px, -20px);
+    }
+
+    /* Content Area */
+    .card-content {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      flex-grow: 1;
+    }
+
+    .card h2 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: #ffffff;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+    }
+
+    /* Arcade Button Style Links */
+    .card .button {
+      display: block;
+      color: var(--cyan);
+      background: transparent;
+      border: 1px solid var(--cyan);
+      text-transform: uppercase;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      padding: 12px 16px;
+      text-decoration: none;
+      clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+      transition: all 0.2s;
+      text-shadow: 0 0 6px var(--cyan);
+      box-shadow: 0 0 8px rgba(0, 245, 255, 0.2);
+    }
+
+    .card:nth-child(odd) .button {
+      color: var(--magenta);
+      border-color: var(--magenta);
+      text-shadow: 0 0 6px var(--magenta);
+      box-shadow: 0 0 8px rgba(255, 0, 170, 0.2);
+    }
+
+    .card .button:hover {
+      background: var(--cyan);
+      color: var(--dark);
+      text-shadow: none;
+      box-shadow: 0 0 15px var(--cyan);
+      transform: scale(1.02);
+    }
+
+    .card:nth-child(odd) .button:hover {
+      background: var(--magenta);
+      color: var(--dark);
+      text-shadow: none;
+      box-shadow: 0 0 15px var(--magenta);
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 60px;
+    }
+    footer p {
+      color: rgba(255,255,255,0.3);
+      letter-spacing: 0.15em;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="arcade-title">Neon Arcade</div>
+    <div class="subtitle">// INSERT COIN //</div>
+  </header>
+
+  <main class="page-shell">
+    <section class="cards-grid">
+      
+      <article class="card">
+        <div class="card-graphic-wrapper">
+          <div class="gfx-element gfx-chess"></div>
+        </div>
+        <div class="card-content">
+          <h2>Neon Chess</h2>
+          <a class="button" href="neon-chess/index.html">Launch Protocol</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-graphic-wrapper">
+          <div class="gfx-element gfx-checkers">
+            <div class="disc"></div>
+            <div class="disc"></div>
+          </div>
+        </div>
+        <div class="card-content">
+          <h2>Neon Checkers</h2>
+          <a class="button" href="neon-checkers/index.html">Launch Protocol</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-graphic-wrapper">
+          <div class="gfx-element gfx-othello">
+            <div class="token"></div>
+          </div>
+        </div>
+        <div class="card-content">
+          <h2>Neon Othello</h2>
+          <a class="button" href="neon-othello/index.html">Launch Protocol</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-graphic-wrapper">
+          <div class="gfx-element gfx-connect4">
+            <div class="slot active"></div>
+            <div class="slot"></div>
+            <div class="slot alt"></div>
+            <div class="slot"></div>
+            <div class="slot"></div>
+            <div class="slot alt"></div>
+            <div class="slot"></div>
+            <div class="slot active"></div>
+          </div>
+        </div>
+        <div class="card-content">
+          <h2>Neon Connect 4</h2>
+          <a class="button" href="neon-connect4/index.html">Launch Protocol</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-graphic-wrapper">
+          <div class="gfx-element gfx-flappy">
+            <div class="comet"></div>
+          </div>
+        </div>
+        <div class="card-content">
+          <h2>Neon Comet</h2>
+          <a class="button" href="neon-flappy/index.html">Launch Protocol</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-graphic-wrapper">
+          <div class="gfx-element gfx-snake">
+            <div class="node"></div>
+            <div class="node"></div>
+            <div class="node"></div>
+            <div class="node"></div>
+            <div class="node"></div>
+          </div>
+        </div>
+        <div class="card-content">
+          <h2>Neon Snake</h2>
+          <a class="button" href="neon-snake/index.html">Launch Protocol</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-graphic-wrapper">
+          <div class="gfx-element gfx-hippo">
+            <div class="ring"><div class="pellet"></div></div>
+            <div class="jaw"></div>
+            <div class="jaw"></div>
+          </div>
+        </div>
+        <div class="card-content">
+          <h2>Neon Hippo</h2>
+          <a class="button" href="neon-hippo/index.html">Launch Protocol</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-graphic-wrapper">
+          <div class="gfx-element gfx-glide">
+            <div class="horizon"></div>
+            <div class="glider"></div>
+          </div>
+        </div>
+        <div class="card-content">
+          <h2>Neon Glide</h2>
+          <a class="button" href="neon-glide/index.html">Launch Protocol</a>
+        </div>
+      </article>
+
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2026 VogelZoo. [span_1](start_span)SYSTEM ONLINE.</p>[span_1](end_span)
+  </footer>
+
+  <script src="../../assets/js/global.js" defer></script>
+</body>
+</html>
