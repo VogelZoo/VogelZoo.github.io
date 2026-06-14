@@ -143,37 +143,46 @@
 
     /* Chess Graphic */
     .gfx-chess::before {
-      content: ''; width: 60px; height: 60px; background: repeating-conic-gradient(var(--magenta) 0% 25%, transparent 0% 50%) 50% / 20px 20px;
-      filter: drop-shadow(0 0 10px var(--magenta)); transform: rotate(15deg);
+      content: '';
+      width: 60px; height: 60px; background: repeating-conic-gradient(var(--magenta) 0% 25%, transparent 0% 50%) 50% / 20px 20px;
+      filter: drop-shadow(0 0 10px var(--magenta));
+      transform: rotate(15deg);
     }
+    
     /* Checkers Graphic */
     .gfx-checkers .disc {
-      width: 30px; height: 30px; border-radius: 50%; background: var(--cyan); position: absolute; box-shadow: 0 0 12px var(--cyan);
+      width: 30px;
+      height: 30px; border-radius: 50%; background: var(--cyan); position: absolute; box-shadow: 0 0 12px var(--cyan);
     }
     .gfx-checkers .disc:nth-child(1) { transform: translate(-20px, -15px); background: var(--magenta); box-shadow: 0 0 12px var(--magenta); }
     .gfx-checkers .disc:nth-child(2) { transform: translate(20px, 15px); }
     
     /* Othello Graphic */
     .gfx-othello .token {
-      width: 45px; height: 45px; border-radius: 50%; border: 3px solid var(--yellow); position: relative; box-shadow: 0 0 15px var(--yellow);
+      width: 45px;
+      height: 45px; border-radius: 50%; border: 3px solid var(--yellow); position: relative; box-shadow: 0 0 15px var(--yellow);
     }
     .gfx-othello .token::after {
-      content: ''; position: absolute; left: 0; top: 0; width: 50%; height: 100%; background: var(--yellow); border-radius: 45px 0 0 45px;
+      content: ''; position: absolute; left: 0; top: 0;
+      width: 50%; height: 100%; background: var(--yellow); border-radius: 45px 0 0 45px;
     }
 
     /* Connect 4 Graphic */
     .gfx-connect4 {
-      display: grid; grid-template-columns: repeat(4, 20px); gap: 8px;
+      display: grid;
+      grid-template-columns: repeat(4, 20px); gap: 8px;
     }
     .gfx-connect4 .slot {
-      width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--green);
+      width: 20px;
+      height: 20px; border-radius: 50%; border: 2px solid var(--green);
     }
     .gfx-connect4 .slot.active { background: var(--green); box-shadow: 0 0 10px var(--green); }
     .gfx-connect4 .slot.alt { background: var(--magenta); border-color: var(--magenta); box-shadow: 0 0 10px var(--magenta); }
 
     /* Flappy Comet Graphic */
     .gfx-flappy .comet {
-      width: 25px; height: 25px; background: #fff; border-radius: 50%; position: absolute;
+      width: 25px;
+      height: 25px; background: #fff; border-radius: 50%; position: absolute;
       box-shadow: 0 0 20px #fff, -15px 0 15px var(--cyan), -30px 0 10px var(--magenta);
       animation: floatGfx 2s ease-in-out infinite alternate;
     }
@@ -181,7 +190,8 @@
 
     /* Snake Graphic */
     .gfx-snake .node {
-      width: 14px; height: 14px; background: var(--yellow); position: absolute; box-shadow: 0 0 8px var(--yellow); border-radius: 2px;
+      width: 14px;
+      height: 14px; background: var(--yellow); position: absolute; box-shadow: 0 0 8px var(--yellow); border-radius: 2px;
     }
     .gfx-snake .node:nth-child(1) { transform: translate(-28px, 10px); }
     .gfx-snake .node:nth-child(2) { transform: translate(-14px, 10px); }
@@ -191,10 +201,12 @@
 
     /* Hippo Graphic */
     .gfx-hippo .ring {
-      width: 90px; height: 90px; border: 2px dashed rgba(0, 245, 255, 0.4); border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      width: 90px;
+      height: 90px; border: 2px dashed rgba(0, 245, 255, 0.4); border-radius: 50%; display: flex; align-items: center; justify-content: center;
     }
     .gfx-hippo .jaw {
-      width: 24px; height: 24px; background: var(--magenta); position: absolute; box-shadow: 0 0 12px var(--magenta);
+      width: 24px; height: 24px; background: var(--magenta); position: absolute;
+      box-shadow: 0 0 12px var(--magenta);
     }
     .gfx-hippo .jaw:nth-child(1) { transform: translate(-35px, -35px) rotate(45deg); }
     .gfx-hippo .jaw:nth-child(2) { transform: translate(35px, 35px) rotate(45deg); background: var(--cyan); box-shadow: 0 0 12px var(--cyan); }
@@ -202,11 +214,36 @@
 
     /* Glide Graphic */
     .gfx-glide .horizon {
-      width: 120%; height: 2px; background: var(--cyan); position: absolute; bottom: 40px; box-shadow: 0 0 8px var(--cyan); transform: rotate(-5deg);
+      width: 120%;
+      height: 2px; background: var(--cyan); position: absolute; bottom: 40px; box-shadow: 0 0 8px var(--cyan); transform: rotate(-5deg);
     }
     .gfx-glide .glider {
-      width: 0; height: 0; border-left: 20px solid transparent; border-right: 20px solid transparent; border-bottom: 30px solid var(--green);
+      width: 0; height: 0; border-left: 20px solid transparent;
+      border-right: 20px solid transparent; border-bottom: 30px solid var(--green);
       filter: drop-shadow(0 0 10px var(--green)); transform: rotate(65deg) translate(-10px, -20px);
+    }
+
+    /* Bricks Graphic (New) */
+    .gfx-bricks .grid {
+      display: grid; grid-template-columns: repeat(3, 24px); gap: 4px; transform: translateY(-20px);
+    }
+    .gfx-bricks .brick { height: 10px; background: var(--cyan); border-radius: 1px; box-shadow: 0 0 6px var(--cyan); }
+    .gfx-bricks .brick.alt { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+    .gfx-bricks .paddle { width: 45px; height: 6px; background: var(--magenta); position: absolute; bottom: 35px; border-radius: 2px; box-shadow: 0 0 8px var(--magenta); }
+    .gfx-bricks .ball { width: 6px; height: 6px; background: #fff; border-radius: 50%; position: absolute; bottom: 60px; left: calc(50% + 5px); box-shadow: 0 0 8px #fff; }
+
+    /* Asteroid Graphic (New) */
+    .gfx-asteroid .rock {
+      width: 40px; height: 40px; border: 2px solid var(--green); position: absolute; left: 35%; top: 25%;
+      clip-path: polygon(20% 0%, 80% 10%, 100% 40%, 80% 90%, 40% 100%, 0% 70%, 10% 30%);
+      filter: drop-shadow(0 0 8px var(--green));
+    }
+    .gfx-asteroid .ship {
+      width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 25px solid var(--yellow);
+      position: absolute; right: 35%; bottom: 25%; transform: rotate(-45deg); filter: drop-shadow(0 0 8px var(--yellow));
+    }
+    .gfx-asteroid .laser {
+      width: 4px; height: 12px; background: var(--magenta); position: absolute; right: 52%; bottom: 50%; transform: rotate(-45deg); box-shadow: 0 0 8px var(--magenta);
     }
 
     /* Content Area */
@@ -399,11 +436,46 @@
         </div>
       </article>
 
+      <article class="card">
+        <div class="card-graphic-wrapper">
+          <div class="gfx-element gfx-bricks">
+            <div class="grid">
+              <div class="brick"></div>
+              <div class="brick alt"></div>
+              <div class="brick"></div>
+              <div class="brick alt"></div>
+              <div class="brick"></div>
+              <div class="brick alt"></div>
+            </div>
+            <div class="ball"></div>
+            <div class="paddle"></div>
+          </div>
+        </div>
+        <div class="card-content">
+          <h2>Neon Bricks</h2>
+          <a class="button" href="neon-bricks/index.html">Launch Protocol</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-graphic-wrapper">
+          <div class="gfx-element gfx-asteroid">
+            <div class="rock"></div>
+            <div class="laser"></div>
+            <div class="ship"></div>
+          </div>
+        </div>
+        <div class="card-content">
+          <h2>Neon Asteroid</h2>
+          <a class="button" href="neon-asteroid/index.html">Launch Protocol</a>
+        </div>
+      </article>
+
     </section>
   </main>
 
   <footer>
-    <p>&copy; 2026 VogelZoo. [span_1](start_span)SYSTEM ONLINE.</p>[span_1](end_span)
+    <p>&copy; 2026 VogelZoo. SYSTEM ONLINE.</p>
   </footer>
 
   <script src="../../assets/js/global.js" defer></script>
