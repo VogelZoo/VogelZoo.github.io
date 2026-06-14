@@ -223,27 +223,51 @@
       filter: drop-shadow(0 0 10px var(--green)); transform: rotate(65deg) translate(-10px, -20px);
     }
 
-    /* Bricks Graphic (New) */
+    /* Bricks Graphic */
     .gfx-bricks .grid {
-      display: grid; grid-template-columns: repeat(3, 24px); gap: 4px; transform: translateY(-20px);
+      display: grid;
+      grid-template-columns: repeat(3, 24px); gap: 4px; transform: translateY(-20px);
     }
     .gfx-bricks .brick { height: 10px; background: var(--cyan); border-radius: 1px; box-shadow: 0 0 6px var(--cyan); }
     .gfx-bricks .brick.alt { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
     .gfx-bricks .paddle { width: 45px; height: 6px; background: var(--magenta); position: absolute; bottom: 35px; border-radius: 2px; box-shadow: 0 0 8px var(--magenta); }
     .gfx-bricks .ball { width: 6px; height: 6px; background: #fff; border-radius: 50%; position: absolute; bottom: 60px; left: calc(50% + 5px); box-shadow: 0 0 8px #fff; }
 
-    /* Asteroid Graphic (New) */
+    /* Asteroid Graphic */
     .gfx-asteroid .rock {
-      width: 40px; height: 40px; border: 2px solid var(--green); position: absolute; left: 35%; top: 25%;
+      width: 40px;
+      height: 40px; border: 2px solid var(--green); position: absolute; left: 35%; top: 25%;
       clip-path: polygon(20% 0%, 80% 10%, 100% 40%, 80% 90%, 40% 100%, 0% 70%, 10% 30%);
       filter: drop-shadow(0 0 8px var(--green));
     }
     .gfx-asteroid .ship {
-      width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 25px solid var(--yellow);
-      position: absolute; right: 35%; bottom: 25%; transform: rotate(-45deg); filter: drop-shadow(0 0 8px var(--yellow));
+      width: 0; height: 0; border-left: 10px solid transparent;
+      border-right: 10px solid transparent; border-bottom: 25px solid var(--yellow);
+      position: absolute; right: 35%; bottom: 25%; transform: rotate(-45deg);
+      filter: drop-shadow(0 0 8px var(--yellow));
     }
     .gfx-asteroid .laser {
-      width: 4px; height: 12px; background: var(--magenta); position: absolute; right: 52%; bottom: 50%; transform: rotate(-45deg); box-shadow: 0 0 8px var(--magenta);
+      width: 4px;
+      height: 12px; background: var(--magenta); position: absolute; right: 52%; bottom: 50%; transform: rotate(-45deg); box-shadow: 0 0 8px var(--magenta);
+    }
+
+    /* Pong Graphic (New) */
+    .gfx-pong .paddle-p1 { width: 6px; height: 40px; background: var(--cyan); position: absolute; left: 35px; box-shadow: 0 0 8px var(--cyan); }
+    .gfx-pong .paddle-p2 { width: 6px; height: 40px; background: var(--magenta); position: absolute; right: 35px; transform: translateY(-15px); box-shadow: 0 0 8px var(--magenta); }
+    .gfx-pong .ball { width: 8px; height: 8px; background: var(--yellow); position: absolute; left: calc(50% - 10px); box-shadow: 0 0 8px var(--yellow); }
+    .gfx-pong .center-line { width: 2px; height: 100%; background: rgba(255,255,255,0.05); position: absolute; }
+
+    /* Tanks Graphic (New) */
+    .gfx-tanks .ground { width: 120%; height: 40px; background: #331a40; border-top: 2px solid var(--green); position: absolute; bottom: 0; transform: rotate(3deg); box-shadow: 0 0 10px rgba(0, 255, 136, 0.2); }
+    .gfx-tanks .tank-p1 { width: 20px; height: 10px; background: var(--magenta); position: absolute; left: 40px; bottom: 42px; box-shadow: 0 0 8px var(--magenta); border-radius: 4px 4px 0 0; }
+    .gfx-tanks .tank-p1::after { content: ''; width: 12px; height: 3px; background: var(--magenta); position: absolute; top: -2px; right: -4px; transform: rotate(-20px); }
+    .gfx-tanks .tank-p2 { width: 20px; height: 10px; background: var(--green); position: absolute; right: 40px; bottom: 38px; box-shadow: 0 0 8px var(--green); border-radius: 4px 4px 0 0; }
+    .gfx-tanks .tank-p2::after { content: ''; width: 12px; height: 3px; background: var(--green); position: absolute; top: -2px; left: -4px; transform: rotate(20px); }
+    .gfx-tanks .projectile { width: 4px; height: 4px; background: #fff; border-radius: 50%; position: absolute; left: 50%; bottom: 80px; box-shadow: 0 0 8px #fff; animation: arcGfx 2s infinite linear; }
+    @keyframes arcGfx {
+      0% { transform: translate(-40px, 30px); opacity: 1; }
+      50% { transform: translate(0px, 0px); }
+      100% { transform: translate(40px, 35px); opacity: 0; }
     }
 
     /* Content Area */
@@ -468,6 +492,36 @@
         <div class="card-content">
           <h2>Neon Asteroid</h2>
           <a class="button" href="neon-asteroid/index.html">Launch Protocol</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-graphic-wrapper">
+          <div class="gfx-element gfx-pong">
+            <div class="center-line"></div>
+            <div class="paddle-p1"></div>
+            <div class="ball"></div>
+            <div class="paddle-p2"></div>
+          </div>
+        </div>
+        <div class="card-content">
+          <h2>Neon Pong</h2>
+          <a class="button" href="neon-pong/index.html">Launch Protocol</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-graphic-wrapper">
+          <div class="gfx-element gfx-tanks">
+            <div class="ground"></div>
+            <div class="tank-p1"></div>
+            <div class="projectile"></div>
+            <div class="tank-p2"></div>
+          </div>
+        </div>
+        <div class="card-content">
+          <h2>Neon Tanks</h2>
+          <a class="button" href="neon-tanks/index.html">Launch Protocol</a>
         </div>
       </article>
 
