@@ -3,150 +3,186 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VogelZoo | Games</title>
+  <title>Neon Arcade | Game Selection</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../assets/css/global.css">
   <style>
-    body {
-      background-color: #0f0f0f;
-      color: #ffffff;
-      font-family: 'Arial', sans-serif;
+    :root {
+      --cyan: #00f5ff;
+      --magenta: #ff00aa;
+      --yellow: #ffee00;
+      --green: #00ff88;
+      --dark: #050810;
+      --dark2: #0a1020;
     }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--dark);
+      color: #ffffff;
+      font-family: 'Share Tech Mono', monospace;
+      overflow-x: hidden;
+      background-image: 
+        linear-gradient(rgba(0, 245, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 245, 255, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      padding-bottom: 60px;
+    }
+
+    header {
+      text-align: center;
+      padding: 40px 20px 20px;
+      position: relative;
+    }
+
+    .arcade-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      font-weight: 900;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, var(--cyan), var(--magenta), var(--yellow), var(--cyan));
+      background-size: 300% 100%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: shimmer 6s linear infinite, neonPulse 2s ease-in-out infinite alternate;
+      display: inline-block;
+      margin-bottom: 5px;
+    }
+
+    @keyframes shimmer { 0%{background-position:0%} 100%{background-position:300%} }
+    @keyframes neonPulse {
+      0% { filter: drop-shadow(0 0 5px rgba(0,245,255,0.4)) drop-shadow(0 0 15px rgba(255,0,170,0.2)); }
+      100% { filter: drop-shadow(0 0 15px rgba(0,245,255,0.6)) drop-shadow(0 0 30px rgba(255,0,170,0.4)); }
+    }
+
+    .subtitle {
+      color: var(--cyan);
+      font-size: 1.1rem;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      opacity: 0.8;
+      text-shadow: 0 0 8px var(--cyan);
+    }
+
     .page-shell {
       margin: 0 auto;
-      max-width: 1200px;
+      max-width: 1400px;
       padding: 20px;
     }
-    .hero {
-      text-align: center;
-      margin-bottom: 50px;
-    }
-    .hero .eyebrow {
-      font-size: 1.2rem;
-      color: #0ff;
-    }
-    .hero h1 {
-      font-size: 2.5rem;
-      color: #f0f;
-    }
-    .hero p {
-      margin: 10px auto;
-      max-width: 600px;
-    }
-    .hero .hero-actions .button {
-      color: #fff;
-      background: linear-gradient(45deg, #ff0099, #493240);
-      padding: 10px 20px;
-      border-radius: 5px;
-      text-decoration: none;
-    }
+
+    /* Grid Layout */
     .cards-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 30px;
+      padding: 20px 0;
     }
+
+    /* Cyberpunk Cabinet Cards */
     .card {
-      background: #111;
-      border: 2px solid #0ff;
-      border-radius: 16px;
-      padding: 20px;
+      background: var(--dark2);
+      border: 2px solid var(--magenta);
+      border-radius: 4px;
+      padding: 0;
       text-align: center;
       position: relative;
-      box-shadow: 0 4px 8px rgba(0, 255, 255, 0.2);
-      transform: perspective(500px);
-      transition: transform 0.3s, box-shadow 0.3s;
+      box-shadow: 0 0 15px rgba(255, 0, 170, 0.15);
+      clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+      transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
+      display: flex;
+      flex-direction: column;
+      height: 380px;
     }
-    .card:hover {
-      transform: perspective(500px) rotateX(5deg) scale(1.05);
-      box-shadow: 0 6px 12px rgba(0, 255, 255, 0.4);
-    }
-    .card h2 {
-      font-size: 1.5rem;
-      color: #ff0099;
-      margin-bottom: 10px;
-    }
-    .card p {
-      font-size: 1rem;
-      margin: 10px 0;
-    }
-    .card .button {
-      display: inline-block;
-      color: #fff;
-      background: #007acc;
-      text-transform: uppercase;
-      font-weight: bold;
-      padding: 8px 16px;
-      border-radius: 8px;
-      transition: background 0.3s, color 0.3s;
-    }
-    .card .button:hover {
-      background: #005f99;
-      color: #fff;
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <h1 style="text-align: center; color: #0ff;">VogelZoo</h1>
-    <nav style="text-align: center; margin-bottom: 20px;">
-      <a href="../../index.html" style="color: #0ff; text-decoration: none; font-size: 1.2rem;">Home</a>
-    </nav>
-  </header>
-  <main class="page-shell">
-    <section class="hero">
-      <p class="eyebrow">Games</p>
-      <h1>Discover Cyberpunk Adventures</h1>
-      <p>Step into the neon world of VogelZoo's interactive games. Take on challenges with a cutting-edge aesthetic!</p>
-      <div class="hero-actions">
-        <a class="button primary" href="neon-chess/index.html">Experience Neon Chess</a>
-      </div>
-    </section>
 
-    <section class="cards-grid">
-      <article class="card">
-        <h2>Neon Chess</h2>
-        <p>A futuristic take on classic chess with a cyberpunk aesthetic. Play against an opponent on the same machine with full chess rules including castling, en passant, and pawn promotion.</p>
-        <p><a class="button secondary" href="neon-chess/index.html">Play now</a></p>
-      </article>
-      <article class="card">
-        <h2>Neon Checkers</h2>
-        <p>A futuristic take on classic checkers with a cyberpunk aesthetic. Play against an opponent on the same machine.</p>
-        <p><a class="button secondary" href="neon-checkers/index.html">Play now</a></p>
-      </article>
-      <article class="card">
-        <h2>Neon Othello</h2>
-        <p>A futuristic take on classic othello/reversi with a cyberpunk aesthetic. Play against an opponent on the same machine.</p>
-        <p><a class="button secondary" href="neon-othello/index.html">Play now</a></p>
-      </article>
-      <article class="card">
-        <h2>Neon Connect 4</h2>
-        <p>A futuristic take on classic connect 4 with a cyberpunk aesthetic. Play against an opponent on the same machine.</p>
-        <p><a class="button secondary" href="neon-connect4/index.html">Play now</a></p>
-      </article>
-      <article class="card">
-        <h2>Neon Bouncy Comet</h2>
-        <p>A futuristic take on classic flappy bird with a cyberpunk aesthetic.</p>
-        <p><a class="button secondary" href="neon-flappy/index.html">Play now</a></p>
-      </article>
-      <article class="card">
-        <h2>Neon Snake</h2>
-        <p>A futuristic take on classic snake with a cyberpunk aesthetic.</p>
-        <p><a class="button secondary" href="neon-snake/index.html">Play now</a></p>
-      </article>
-      <article class="card">
-        <h2>Neon Hippo</h2>
-        <p>A futuristic take on classic hungry hippos with a cyberpunk aesthetic.</p>
-        <p><a class="button secondary" href="neon-hippo/index.html">Play now</a></p>
-      </article>
-      <article class="card">
-        <h2>Neon Glide</h2>
-        <p>See how far you can get on your neon glider</p>
-        <p><a class="button secondary" href="neon-glide/index.html">Play now</a></p>
-      </article>
-    </section>
-  </main>
-  <footer style="text-align: center; margin-top: 40px;">
-    <p style="color: #888;">&copy; 2026 VogelZoo. All rights reserved.</p>
-  </footer>
-  <script src="../../assets/js/global.js" defer></script>
-</body>
-</html>
+    .card:nth-child(even) {
+      border-color: var(--cyan);
+      box-shadow: 0 0 15px rgba(0, 245, 255, 0.15);
+    }
+
+    .card:hover {
+      transform: translateY(-8px) scale(1.02);
+    }
+    .card:nth-child(odd):hover {
+      border-color: var(--yellow);
+      box-shadow: 0 0 25px rgba(255, 238, 0, 0.4);
+    }
+    .card:nth-child(even):hover {
+      border-color: var(--green);
+      box-shadow: 0 0 25px rgba(0, 255, 136, 0.4);
+    }
+
+    /* Abstract Vector Graphics Area */
+    .card-graphic-wrapper {
+      width: 100%;
+      height: 180px;
+      background: #03050a;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    /* Abstract CSS Graphic Designs */
+    .gfx-element {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Chess Graphic */
+    .gfx-chess::before {
+      content: ''; width: 60px; height: 60px; background: repeating-conic-gradient(var(--magenta) 0% 25%, transparent 0% 50%) 50% / 20px 20px;
+      filter: drop-shadow(0 0 10px var(--magenta)); transform: rotate(15deg);
+    }
+    /* Checkers Graphic */
+    .gfx-checkers .disc {
+      width: 30px; height: 30px; border-radius: 50%; background: var(--cyan); position: absolute; box-shadow: 0 0 12px var(--cyan);
+    }
+    .gfx-checkers .disc:nth-child(1) { transform: translate(-20px, -15px); background: var(--magenta); box-shadow: 0 0 12px var(--magenta); }
+    .gfx-checkers .disc:nth-child(2) { transform: translate(20px, 15px); }
+    
+    /* Othello Graphic */
+    .gfx-othello .token {
+      width: 45px; height: 45px; border-radius: 50%; border: 3px solid var(--yellow); position: relative; box-shadow: 0 0 15px var(--yellow);
+    }
+    .gfx-othello .token::after {
+      content: ''; position: absolute; left: 0; top: 0; width: 50%; height: 100%; background: var(--yellow); border-radius: 45px 0 0 45px;
+    }
+
+    /* Connect 4 Graphic */
+    .gfx-connect4 {
+      display: grid; grid-template-columns: repeat(4, 20px); gap: 8px;
+    }
+    .gfx-connect4 .slot {
+      width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--green);
+    }
+    .gfx-connect4 .slot.active { background: var(--green); box-shadow: 0 0 10px var(--green); }
+    .gfx-connect4 .slot.alt { background: var(--magenta); border-color: var(--magenta); box-shadow: 0 0 10px var(--magenta); }
+
+    /* Flappy Comet Graphic */
+    .gfx-flappy .comet {
+      width: 25px; height: 25px; background: #fff; border-radius: 50%; position: absolute;
+      box-shadow: 0 0 20px #fff, -15px 0 15px var(--cyan), -30px 0 10px var(--magenta);
+      animation: floatGfx 2s ease-in-out infinite alternate;
+    }
+    @keyframes floatGfx { 0% { transform: translateY(-10px); } 100% { transform: translateY(10px); } }
+
+    /* Snake Graphic */
+    .gfx-snake .node {
+      width: 14px; height: 14px; background: var(--yellow); position: absolute; box-shadow: 0 0 8px var(--yellow); border-radius: 2px;
+    }
+    .gfx-snake .node:nth-child(1) { transform: translate(-28px, 10px); }
+    .gfx-snake .node:nth-child(2) { transform: translate(-14px, 10px); }
+    .gfx-snake .node
