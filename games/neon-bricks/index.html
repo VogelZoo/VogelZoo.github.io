@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>NEON BRICKS // CYBER BREAKOUT</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cyan:    #00f5ff;
+    --magenta: #ff00aa;
+    --yellow:  #ffee00;
+    --green:   #00ff88;
+    --dark:    #050810;
+    --dark2:   #0a1020;
+    --g0: 0 0 10px #00f5ff, 0 0 24px #00f5ff55;
+    --g1: 0 0 10px #ff00aa, 0 0 24px #ff00aa55;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  html, body {
+    width:100%; height:100%;
+    background: var(--dark);
+    font-family: 'Share Tech Mono', monospace;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: none;
+  }
+
+  /* Full-screen canvas layer */
+  #game-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* Score Dashboard overlay (Top Bar) */
+  #dash-wrap {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 70px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 30px;
+    pointer-events: none;
+    z-index: 20;
+  }
+
+  .dash-block {
+    display: flex;
+    flex-direction: column;
+  }
+  .dash-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(0.55rem, 2vmin, 0.8rem);
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--cyan);
+    text-shadow: var(--g0);
+  }
+  .dash-val {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(1.2rem, 4vmin, 1.8rem);
+    font-weight: 900;
+    line-height: 1.1;
+    color: #fff;
+  }
+  #dash-lives .dash-label {
+    color: var(--magenta);
+    text-shadow: var(--g1);
+    text-align: right;
+  }
+  #dash-lives .dash-val {
+    text-align: right;
+    color: var(--magenta);
+  }
+
+  /* Overlay modals */
+  .overlay {
+    position: fixed; inset:0;
+    background: rgba(5,8,16,0.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .overlay.show { display:flex; }
+
+  .modal {
+    border: 1px solid var(--cyan);
+    background: var(--dark2);
+    padding: 28px 36px;
+    box-shadow: 0 0 8px #00f5ff, 0 0 40px #00f5ff33, 0 0 80px #00f5ff15;
+    clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+    text-align: center;
+    max-width: min(90vw, 400px);
+    width: 100%;
+  }
+
+  .modal-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(1.2rem, 4vw, 2rem);
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    background: linear-gradient(90deg, var(--cyan), var(--magenta), var(--green), var(--yellow));
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s linear infinite;
+    margin-bottom: 6px;
+  }
+  @keyframes shimmer { 0%{background-position:0%}100%{background-position:200%} }
+
+  .modal-sub {
+    font-size: clamp(0.5rem, 1.5vw, 0.7rem);
+    letter-spacing: 0.35em;
+    color: var(--yellow);
+    text-shadow: 0 0 8px var(--yellow);
+    margin-bottom: 20px;
+  }
+
+  .final-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 22px;
+  }
+  .fs-cell {
+    padding: 8px 10px;
+    border: 1px solid var(--cyan);
+    background: rgba(255,255,255,0.03);
+    clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+  }
+  .fs-name { font-size: 0.55rem; letter-spacing: 0.2em; opacity: 0.7; color: var(--cyan); }
+  .fs-val  { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; font-weight:900; color: #fff; }
+
+  .action-btn {
+    padding: 10px 28px;
+    border: 1px solid var(--cyan);
+    background: transparent;
+    color: var(--cyan);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.68rem;
+    letter-spacing: 0.3em;
+    cursor: pointer;
+    clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+    transition: all 0.2s;
+    text-shadow: 0 0 8px #00f5ff;
+    box-shadow: 0 0 8px #00f5ff, 0 0 20px #00f5ff55;
+  }
+  .action-btn:hover { background: rgba(0,245,255,0.1); transform: scale(1.03); }
+</style>
+</head>
+<body>
+
+<canvas id="game-canvas"></canvas>
+
+<div id="dash-wrap">
+  <div class="dash-block" id="dash-score">
+    <div class="dash-label">CORE SCORE</div>
+    <div class="dash-val" id="score-val">00000</div>
+  </div>
+  <div class="dash-block" id="dash-lives">
+    <div class="dash-label">SHIELDS</div>
+    <div class="dash-val" id="lives-val">|||</div>
+  </div>
+</div>
+
+<div class="overlay show" id="start-overlay">
+  <div class="modal">
+    <div class="modal-title">NEON BRICKS</div>
+    <div class="modal-sub">// CYBER BREAKOUT MATRIX //</div>
+    <div style="font-size:clamp(0.5rem,1.5vw,0.68rem);letter-spacing:0.18em;opacity:0.65;line-height:2;margin-bottom:22px;color:#ccd6f6">
+      DRAG OR MOVE MOUSE TO POSITION MATRIX PADDLE<br>
+      DEFLECT THE NEON ENERGY CORE<br>
+      SHATTER ALL SECURE SECURITY BLOCKS<br>
+      DO NOT LET THE CORE PENETRATE DEFENSES
+    </div>
+    <button class="action-btn" onclick="initGame()">// INITIALIZE //</button>
+  </div>
+</div>
+
+<div class="overlay" id="end-overlay">
+  <div class="modal">
+    <div class="modal-title" id="end-title">SYSTEM CLEAR</div>
+    <div class="modal-sub" id="end-sub">// MATRIX DECRYPTED //</div>
+    <div class="final-stats">
+      <div class="fs-cell">
+        <div class="fs-name">TOTAL SCORE</div>
+        <div class="fs-val" id="final-score">0</div>
+      </div>
+      <div class="fs-cell">
+        <div class="fs-name">BLOCKS DESTROYED</div>
+        <div class="fs-val" id="final-bricks">0</div>
+      </div>
+    </div>
+    <button class="action-btn" onclick="initGame()">// RE-ENGAGE //</button>
+  </div>
+</div>
+
+<script>
+// ===================== CONFIG & CONSTANTS =====================
+const BRICK_ROWS = 6;
+const BRICK_COLS = 10;
+const NEON_COLORS = ['#ff00aa', '#00f5ff', '#00ff88', '#ffee00', '#ff6600', '#9900ff'];
+
+let canvas, ctx;
+let W, H;
+
+// Game entities
+let paddle, ball, bricks, particles;
+let score, lives, totalBricksDestroyed, totalBricksCount;
+let gameRunning = false;
+
+// Interaction trackers
+let pointerX = 0;
+
+// Initialize sizing context
+canvas = document.getElementById('game-canvas');
+ctx = canvas.getContext('2d');
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  pointerX = W / 2; // default paddle center
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ===================== MATRIX RE-ENGAGE ROUTINES =====================
+function initGame() {
+  document.getElementById('start-overlay').classList.remove('show');
+  document.getElementById('end-overlay').classList.remove('show');
+  resize();
+
+  score = 0;
+  lives = 3;
+  totalBricksDestroyed = 0;
+  particles = [];
+
+  // Define geometric parameters calibrated by container sizing
+  const paddleWidth = Math.max(100, W * 0.14);
+  const paddleHeight = 15;
+  paddle = {
+    w: paddleWidth,
+    h: paddleHeight,
+    x: W / 2 - paddleWidth / 2,
+    y: H - 60,
+    targetX: W / 2 - paddleWidth / 2
+  };
+
+  const ballRadius = Math.max(6, Math.min(W, H) * 0.012);
+  ball = {
+    r: ballRadius,
+    x: W / 2,
+    y: paddle.y - ballRadius * 2,
+    vx: (Math.random() - 0.5) * 6,
+    vy: -6,
+    speedBase: 7,
+    speedMax: 13
+  };
+
+  // Configure Brick layout matrix
+  bricks = [];
+  const topPadding = 100;
+  const sidePadding = Math.max(20, W * 0.05);
+  const availableWidth = W - (sidePadding * 2);
+  const brickGap = 6;
+  const brickWidth = (availableWidth - (brickGap * (BRICK_COLS - 1))) / BRICK_COLS;
+  const brickHeight = Math.max(14, H * 0.025);
+
+  totalBricksCount = BRICK_ROWS * BRICK_COLS;
+
+  for (let r = 0; r < BRICK_ROWS; r++) {
+    for (let c = 0; c < BRICK_COLS; c++) {
+      bricks.push({
+        x: sidePadding + c * (brickWidth + brickGap),
+        y: topPadding + r * (brickHeight + brickGap),
+        w: brickWidth,
+        h: brickHeight,
+        color: NEON_COLORS[r % NEON_COLORS.length],
+        active: true
+      });
+    }
+  }
+
+  updateUI();
+  gameRunning = true;
+  requestAnimationFrame(gameLoop);
+}
+
+// ===================== REPLICATED RUNTIME PHYSICS LOGIC =====================
+function gameLoop() {
+  if (!gameRunning) return;
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+function update() {
+  // Linear smoothing update on paddle target
+  paddle.x += (pointerX - paddle.w / 2 - paddle.x) * 0.22;
+  // Boundary lock
+  if (paddle.x < 0) paddle.x = 0;
+  if (paddle.x + paddle.w > W) paddle.x = W - paddle.w;
+
+  // Ball Movement Integration
+  ball.x += ball.vx;
+  ball.y += ball.vy;
+
+  // Screen Boundaries Collisions
+  if (ball.x - ball.r < 0) {
+    ball.x = ball.r;
+    ball.vx = -ball.vx;
+    spawnImpactParticles(ball.x, ball.y, '#fff');
+  }
+  if (ball.x + ball.r > W) {
+    ball.x = W - ball.r;
+    ball.vx = -ball.vx;
+    spawnImpactParticles(ball.x, ball.y, '#fff');
+  }
+  if (ball.y - ball.r < 0) {
+    ball.y = ball.r;
+    ball.vy = -ball.vy;
+    spawnImpactParticles(ball.x, ball.y, '#fff');
+  }
+
+  // Bottom Void checking (Loss Condition Trigger)
+  if (ball.y + ball.r > H) {
+    lives--;
+    updateUI();
+    if (lives <= 0) {
+      endGame(false);
+      return;
+    } else {
+      // Hard reset position tracking
+      ball.x = paddle.x + paddle.w / 2;
+      ball.y = paddle.y - ball.r * 2;
+      ball.vx = (Math.random() - 0.5) * 6;
+      ball.vy = -ball.speedBase;
+    }
+  }
+
+  // Paddle Intersection Math
+  if (ball.vy > 0 && 
+      ball.x + ball.r >= paddle.x && 
+      ball.x - ball.r <= paddle.x + paddle.w && 
+      ball.y + ball.r >= paddle.y && 
+      ball.y - ball.r <= paddle.y + paddle.h) {
+    
+    ball.y = paddle.y - ball.r;
+    ball.vy = -ball.vy;
+
+    // Deflection angular mapping baseline calculations
+    let hitLocationNormal = ((ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2));
+    let currentSpeed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+    currentSpeed = Math.min(currentSpeed + 0.25, ball.speedMax); // Acceleration scaling
+
+    ball.vx = hitLocationNormal * currentSpeed * 0.75;
+    ball.vy = -Math.sqrt(Math.max(4, currentSpeed * currentSpeed - ball.vx * ball.vx));
+    
+    spawnImpactParticles(ball.x, ball.y, varColor('--cyan'));
+  }
+
+  // Brick Boundary Layer Collisions Loop
+  for (let i = 0; i < bricks.length; i++) {
+    let b = bricks[i];
+    if (!b.active) continue;
+
+    if (ball.x + ball.r >= b.x && 
+        ball.x - ball.r <= b.x + b.w && 
+        ball.y + ball.r >= b.y && 
+        ball.y - ball.r <= b.y + b.h) {
+      
+      b.active = false;
+      score += 150;
+      totalBricksDestroyed++;
+      updateUI();
+      spawnImpactParticles(ball.x, ball.y, b.color, 12);
+
+      // Determine directional collision penetration vectors
+      let overlapLeft = (ball.x + ball.r) - b.x;
+      let overlapRight = (b.x + b.w) - (ball.x - ball.r);
+      let overlapTop = (ball.y + ball.r) - b.y;
+      let overlapBottom = (b.y + b.h) - (ball.y - ball.r);
+
+      let minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+
+      if (minOverlap === overlapLeft || minOverlap === overlapRight) {
+        ball.vx = -ball.vx;
+      } else {
+        ball.vy = -ball.vy;
+      }
+
+      // Check win parameters
+      if (totalBricksDestroyed >= totalBricksCount) {
+        endGame(true);
+        return;
+      }
+      break; 
+    }
+  }
+
+  // Processes FX System logic
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.alpha -= 0.025;
+    if (p.alpha <= 0) particles.splice(i, 1);
+  }
+}
+
+// ===================== GRAPHICAL CORE ENGINE =====================
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  
+  // Background Fill
+  ctx.fillStyle = '#050810';
+  ctx.fillRect(0, 0, W, H);
+
+  // Background Arena Grid Matrix Line Art Simulation
+  ctx.strokeStyle = 'rgba(0, 245, 255, 0.03)';
+  ctx.lineWidth = 1;
+  const gridSize = 40;
+  for (let x = 0; x < W; x += gridSize) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 0; y < H; y += gridSize) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // Draw Bricks Matrix
+  bricks.forEach(b => {
+    if (!b.active) return;
+    ctx.save();
+    ctx.shadowColor = b.color;
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = b.color + '33'; // Transparent center filling
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.strokeStyle = b.color;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(b.x, b.y, b.w, b.h);
+    ctx.restore();
+  });
+
+  // Draw Paddle
+  ctx.save();
+  ctx.shadowColor = varColor('--cyan');
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = varColor('--cyan') + '66';
+  ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
+  ctx.strokeStyle = varColor('--cyan');
+  ctx.lineWidth = 2;
+  ctx.strokeRect(paddle.x, paddle.y, paddle.w, paddle.h);
+  ctx.restore();
+
+  // Draw Energized Core (Ball)
+  ctx.save();
+  ctx.shadowColor = varColor('--magenta');
+  ctx.shadowBlur = 15;
+  let bGrad = ctx.createRadialGradient(ball.x, ball.y, ball.r * 0.1, ball.x, ball.y, ball.r);
+  bGrad.addColorStop(0, '#ffffff');
+  bGrad.addColorStop(0.3, varColor('--magenta') + 'ff');
+  bGrad.addColorStop(1, '#050810');
+  ctx.fillStyle = bGrad;
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Render FX Particles System
+  particles.forEach(p => {
+    ctx.save();
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  });
+}
+
+// ===================== INPUT EVENT HOOKS =====================
+function handleMove(e) {
+  let clientX;
+  if (e.touches && e.touches.length > 0) {
+    clientX = e.touches[0].clientX;
+  } else {
+    clientX = e.clientX;
+  }
+  pointerX = clientX;
+}
+
+window.addEventListener('mousemove', handleMove);
+window.addEventListener('touchmove', handleMove, { passive: false });
+
+// ===================== ENGINE FX PROCEDURES =====================
+function spawnImpactParticles(x, y, color, count = 6) {
+  for (let i = 0; i < count; i++) {
+    let angle = Math.random() * Math.PI * 2;
+    let speed = 1 + Math.random() * 4;
+    particles.push({
+      x: x,
+      y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      size: 1.5 + Math.random() * 2,
+      color: color,
+      alpha: 1
+    });
+  }
+}
+
+// Helper to look up calculated styles dynamically
+function varColor(variableName) {
+  return getComputedStyle(document.documentElement).getPropertyValue(variableName).trim();
+}
+
+// ===================== DASHBOARD SCORE UI DISPLAYS =====================
+function updateUI() {
+  // Score Padding
+  let padScore = String(score).padStart(5, '0');
+  document.getElementById('score-val').textContent = padScore;
+  
+  // Render Lives visually as vertical neon pipeline metrics
+  let bars = '';
+  for(let i=0; i<lives; i++) bars += '|| ';
+  document.getElementById('lives-val').textContent = bars || 'CRITICAL';
+}
+
+// ===================== LOSS / SUCCESS FINISHING OVERLAYS =====================
+function endGame(success) {
+  gameRunning = false;
+  
+  const title = document.getElementById('end-title');
+  const sub = document.getElementById('end-sub');
+  
+  if (success) {
+    title.textContent = "SYSTEM CLEAR";
+    sub.textContent = "// MATRIX DECRYPTED SUCCESSFULLY //";
+    sub.style.color = "var(--green)";
+    sub.style.textShadow = "0 0 8px var(--green)";
+  } else {
+    title.textContent = "FATAL ERROR";
+    sub.textContent = "// CONNECTION TERMINATED IN VOID //";
+    sub.style.color = "var(--magenta)";
+    sub.style.textShadow = "0 0 8px var(--magenta)";
+  }
+
+  document.getElementById('final-score').textContent = score;
+  document.getElementById('final-bricks').textContent = totalBricksDestroyed;
+  document.getElementById('end-overlay').classList.add('show');
+}
+</script>
+</body>
+</html>
