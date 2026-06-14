@@ -157,7 +157,7 @@
   }
   .action-btn:hover { background: rgba(0,245,255,0.1); transform: scale(1.03); }
 
-  /* Touch controls (Auto visible on mobile) */
+  /* Touch controls */
   #touch-controls {
     position: fixed;
     bottom: 30px; left: 0; right: 0;
@@ -190,6 +190,7 @@
 
 <canvas id="game-canvas"></canvas>
 
+<!-- Top Dashboard Bar -->
 <div id="dash-wrap">
   <div class="dash-block" id="dash-score">
     <div class="dash-label">VECTOR METRIC</div>
@@ -201,11 +202,13 @@
   </div>
 </div>
 
+<!-- Mobile Controllers Touch Interface -->
 <div id="touch-controls">
   <div class="touch-zone" id="touch-thrust">THRUST</div>
   <div class="touch-zone" id="touch-fire">FIRE</div>
 </div>
 
+<!-- Welcome Overlay -->
 <div class="overlay show" id="start-overlay">
   <div class="modal">
     <div class="modal-title">NEON ASTEROIDS</div>
@@ -221,6 +224,7 @@
   </div>
 </div>
 
+<!-- Game End Overlay -->
 <div class="overlay" id="end-overlay">
   <div class="modal">
     <div class="modal-title" id="end-title">MATRIX TERMINATED</div>
@@ -242,7 +246,7 @@
 <script>
 // ===================== CONFIG & STATE CONSTANTS =====================
 const ASTEROID_COLORS = ['#ff00aa', '#00f5ff', '#00ff88', '#ffee00'];
-const SHIP_SIZE = 18; // Slightly larger for better tracking visibility
+const SHIP_SIZE = 18; 
 const LASER_MAX_LIFE = 60;
 const IMMUNITY_MAX_LIFE = 120;
 
@@ -250,22 +254,27 @@ let canvas, ctx, W, H;
 let ship, lasers, asteroids, particles;
 let score, lives, anomaliesCleared, gameRunning = false;
 
-// Tracking inputs map dicts
 let keys = { ArrowUp: false, ArrowLeft: false, ArrowRight: false, Space: false };
 let isTouchDevice = false;
+let pointerX = 0, pointerY = 0; // Trackers for pointer aiming
 
-// Initialize layout context
 canvas = document.getElementById('game-canvas');
 ctx = canvas.getContext('2d');
 
 function resize() {
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
+  
+  // FIXED: Pre-initialize touch/mouse coordinates to center viewport context
+  // This blocks automatic math jumping away on initialization framing
+  if (pointerX === 0 && pointerY === 0) {
+    pointerX = W / 2;
+    pointerY = H / 2 - 10; // offset slightly straight up so ship faces forward initially
+  }
 }
 window.addEventListener('resize', resize);
 resize();
 
-// Check interface touch options
 if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
   isTouchDevice = true;
   document.getElementById('touch-controls').style.display = 'flex';
@@ -284,7 +293,6 @@ function initGame() {
   asteroids = [];
   particles = [];
 
-  // Reset ship core vectors right in center of view
   ship = {
     x: W / 2,
     y: H / 2,
@@ -299,7 +307,6 @@ function initGame() {
     immunity: IMMUNITY_MAX_LIFE
   };
 
-  // Build secure array matrix of initial anomalies cleanly pushed to edges
   for(let i = 0; i < 5; i++) {
     spawnAsteroidOutsideCenter();
   }
@@ -322,7 +329,8 @@ function update() {
   if (isTouchDevice) {
     let dx = pointerX - ship.x;
     let dy = pointerY - ship.y;
-    if(Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+    // Require a tiny mechanical threshold to verify touch layout tracking bounds
+    if(Math.abs(dx) > 5 || Math.abs(dy) > 5) {
       ship.angle = Math.atan2(dy, dx);
     }
   } else {
@@ -407,11 +415,13 @@ function update() {
           endGame();
           return;
         } else {
-          // Hard safety reset configuration parameters
           ship.x = W / 2;
           ship.y = H / 2;
           ship.vx = 0;
           ship.vy = 0;
+          pointerX = W / 2;
+          pointerY = H / 2 - 10;
+          ship.angle = -Math.PI / 2;
           ship.immunity = IMMUNITY_MAX_LIFE;
         }
         break;
@@ -428,7 +438,6 @@ function update() {
     if (p.alpha <= 0) particles.splice(i, 1);
   }
 
-  // Continuous loop generation balancing
   if(asteroids.length < 4) {
     spawnAsteroidOutsideCenter();
   }
@@ -438,7 +447,6 @@ function update() {
 function draw() {
   ctx.clearRect(0, 0, W, H);
   
-  // Base Screen Background 
   ctx.fillStyle = '#050810';
   ctx.fillRect(0, 0, W, H);
 
@@ -502,7 +510,7 @@ function draw() {
   ctx.translate(ship.x, ship.y);
   ctx.rotate(ship.angle);
 
-  // Draw flashing shield ring indicator if ship holds spawn immunity
+  // Immunity Flash Vector Layer Protection Array Rings
   if (ship.immunity > 0) {
     ctx.save();
     ctx.strokeStyle = (Math.floor(ship.immunity / 6) % 2 === 0) ? 'rgba(0, 245, 255, 0.45)' : 'rgba(255, 0, 170, 0.2)';
@@ -577,14 +585,11 @@ function spawnAsteroidOutsideCenter() {
   let x, y, distanceToCenter;
   let maxTries = 100;
   
-  // FIX: Force spawn locations out towards screen bounds perimeter context
-  // This constructs a dedicated center safe buffer radius loop box
   for (let i = 0; i < maxTries; i++) {
     x = Math.random() * W;
     y = Math.random() * H;
     distanceToCenter = Math.sqrt((x - W / 2) ** 2 + (y - H / 2) ** 2);
     
-    // Require a healthy radial buffer zone clearance space 
     if (distanceToCenter > Math.min(W, H) * 0.35) {
       break;
     }
@@ -632,6 +637,7 @@ function shatterAsteroid(ast, index) {
   }
 }
 
+// Particle System Pipeline Engine
 function spawnParticles(x, y, color, count, maxVelocity) {
   for (let i = 0; i < count; i++) {
     let angle = Math.random() * Math.PI * 2;
@@ -667,7 +673,6 @@ window.addEventListener('keyup', e => {
   if (e.code === 'Space')      keys.Space = false;
 });
 
-let pointerX = 0, pointerY = 0;
 function trackPointer(e) {
   let clientX, clientY;
   if (e.touches && e.touches.length > 0) {
@@ -683,7 +688,6 @@ function trackPointer(e) {
 window.addEventListener('mousemove', trackPointer);
 window.addEventListener('touchmove', trackPointer, { passive: false });
 
-// Bind virtual Mobile touch controls 
 const vThrust = document.getElementById('touch-thrust');
 const vFire = document.getElementById('touch-fire');
 
