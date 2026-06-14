@@ -179,11 +179,11 @@
     <div class="modal-sub">// CYBER BREAKOUT MATRIX //</div>
     <div style="font-size:clamp(0.5rem,1.5vw,0.68rem);letter-spacing:0.18em;opacity:0.65;line-height:2;margin-bottom:22px;color:#ccd6f6">
       DRAG OR MOVE MOUSE TO POSITION MATRIX PADDLE<br>
+      TAP/CLICK ANYWHERE TO DISCHARGE STICKY BALL<br>
       DEFLECT THE NEON ENERGY CORE<br>
-      SHATTER ALL SECURE SECURITY BLOCKS<br>
-      DO NOT LET THE CORE PENETRATE DEFENSES
+      SHATTER ALL SECURE SECURITY BLOCKS
     </div>
-    <button class="action-btn" onclick="initGame()">// INITIALIZE //</button>
+    <button class="action-btn" onclick="initGame(event)">// INITIALIZE //</button>
   </div>
 </div>
 
@@ -201,7 +201,7 @@
         <div class="fs-val" id="final-bricks">0</div>
       </div>
     </div>
-    <button class="action-btn" onclick="initGame()">// RE-ENGAGE //</button>
+    <button class="action-btn" onclick="initGame(event)">// RE-ENGAGE //</button>
   </div>
 </div>
 
@@ -218,6 +218,7 @@ let W, H;
 let paddle, ball, bricks, particles;
 let score, lives, totalBricksDestroyed, totalBricksCount;
 let gameRunning = false;
+let ballAttached = true; // NEW: Controls whether the ball is stuck to the paddle
 
 // Interaction trackers
 let pointerX = 0;
@@ -235,7 +236,8 @@ window.addEventListener('resize', resize);
 resize();
 
 // ===================== MATRIX RE-ENGAGE ROUTINES =====================
-function initGame() {
+function initGame(e) {
+  if (e) e.stopPropagation(); // Stop start-button tap from firing the ball instantly
   document.getElementById('start-overlay').classList.remove('show');
   document.getElementById('end-overlay').classList.remove('show');
   resize();
@@ -244,6 +246,7 @@ function initGame() {
   lives = 3;
   totalBricksDestroyed = 0;
   particles = [];
+  ballAttached = true; // Lock ball to start
 
   // Define geometric parameters calibrated by container sizing
   const paddleWidth = Math.max(100, W * 0.14);
@@ -259,11 +262,11 @@ function initGame() {
   const ballRadius = Math.max(6, Math.min(W, H) * 0.012);
   ball = {
     r: ballRadius,
-    x: W / 2,
-    y: paddle.y - ballRadius * 2,
-    vx: (Math.random() - 0.5) * 6,
-    vy: -6,
-    speedBase: 7,
+    x: paddle.x + paddle.w / 2,
+    y: paddle.y - ballRadius,
+    vx: 0,
+    vy: 0,
+    speedBase: 4.5, // FIXED: Lowered starting speed down from 7 for a smoother beginning
     speedMax: 13
   };
 
@@ -311,100 +314,107 @@ function update() {
   if (paddle.x < 0) paddle.x = 0;
   if (paddle.x + paddle.w > W) paddle.x = W - paddle.w;
 
-  // Ball Movement Integration
-  ball.x += ball.vx;
-  ball.y += ball.vy;
-
-  // Screen Boundaries Collisions
-  if (ball.x - ball.r < 0) {
-    ball.x = ball.r;
-    ball.vx = -ball.vx;
-    spawnImpactParticles(ball.x, ball.y, '#fff');
-  }
-  if (ball.x + ball.r > W) {
-    ball.x = W - ball.r;
-    ball.vx = -ball.vx;
-    spawnImpactParticles(ball.x, ball.y, '#fff');
-  }
-  if (ball.y - ball.r < 0) {
-    ball.y = ball.r;
-    ball.vy = -ball.vy;
-    spawnImpactParticles(ball.x, ball.y, '#fff');
-  }
-
-  // Bottom Void checking (Loss Condition Trigger)
-  if (ball.y + ball.r > H) {
-    lives--;
-    updateUI();
-    if (lives <= 0) {
-      endGame(false);
-      return;
-    } else {
-      // Hard reset position tracking
-      ball.x = paddle.x + paddle.w / 2;
-      ball.y = paddle.y - ball.r * 2;
-      ball.vx = (Math.random() - 0.5) * 6;
-      ball.vy = -ball.speedBase;
-    }
-  }
-
-  // Paddle Intersection Math
-  if (ball.vy > 0 && 
-      ball.x + ball.r >= paddle.x && 
-      ball.x - ball.r <= paddle.x + paddle.w && 
-      ball.y + ball.r >= paddle.y && 
-      ball.y - ball.r <= paddle.y + paddle.h) {
-    
+  // NEW: Sticky Ball Behavior
+  if (ballAttached) {
+    ball.x = paddle.x + paddle.w / 2;
     ball.y = paddle.y - ball.r;
-    ball.vy = -ball.vy;
+    ball.vx = 0;
+    ball.vy = 0;
+  } else {
+    // Ball Movement Integration
+    ball.x += ball.vx;
+    ball.y += ball.vy;
 
-    // Deflection angular mapping baseline calculations
-    let hitLocationNormal = ((ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2));
-    let currentSpeed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
-    currentSpeed = Math.min(currentSpeed + 0.25, ball.speedMax); // Acceleration scaling
+    // Screen Boundaries Collisions
+    if (ball.x - ball.r < 0) {
+      ball.x = ball.r;
+      ball.vx = -ball.vx;
+      spawnImpactParticles(ball.x, ball.y, '#fff');
+    }
+    if (ball.x + ball.r > W) {
+      ball.x = W - ball.r;
+      ball.vx = -ball.vx;
+      spawnImpactParticles(ball.x, ball.y, '#fff');
+    }
+    if (ball.y - ball.r < 0) {
+      ball.y = ball.r;
+      ball.vy = -ball.vy;
+      spawnImpactParticles(ball.x, ball.y, '#fff');
+    }
 
-    ball.vx = hitLocationNormal * currentSpeed * 0.75;
-    ball.vy = -Math.sqrt(Math.max(4, currentSpeed * currentSpeed - ball.vx * ball.vx));
-    
-    spawnImpactParticles(ball.x, ball.y, varColor('--cyan'));
-  }
-
-  // Brick Boundary Layer Collisions Loop
-  for (let i = 0; i < bricks.length; i++) {
-    let b = bricks[i];
-    if (!b.active) continue;
-
-    if (ball.x + ball.r >= b.x && 
-        ball.x - ball.r <= b.x + b.w && 
-        ball.y + ball.r >= b.y && 
-        ball.y - ball.r <= b.y + b.h) {
-      
-      b.active = false;
-      score += 150;
-      totalBricksDestroyed++;
+    // Bottom Void checking (Loss Condition Trigger)
+    if (ball.y + ball.r > H) {
+      lives--;
       updateUI();
-      spawnImpactParticles(ball.x, ball.y, b.color, 12);
-
-      // Determine directional collision penetration vectors
-      let overlapLeft = (ball.x + ball.r) - b.x;
-      let overlapRight = (b.x + b.w) - (ball.x - ball.r);
-      let overlapTop = (ball.y + ball.r) - b.y;
-      let overlapBottom = (b.y + b.h) - (ball.y - ball.r);
-
-      let minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
-
-      if (minOverlap === overlapLeft || minOverlap === overlapRight) {
-        ball.vx = -ball.vx;
-      } else {
-        ball.vy = -ball.vy;
-      }
-
-      // Check win parameters
-      if (totalBricksDestroyed >= totalBricksCount) {
-        endGame(true);
+      if (lives <= 0) {
+        endGame(false);
         return;
+      } else {
+        // NEW: Lock ball back onto paddle instead of instantly shooting it
+        ballAttached = true;
+        ball.x = paddle.x + paddle.w / 2;
+        ball.y = paddle.y - ball.r;
       }
-      break; 
+    }
+
+    // Paddle Intersection Math
+    if (ball.vy > 0 && 
+        ball.x + ball.r >= paddle.x && 
+        ball.x - ball.r <= paddle.x + paddle.w && 
+        ball.y + ball.r >= paddle.y && 
+        ball.y - ball.r <= paddle.y + paddle.h) {
+      
+      ball.y = paddle.y - ball.r;
+      ball.vy = -ball.vy;
+
+      // Deflection angular mapping baseline calculations
+      let hitLocationNormal = ((ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2));
+      let currentSpeed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+      currentSpeed = Math.min(currentSpeed + 0.25, ball.speedMax); // Acceleration scaling
+
+      ball.vx = hitLocationNormal * currentSpeed * 0.75;
+      ball.vy = -Math.sqrt(Math.max(4, currentSpeed * currentSpeed - ball.vx * ball.vx));
+      
+      spawnImpactParticles(ball.x, ball.y, varColor('--cyan'));
+    }
+
+    // Brick Boundary Layer Collisions Loop
+    for (let i = 0; i < bricks.length; i++) {
+      let b = bricks[i];
+      if (!b.active) continue;
+
+      if (ball.x + ball.r >= b.x && 
+          ball.x - ball.r <= b.x + b.w && 
+          ball.y + ball.r >= b.y && 
+          ball.y - ball.r <= b.y + b.h) {
+        
+        b.active = false;
+        score += 150;
+        totalBricksDestroyed++;
+        updateUI();
+        spawnImpactParticles(ball.x, ball.y, b.color); // Cut particle count parameter entirely
+
+        // Determine directional collision penetration vectors
+        let overlapLeft = (ball.x + ball.r) - b.x;
+        let overlapRight = (b.x + b.w) - (ball.x - ball.r);
+        let overlapTop = (ball.y + ball.r) - b.y;
+        let overlapBottom = (b.y + b.h) - (ball.y - ball.r);
+
+        let minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+
+        if (minOverlap === overlapLeft || minOverlap === overlapRight) {
+          ball.vx = -ball.vx;
+        } else {
+          ball.vy = -ball.vy;
+        }
+
+        // Check win parameters
+        if (totalBricksDestroyed >= totalBricksCount) {
+          endGame(true);
+          return;
+        }
+        break; 
+      }
     }
   }
 
@@ -501,20 +511,35 @@ function handleMove(e) {
   pointerX = clientX;
 }
 
+// NEW: Screen Tap releases the ball from the paddle
+function handleTap(e) {
+  if (!gameRunning) return;
+  if (ballAttached) {
+    ballAttached = false;
+    // Safe upward trajectory initialization parameters based on speedBase setting
+    ball.vx = (Math.random() - 0.5) * ball.speedBase;
+    ball.vy = -ball.speedBase;
+  }
+}
+
 window.addEventListener('mousemove', handleMove);
 window.addEventListener('touchmove', handleMove, { passive: false });
+window.addEventListener('click', handleTap);
+window.addEventListener('touchstart', handleTap);
 
 // ===================== ENGINE FX PROCEDURES =====================
-function spawnImpactParticles(x, y, color, count = 6) {
+function spawnImpactParticles(x, y, color) {
+  // FIXED: Drastically minimized impact burst count to 3 particles so visibility remains high
+  let count = 3; 
   for (let i = 0; i < count; i++) {
     let angle = Math.random() * Math.PI * 2;
-    let speed = 1 + Math.random() * 4;
+    let speed = 0.5 + Math.random() * 2;
     particles.push({
       x: x,
       y: y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      size: 1.5 + Math.random() * 2,
+      size: 1 + Math.random() * 1.5,
       color: color,
       alpha: 1
     });
@@ -528,11 +553,9 @@ function varColor(variableName) {
 
 // ===================== DASHBOARD SCORE UI DISPLAYS =====================
 function updateUI() {
-  // Score Padding
   let padScore = String(score).padStart(5, '0');
   document.getElementById('score-val').textContent = padScore;
   
-  // Render Lives visually as vertical neon pipeline metrics
   let bars = '';
   for(let i=0; i<lives; i++) bars += '|| ';
   document.getElementById('lives-val').textContent = bars || 'CRITICAL';
