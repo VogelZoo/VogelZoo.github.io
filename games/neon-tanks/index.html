@@ -5,67 +5,88 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Artillery // DUEL</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; [span_4](start_span)}
 
         body, html {
-            width: 100%; height: 100%; overflow: hidden;
+            width: 100%; height: 100%; overflow: hidden;[span_4](end_span)
             background: #0a0a12;
             font-family: 'Courier New', monospace;
             touch-action: none;
             user-select: none;
-            -webkit-user-select: none;
+            -[span_5](start_span)webkit-user-select: none;[span_5](end_span)
         }
 
         #gameContainer {
             position: relative;
-            width: 100vw;
-            height: 100vh;
+            [span_6](start_span)width: 100vw; height: 100vh;[span_6](end_span)
             overflow: hidden;
         }
 
         canvas {
             position: absolute;
-            top: 0; left: 0;
+            [span_7](start_span)top: 0; left: 0;[span_7](end_span)
             image-rendering: pixelated;
         }
 
         /* ── HUD ─────────────────────────────────────────────── */
         #hud {
             position: absolute;
-            top: 0; left: 0; right: 0;
+            [span_8](start_span)top: 0; left: 0; right: 0;[span_8](end_span)
             pointer-events: none;
-            z-index: 10;
+            [span_9](start_span)z-index: 10;[span_9](end_span)
         }
 
         #turn-banner {
             text-align: center;
-            padding: 8px 20px;
+            [span_10](start_span)padding: 8px 20px;[span_10](end_span)
             font-size: 13px;
             letter-spacing: 3px;
             text-transform: uppercase;
             color: #fff;
             background: rgba(0,0,0,0.55);
-            backdrop-filter: blur(4px);
+            [span_11](start_span)backdrop-filter: blur(4px);[span_11](end_span)
         }
 
-        #turn-banner span { font-weight: bold; }
+        #turn-banner span { font-weight: bold; [span_12](start_span)}
 
         #wind-display {
             position: absolute;
-            top: 38px; left: 50%;
-            transform: translateX(-50%);
+            top: 38px; left: 10px;
             font-size: 11px;
             color: #aaa;
             letter-spacing: 2px;
             background: rgba(0,0,0,0.4);
             padding: 3px 10px;
-            border-radius: 4px;
+            border-radius: 4px;[span_12](end_span)
+        }
+
+        /* ── Minimap Position Indicator ──────────────────────── */
+        #minimap-container {
+            position: absolute;
+            top: 42px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 160px;
+            height: 14px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            pointer-events: none;
+        }
+        .minimap-dot {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            box-shadow: 0 0 6px currentColor;
         }
 
         /* ── Player stat pills ────────────────────────────────── */
         #p1-hud, #p2-hud {
             position: absolute;
-            top: 8px;
+            [span_13](start_span)top: 8px;[span_13](end_span)
             padding: 6px 12px;
             border-radius: 6px;
             font-size: 11px;
@@ -73,87 +94,98 @@
             text-transform: uppercase;
             background: rgba(0,0,0,0.5);
             backdrop-filter: blur(4px);
-            pointer-events: none;
+            [span_14](start_span)pointer-events: none;[span_14](end_span)
         }
-        #p1-hud { left: 10px; border-left: 3px solid #ff3366; color: #ff3366; }
-        #p2-hud { right: 10px; border-right: 3px solid #33ffcc; color: #33ffcc; text-align: right; }
+        #p1-hud { left: 10px; border-left: 3px solid #ff3366; color: #ff3366; [span_15](start_span)}
+        #p2-hud { right: 10px; border-right: 3px solid #33ffcc; color: #33ffcc; text-align: right; }[span_15](end_span)
 
-        .hud-label { font-size: 9px; color: #888; margin-bottom: 2px; }
-        .hud-name  { font-size: 12px; font-weight: bold; }
-        .hud-active { animation: pulse 0.9s infinite alternate; }
+        .hud-label { font-size: 9px; color: #888; margin-bottom: 2px; [span_16](start_span)}
+        .hud-name  { font-size: 12px; font-weight: bold; }[span_16](end_span)
+        .hud-active { animation: pulse 0.9s infinite alternate; [span_17](start_span)}
 
         @keyframes pulse {
-            from { opacity: 0.6; }
-            to   { opacity: 1.0; }
+            from { opacity: 0.6; }[span_17](end_span)
+            to   { opacity: 1.0; [span_18](start_span)}
         }
 
         /* ── Controls bar (bottom) ───────────────────────────── */
         #controls {
             position: absolute;
-            bottom: 0; left: 0; right: 0;
-            height: 80px;
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(6px);
-            border-top: 1px solid rgba(255,255,255,0.08);
+            bottom: 0; left: 0; right: 0;[span_18](end_span)
+            height: 85px;
+            background: rgba(10, 10, 18, 0.9);
+            backdrop-filter: blur(8px);
+            border-top: 1px solid rgba(255,255,255,0.12);
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            [span_19](start_span)justify-content: space-between;[span_19](end_span)
             padding: 0 20px;
             gap: 16px;
-            z-index: 10;
+            z-index: 15;
         }
 
         /* Aim info */
         #aim-info {
             display: flex;
-            flex-direction: column;
+            [span_20](start_span)flex-direction: column;[span_20](end_span)
             gap: 2px;
             min-width: 90px;
         }
-        .aim-label { font-size: 10px; color: #555; letter-spacing: 1px; text-transform: uppercase; }
-        .aim-value { font-size: 18px; font-weight: bold; font-variant-numeric: tabular-nums; }
+        .aim-label { font-size: 10px; color: #666; letter-spacing: 1px; text-transform: uppercase; [span_21](start_span)}
+        .aim-value { font-size: 18px; font-weight: bold; font-variant-numeric: tabular-nums; }[span_21](end_span)
 
         /* Power slider */
         #power-wrap {
             flex: 1;
-            display: flex;
+            [span_22](start_span)display: flex;[span_22](end_span)
             flex-direction: column;
             gap: 4px;
         }
         #power-wrap label {
             font-size: 10px;
-            color: #555;
+            [span_23](start_span)color: #666;[span_23](end_span)
             letter-spacing: 2px;
             text-transform: uppercase;
         }
         #power-slider {
             -webkit-appearance: none;
-            appearance: none;
+            [span_24](start_span)appearance: none;[span_24](end_span)
             width: 100%;
             height: 8px;
-            background: linear-gradient(to right, #333, #555);
+            background: #222;
             border-radius: 4px;
             outline: none;
-            cursor: pointer;
+            [span_25](start_span)cursor: pointer;[span_25](end_span)
         }
+        
+        /* Fixed cross-browser thumb styling */
         #power-slider::-webkit-slider-thumb {
             -webkit-appearance: none;
-            width: 22px; height: 22px;
+            [span_26](start_span)width: 20px; height: 20px;[span_26](end_span)
             border-radius: 50%;
             background: #fff;
-            border: 3px solid currentColor;
+            border: 3px solid #ff3366; /* Default color fallback */
+            [span_27](start_span)cursor: pointer;[span_27](end_span)
+        }
+        #power-slider::-moz-range-thumb {
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            background: #fff;
+            border: 3px solid #ff3366;
             cursor: pointer;
         }
+        
         #power-value {
             font-size: 10px;
-            color: #888;
+            [span_28](start_span)color: #888;[span_28](end_span)
             text-align: right;
             letter-spacing: 1px;
         }
 
         /* Fire button */
         #fire-btn {
-            width: 64px; height: 64px;
+            width: 60px;
+            [span_29](start_span)height: 60px;[span_29](end_span)
             border-radius: 50%;
             border: 2px solid currentColor;
             background: rgba(255,255,255,0.05);
@@ -162,57 +194,58 @@
             letter-spacing: 1px;
             cursor: pointer;
             text-transform: uppercase;
-            font-family: 'Courier New', monospace;
-            transition: background 0.15s;
+            [span_30](start_span)font-family: 'Courier New', monospace;[span_30](end_span)
+            transition: background 0.15s, transform 0.1s;
             touch-action: manipulation;
-            flex-shrink: 0;
+            [span_31](start_span)flex-shrink: 0;[span_31](end_span)
         }
-        #fire-btn:active { background: rgba(255,255,255,0.15); }
+        #fire-btn:active { 
+            background: rgba(255,255,255,0.15); 
+            [span_32](start_span)transform: scale(0.95);[span_32](end_span)
+        }
 
         /* ── Game-over overlay ───────────────────────────────── */
         #overlay {
             position: absolute;
-            inset: 0;
+            [span_33](start_span)inset: 0;[span_33](end_span)
             background: rgba(0,0,0,0.75);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             z-index: 20;
-            color: #fff;
+            [span_34](start_span)color: #fff;[span_34](end_span)
         }
         #overlay h1 {
             font-size: 32px;
-            letter-spacing: 4px;
+            [span_35](start_span)letter-spacing: 4px;[span_35](end_span)
             text-transform: uppercase;
             margin-bottom: 16px;
         }
         #overlay button {
             margin-top: 24px;
-            padding: 12px 32px;
+            [span_36](start_span)padding: 12px 32px;[span_36](end_span)
             border: 1px solid #fff;
             background: transparent;
             color: #fff;
             font-family: 'Courier New', monospace;
             font-size: 14px;
             letter-spacing: 3px;
-            text-transform: uppercase;
+            [span_37](start_span)text-transform: uppercase;[span_37](end_span)
             cursor: pointer;
             border-radius: 4px;
         }
+        #overlay.hidden { display: none; [span_38](start_span)}
 
-        #overlay.hidden { display: none; }
-
-        /* ── Zoom hint ───────────────────────────────────────── */
         #zoom-hint {
             position: absolute;
-            bottom: 90px; right: 12px;
+            bottom: 95px; right: 12px;[span_38](end_span)
             font-size: 10px;
             color: #444;
             letter-spacing: 1px;
             z-index: 10;
             pointer-events: none;
-            text-transform: uppercase;
+            [span_39](start_span)text-transform: uppercase;[span_39](end_span)
         }
     </style>
 </head>
@@ -221,43 +254,46 @@
 <div id="gameContainer">
     <canvas id="gameCanvas"></canvas>
 
-    <!-- HUD -->
     <div id="hud">
-        <div id="turn-banner">Player <span id="turn-name">1</span>'s Turn — Drag canvas to aim</div>
-        <div id="wind-display">WIND ● ─ 0.0</div>
+        [span_40](start_span)<div id="turn-banner">Player <span id="turn-name">1</span>'s Turn — Drag canvas to aim</div>[span_40](end_span)
+        [span_41](start_span)<div id="wind-display">WIND ● ─ 0.0</div>[span_41](end_span)
+
+        <div id="minimap-container">
+            <div id="minimap-p1" class="minimap-dot" style="color: #ff3366;"></div>
+            <div id="minimap-p2" class="minimap-dot" style="color: #33ffcc;"></div>
+        </div>
 
         <div id="p1-hud">
-            <div class="hud-label">Player 1</div>
-            <div class="hud-name" id="p1-tag">◈ PINK</div>
+            [span_42](start_span)<div class="hud-label">Player 1</div>[span_42](end_span)
+            [span_43](start_span)<div class="hud-name" id="p1-tag">◈ PINK</div>[span_43](end_span)
         </div>
-        <div id="p2-hud">
-            <div class="hud-label">Player 2</div>
-            <div class="hud-name" id="p2-tag">◈ CYAN</div>
+    
+        [span_44](start_span)<div id="p2-hud">[span_44](end_span)
+            [span_45](start_span)<div class="hud-label">Player 2</div>[span_45](end_span)
+            [span_46](start_span)<div class="hud-name" id="p2-tag">◈ CYAN</div>[span_46](end_span)
         </div>
     </div>
 
-    <!-- Controls bar -->
     <div id="controls">
         <div id="aim-info">
-            <div class="aim-label">Angle</div>
-            <div class="aim-value" id="angle-display" style="color:#fff">0°</div>
+            [span_47](start_span)<div class="aim-label">Angle</div>[span_47](end_span)
+            [span_48](start_span)<div class="aim-value" id="angle-display" style="color:#fff">0°</div>[span_48](end_span)
         </div>
 
         <div id="power-wrap">
-            <label for="power-slider">Power</label>
-            <input type="range" id="power-slider" min="5" max="100" value="50">
-            <div id="power-value">50%</div>
+            [span_49](start_span)<label for="power-slider">Power</label>[span_49](end_span)
+            [span_50](start_span)<input type="range" id="power-slider" min="5" max="100" value="50">[span_50](end_span)
+            [span_51](start_span)<div id="power-value">50%</div>[span_51](end_span)
         </div>
 
-        <button id="fire-btn">FIRE</button>
+        [span_52](start_span)<button id="fire-btn">FIRE</button>[span_52](end_span)
     </div>
 
-    <div id="zoom-hint">Pinch to zoom</div>
+    [span_53](start_span)<div id="zoom-hint">Pinch or Scroll to zoom</div>[span_53](end_span)
 
-    <!-- Game-over overlay -->
     <div id="overlay" class="hidden">
-        <h1 id="overlay-title">Player 1 Wins!</h1>
-        <button id="restart-btn">Play Again</button>
+        [span_54](start_span)<h1 id="overlay-title">Player 1 Wins!</h1>[span_54](end_span)
+        [span_55](start_span)<button id="restart-btn">Play Again</button>[span_55](end_span)
     </div>
 </div>
 
@@ -265,182 +301,183 @@
 // ═══════════════════════════════════════════════════════
 //  CONSTANTS & CONFIG
 // ═══════════════════════════════════════════════════════
-const GRAVITY      = 0.25;
-const TANK_RADIUS  = 14;
-const BLAST_RADIUS = 40;
-const MAP_W        = 2400;   // logical world width
-const MAP_H        = 900;    // logical world height
-const COLORS       = { 1: '#ff3366', 2: '#33ffcc' };
+[span_56](start_span)const GRAVITY      = 0.25;[span_56](end_span)
+[span_57](start_span)const TANK_RADIUS  = 14;[span_57](end_span)
+[span_58](start_span)const BLAST_RADIUS = 40;[span_58](end_span)
+[span_59](start_span)const MAP_W        = 2400;[span_59](end_span)
+[span_60](start_span)const MAP_H        = 900;[span_60](end_span)
+[span_61](start_span)const COLORS       = { 1: '#ff3366', 2: '#33ffcc' };[span_61](end_span)
 
 // ═══════════════════════════════════════════════════════
 //  CANVAS / CONTEXT
 // ═══════════════════════════════════════════════════════
-const canvas = document.getElementById('gameCanvas');
-const ctx    = canvas.getContext('2d');
-
-let vw = 0, vh = 0;   // viewport dims
+[span_62](start_span)const canvas = document.getElementById('gameCanvas');[span_62](end_span)
+[span_63](start_span)const ctx    = canvas.getContext('2d');[span_63](end_span)
+[span_64](start_span)let vw = 0, vh = 0;[span_64](end_span)
 
 // ═══════════════════════════════════════════════════════
 //  CAMERA
 // ═══════════════════════════════════════════════════════
 let cam = {
-    x: 0, y: 0,   // world-space top-left of viewport
+    [span_65](start_span)x: 0, y: 0,[span_65](end_span)
     zoom: 1,
     targetX: 0, targetY: 0, targetZoom: 1,
     animating: false,
 
     clamp() {
-        const maxX = MAP_W - vw / this.zoom;
-        const maxY = MAP_H - (vh - 80) / this.zoom;
-        this.x = Math.max(0, Math.min(this.x, maxX));
-        this.y = Math.max(0, Math.min(this.y, maxY));
+        [span_66](start_span)const maxX = MAP_W - vw / this.zoom;[span_66](end_span)
+        const maxY = MAP_H - (vh - 85) / this.zoom;
+        [span_67](start_span)this.x = Math.max(0, Math.min(this.x, maxX));[span_67](end_span)
+        [span_68](start_span)this.y = Math.max(0, Math.min(this.y, maxY));[span_68](end_span)
     },
 
-    // World → screen
-    toScreen(wx, wy) {
+    [span_69](start_span)toScreen(wx, wy) {[span_69](end_span)
         return {
             x: (wx - this.x) * this.zoom,
             y: (wy - this.y) * this.zoom
         };
     },
-    // Screen → world
-    toWorld(sx, sy) {
+    [span_70](start_span)toWorld(sx, sy) {[span_70](end_span)
         return {
             x: sx / this.zoom + this.x,
             y: sy / this.zoom + this.y
         };
     },
 
-    // Smoothly pan to center a world point
-    focusOn(wx, wy, z) {
-        z = z || 1.4;
+    [span_71](start_span)focusOn(wx, wy, z) {[span_71](end_span)
+        z = z || [span_72](start_span)1.4;[span_72](end_span)
         this.targetZoom = z;
-        this.targetX = wx - vw / 2 / z;
-        this.targetY = wy - (vh - 80) / 2 / z;
-        this.animating = true;
+        [span_73](start_span)this.targetX = wx - vw / 2 / z;[span_73](end_span)
+        this.targetY = wy - (vh - 85) / 2 / z;
+        [span_74](start_span)this.animating = true;[span_74](end_span)
     },
 
     update() {
-        if (!this.animating) return;
-        const spd = 0.1;
-        this.zoom += (this.targetZoom - this.zoom) * spd;
-        this.x    += (this.targetX    - this.x)    * spd;
-        this.y    += (this.targetY    - this.y)    * spd;
-
-        if (Math.abs(this.zoom - this.targetZoom) < 0.005 &&
+        [span_75](start_span)if (!this.animating) return;[span_75](end_span)
+        [span_76](start_span)const spd = 0.1;[span_76](end_span)
+        [span_77](start_span)this.zoom += (this.targetZoom - this.zoom) * spd;[span_77](end_span)
+        [span_78](start_span)this.x    += (this.targetX    - this.x)    * spd;[span_78](end_span)
+        [span_79](start_span)this.y    += (this.targetY    - this.y)    * spd;[span_79](end_span)
+        [span_80](start_span)if (Math.abs(this.zoom - this.targetZoom) < 0.005 &&[span_80](end_span)
             Math.abs(this.x - this.targetX) < 0.5 &&
             Math.abs(this.y - this.targetY) < 0.5) {
-            this.zoom = this.targetZoom;
-            this.x    = this.targetX;
-            this.y    = this.targetY;
-            this.animating = false;
+            [span_81](start_span)this.zoom = this.targetZoom;[span_81](end_span)
+            [span_82](start_span)this.x    = this.targetX;[span_82](end_span)
+            [span_83](start_span)this.y    = this.targetY;[span_83](end_span)
+            [span_84](start_span)this.animating = false;[span_84](end_span)
         }
-        this.clamp();
+        [span_85](start_span)this.clamp();[span_85](end_span)
     }
 };
 
 // ═══════════════════════════════════════════════════════
 //  TERRAIN
 // ═══════════════════════════════════════════════════════
-let terrainCanvas, terrainCtx, terrainImgData;
-
+[span_86](start_span)let terrainCanvas, terrainCtx, terrainImgData;[span_86](end_span)
 function buildTerrain() {
-    terrainCanvas = document.createElement('canvas');
-    terrainCanvas.width  = MAP_W;
-    terrainCanvas.height = MAP_H;
-    terrainCtx = terrainCanvas.getContext('2d');
+    [span_87](start_span)terrainCanvas = document.createElement('canvas');[span_87](end_span)
+    [span_88](start_span)terrainCanvas.width  = MAP_W;[span_88](end_span)
+    [span_89](start_span)terrainCanvas.height = MAP_H;[span_89](end_span)
+    [span_90](start_span)terrainCtx = terrainCanvas.getContext('2d');[span_90](end_span)
+    [span_91](start_span)const tc = terrainCtx;[span_91](end_span)
 
-    const tc = terrainCtx;
-
-    // Sky gradient painted into terrain canvas (we'll blit it each frame)
-    // Just draw the ground shape — sky is separate
-    const baseH = MAP_H * 0.55;
-    const h1 = Math.random() * 120 + 60;
-    const h2 = Math.random() * 60  + 20;
-    const f1 = Math.random() * 0.003 + 0.001;
-    const f2 = Math.random() * 0.01  + 0.003;
-    const ph1 = Math.random() * Math.PI * 2;
-    const ph2 = Math.random() * Math.PI * 2;
-
-    // Brown earth
-    tc.fillStyle = '#5a3c22';
-    tc.beginPath();
-    tc.moveTo(0, MAP_H);
-    for (let x = 0; x <= MAP_W; x++) {
-        let y = baseH + Math.sin(x * f1 + ph1) * h1 + Math.cos(x * f2 + ph2) * h2;
-        tc.lineTo(x, y);
+    [span_92](start_span)const baseH = MAP_H * 0.55;[span_92](end_span)
+    [span_93](start_span)const h1 = Math.random() * 120 + 60;[span_93](end_span)
+    [span_94](start_span)const h2 = Math.random() * 60  + 20;[span_94](end_span)
+    [span_95](start_span)const f1 = Math.random() * 0.003 + 0.001;[span_95](end_span)
+    [span_96](start_span)const f2 = Math.random() * 0.01  + 0.003;[span_96](end_span)
+    [span_97](start_span)const ph1 = Math.random() * Math.PI * 2;[span_97](end_span)
+    [span_98](start_span)const ph2 = Math.random() * Math.PI * 2;[span_98](end_span)
+    [span_99](start_span)tc.fillStyle = '#5a3c22';[span_99](end_span)
+    [span_100](start_span)tc.beginPath();[span_100](end_span)
+    [span_101](start_span)tc.moveTo(0, MAP_H);[span_101](end_span)
+    [span_102](start_span)for (let x = 0; x <= MAP_W; x++) {[span_102](end_span)
+        [span_103](start_span)let y = baseH + Math.sin(x * f1 + ph1) * h1 + Math.cos(x * f2 + ph2) * h2;[span_103](end_span)
+        [span_104](start_span)tc.lineTo(x, y);[span_104](end_span)
     }
-    tc.lineTo(MAP_W, MAP_H);
-    tc.closePath();
-    tc.fill();
+    [span_105](start_span)tc.lineTo(MAP_W, MAP_H);[span_105](end_span)
+    [span_106](start_span)tc.closePath();[span_106](end_span)
+    [span_107](start_span)tc.fill();[span_107](end_span)
 
-    // Green grass cap
-    tc.fillStyle = '#2d8c2b';
-    tc.globalCompositeOperation = 'source-atop';
-    tc.fillRect(0, 0, MAP_W, MAP_H);
-    tc.globalCompositeOperation = 'source-over';
-
-    // Cache pixel data for collision/destruction
-    terrainImgData = tc.getImageData(0, 0, MAP_W, MAP_H);
+    [span_108](start_span)tc.fillStyle = '#2d8c2b';[span_108](end_span)
+    [span_109](start_span)tc.globalCompositeOperation = 'source-atop';[span_109](end_span)
+    [span_110](start_span)tc.fillRect(0, 0, MAP_W, MAP_H);[span_110](end_span)
+    [span_111](start_span)tc.globalCompositeOperation = 'source-over';[span_111](end_span)
+    [span_112](start_span)terrainImgData = tc.getImageData(0, 0, MAP_W, MAP_H);[span_112](end_span)
 }
 
 function getTerrainHeight(wx) {
-    if (wx < 0 || wx >= MAP_W) return MAP_H;
-    const xi = Math.floor(wx);
-    for (let y = 0; y < MAP_H; y++) {
-        if (terrainImgData.data[(y * MAP_W + xi) * 4 + 3] > 0) return y;
+    [span_113](start_span)if (wx < 0 || wx >= MAP_W) return MAP_H;[span_113](end_span)
+    [span_114](start_span)const xi = Math.floor(wx);[span_114](end_span)
+    [span_115](start_span)for (let y = 0; y < MAP_H; y++) {[span_115](end_span)
+        [span_116](start_span)if (terrainImgData.data[(y * MAP_W + xi) * 4 + 3] > 0) return y;[span_116](end_span)
     }
-    return MAP_H;
+    [span_117](start_span)return MAP_H;[span_117](end_span)
 }
 
 function isSolid(wx, wy) {
-    const xi = Math.floor(wx), yi = Math.floor(wy);
-    if (xi < 0 || xi >= MAP_W || yi < 0 || yi >= MAP_H) return false;
-    return terrainImgData.data[(yi * MAP_W + xi) * 4 + 3] > 0;
+    [span_118](start_span)const xi = Math.floor(wx), yi = Math.floor(wy);[span_118](end_span)
+    [span_119](start_span)if (xi < 0 || xi >= MAP_W || yi < 0 || yi >= MAP_H) return false;[span_119](end_span)
+    [span_120](start_span)return terrainImgData.data[(yi * MAP_W + xi) * 4 + 3] > 0;[span_120](end_span)
 }
 
 function destroyTerrain(cx, cy, radius) {
-    const sx = Math.max(0, Math.floor(cx - radius));
-    const ex = Math.min(MAP_W - 1, Math.floor(cx + radius));
-    const sy = Math.max(0, Math.floor(cy - radius));
-    const ey = Math.min(MAP_H - 1, Math.floor(cy + radius));
-    for (let x = sx; x <= ex; x++) {
-        for (let y = sy; y <= ey; y++) {
-            if ((x-cx)**2 + (y-cy)**2 <= radius*radius) {
-                terrainImgData.data[(y * MAP_W + x) * 4 + 3] = 0;
+    [span_121](start_span)const sx = Math.max(0, Math.floor(cx - radius));[span_121](end_span)
+    [span_122](start_span)const ex = Math.min(MAP_W - 1, Math.floor(cx + radius));[span_122](end_span)
+    [span_123](start_span)const sy = Math.max(0, Math.floor(cy - radius));[span_123](end_span)
+    [span_124](start_span)const ey = Math.min(MAP_H - 1, Math.floor(cy + radius));[span_124](end_span)
+    [span_125](start_span)for (let x = sx; x <= ex; x++) {[span_125](end_span)
+        [span_126](start_span)for (let y = sy; y <= ey; y++) {[span_126](end_span)
+            [span_127](start_span)if ((x-cx)**2 + (y-cy)**2 <= radius*radius) {[span_127](end_span)
+                [span_128](start_span)terrainImgData.data[(y * MAP_W + x) * 4 + 3] = 0;[span_128](end_span)
             }
         }
     }
-    // Sync back to terrainCanvas
-    terrainCtx.putImageData(terrainImgData, 0, 0);
-    settleTanks();
+    [span_129](start_span)terrainCtx.putImageData(terrainImgData, 0, 0);[span_129](end_span)
+    [span_130](start_span)settleTanks();[span_130](end_span)
+    updateMinimap();
 }
 
 // ═══════════════════════════════════════════════════════
-//  PLAYERS
+//  PLAYERS & MINIMAP LOGIC
 // ═══════════════════════════════════════════════════════
 let players = {
-    1: { x: 0, y: 0, alive: true, angle: -45, power: 50, color: COLORS[1] },
-    2: { x: 0, y: 0, alive: true, angle: -135, power: 50, color: COLORS[2] }
+    [span_131](start_span)1: { x: 0, y: 0, alive: true, angle: -45, power: 50, color: COLORS[1] },[span_131](end_span)
+    [span_132](start_span)2: { x: 0, y: 0, alive: true, angle: -135, power: 50, color: COLORS[2] }[span_132](end_span)
 };
 
 function placePlayers() {
-    players[1].x = MAP_W * 0.12;
-    players[1].y = getTerrainHeight(players[1].x) - TANK_RADIUS;
-    players[1].alive = true;
-
-    players[2].x = MAP_W * 0.88;
-    players[2].y = getTerrainHeight(players[2].x) - TANK_RADIUS;
-    players[2].alive = true;
+    [span_133](start_span)players[1].x = MAP_W * 0.12;[span_133](end_span)
+    [span_134](start_span)players[1].y = getTerrainHeight(players[1].x) - TANK_RADIUS;[span_134](end_span)
+    [span_135](start_span)players[1].alive = true;[span_135](end_span)
+    [span_136](start_span)players[2].x = MAP_W * 0.88;[span_136](end_span)
+    [span_137](start_span)players[2].y = getTerrainHeight(players[2].x) - TANK_RADIUS;[span_137](end_span)
+    [span_138](start_span)players[2].alive = true;[span_138](end_span)
+    updateMinimap();
 }
 
 function settleTanks() {
-    for (let p = 1; p <= 2; p++) {
-        const newY = getTerrainHeight(players[p].x) - TANK_RADIUS;
-        if (newY >= MAP_H - TANK_RADIUS * 2) {
-            players[p].alive = false;
+    [span_139](start_span)for (let p = 1; p <= 2; p++) {[span_139](end_span)
+        [span_140](start_span)const newY = getTerrainHeight(players[p].x) - TANK_RADIUS;[span_140](end_span)
+        [span_141](start_span)if (newY >= MAP_H - TANK_RADIUS * 2) {[span_141](end_span)
+            [span_142](start_span)players[p].alive = false;[span_142](end_span)
         } else {
-            players[p].y = newY;
+            [span_143](start_span)players[p].y = newY;[span_143](end_span)
+        }
+    }
+    updateMinimap();
+}
+
+function updateMinimap() {
+    const containerW = 160; 
+    for (let p = 1; p <= 2; p++) {
+        const dot = document.getElementById(`minimap-p1${p === 2 ? '2' : '1'}`);
+        if (!players[p].alive) {
+            dot.style.display = 'none';
+        } else {
+            dot.style.display = 'block';
+            const percentX = players[p].x / MAP_W;
+            dot.style.left = `${percentX * containerW - 3}px`;
         }
     }
 }
@@ -448,347 +485,315 @@ function settleTanks() {
 // ═══════════════════════════════════════════════════════
 //  GAME STATE
 // ═══════════════════════════════════════════════════════
-let wind = 0;
-let game = { turn: 1, state: 'aiming', winner: null };
-
-// Projectile
-let proj = { x: 0, y: 0, vx: 0, vy: 0, active: false, trail: [] };
-
-// Explosion anim
-let explosion = { active: false, x: 0, y: 0, t: 0 };
+[span_144](start_span)let wind = 0;[span_144](end_span)
+[span_145](start_span)let game = { turn: 1, state: 'aiming', winner: null };[span_145](end_span)
+[span_146](start_span)let proj = { x: 0, y: 0, vx: 0, vy: 0, active: false, trail: [] };[span_146](end_span)
+[span_147](start_span)let explosion = { active: false, x: 0, y: 0, t: 0 };[span_147](end_span)
 
 function generateWind() {
-    wind = (Math.random() - 0.5) * 0.08;
+    [span_148](start_span)wind = (Math.random() - 0.5) * 0.08;[span_148](end_span)
 }
 
 // ═══════════════════════════════════════════════════════
 //  AIM CONTROLS
 // ═══════════════════════════════════════════════════════
-let aimDrag = { active: false, startX: 0, startY: 0 };
+[span_149](start_span)let aimDrag = { active: false, startX: 0, startY: 0 };[span_149](end_span)
 
-// Read current angle/power from player data
 function getAimVector() {
-    const p = players[game.turn];
-    const rad = p.angle * Math.PI / 180;
-    const spd = p.power * 0.18;
-    return { vx: Math.cos(rad) * spd, vy: Math.sin(rad) * spd };
+    [span_150](start_span)const p = players[game.turn];[span_150](end_span)
+    [span_151](start_span)const rad = p.angle * Math.PI / 180;[span_151](end_span)
+    [span_152](start_span)const spd = p.power * 0.18;[span_152](end_span)
+    [span_153](start_span)return { vx: Math.cos(rad) * spd, vy: Math.sin(rad) * spd };[span_153](end_span)
 }
 
 function setAngleDisplay(deg) {
-    document.getElementById('angle-display').textContent = Math.round(deg) + '°';
+    [span_154](start_span)document.getElementById('angle-display').textContent = Math.round(deg) + '°';[span_154](end_span)
 }
 
 function applyPlayerColors() {
-    const c = COLORS[game.turn];
-    document.getElementById('fire-btn').style.color = c;
-    document.getElementById('fire-btn').style.borderColor = c;
-    document.getElementById('power-slider').style.accentColor = c;
-    document.getElementById('angle-display').style.color = c;
-    document.getElementById('turn-name').textContent = game.turn;
-    document.getElementById('turn-name').style.color = c;
+    [span_155](start_span)const c = COLORS[game.turn];[span_155](end_span)
+    [span_156](start_span)document.getElementById('fire-btn').style.color = c;[span_156](end_span)
+    [span_157](start_span)document.getElementById('fire-btn').style.borderColor = c;[span_157](end_span)
+    
+    // Fallback UI slider rule adjustments
+    const slider = document.getElementById('power-slider');
+    [span_158](start_span)slider.style.accentColor = c;[span_158](end_span)
+    
+    [span_159](start_span)document.getElementById('angle-display').style.color = c;[span_159](end_span)
+    [span_160](start_span)document.getElementById('turn-name').textContent = game.turn;[span_160](end_span)
+    [span_161](start_span)document.getElementById('turn-name').style.color = c;[span_161](end_span)
 
-    const p1 = document.getElementById('p1-hud');
-    const p2 = document.getElementById('p2-hud');
-    p1.classList.toggle('hud-active', game.turn === 1);
-    p2.classList.toggle('hud-active', game.turn === 2);
+    [span_162](start_span)const p1 = document.getElementById('p1-hud');[span_162](end_span)
+    [span_163](start_span)const p2 = document.getElementById('p2-hud');[span_163](end_span)
+    [span_164](start_span)p1.classList.toggle('hud-active', game.turn === 1);[span_164](end_span)
+    [span_165](start_span)p2.classList.toggle('hud-active', game.turn === 2);[span_165](end_span)
 }
 
 function syncControlsFromPlayer() {
-    const p = players[game.turn];
-    const slider = document.getElementById('power-slider');
-    slider.value = p.power;
-    document.getElementById('power-value').textContent = Math.round(p.power) + '%';
-    setAngleDisplay(p.angle);
-    applyPlayerColors();
+    [span_166](start_span)const p = players[game.turn];[span_166](end_span)
+    [span_167](start_span)const slider = document.getElementById('power-slider');[span_167](end_span)
+    [span_168](start_span)slider.value = p.power;[span_168](end_span)
+    [span_169](start_span)document.getElementById('power-value').textContent = Math.round(p.power) + '%';[span_169](end_span)
+    [span_170](start_span)setAngleDisplay(p.angle);[span_170](end_span)
+    [span_171](start_span)applyPlayerColors();[span_171](end_span)
 }
 
-// Power slider
 document.getElementById('power-slider').addEventListener('input', function() {
-    players[game.turn].power = parseInt(this.value);
-    document.getElementById('power-value').textContent = Math.round(this.value) + '%';
+    [span_172](start_span)players[game.turn].power = parseInt(this.value);[span_172](end_span)
+    [span_173](start_span)document.getElementById('power-value').textContent = Math.round(this.value) + '%';[span_173](end_span)
 });
 
-// Fire button
 document.getElementById('fire-btn').addEventListener('click', () => {
-    if (game.state !== 'aiming') return;
-    fireProjectile();
+    [span_174](start_span)if (game.state !== 'aiming') return;[span_174](end_span)
+    [span_175](start_span)fireProjectile();[span_175](end_span)
 });
 
 function fireProjectile() {
-    const p = players[game.turn];
-    const vec = getAimVector();
-    proj.x = p.x;
-    proj.y = p.y - TANK_RADIUS;
-    proj.vx = vec.vx;
-    proj.vy = vec.vy;
-    proj.active = true;
-    proj.trail = [];
-    game.state = 'flying';
-    updateWindDisplay();
+    [span_176](start_span)const p = players[game.turn];[span_176](end_span)
+    [span_177](start_span)const vec = getAimVector();[span_177](end_span)
+    [span_178](start_span)proj.x = p.x;[span_178](end_span)
+    [span_179](start_span)proj.y = p.y - TANK_RADIUS;[span_179](end_span)
+    [span_180](start_span)proj.vx = vec.vx;[span_180](end_span)
+    [span_181](start_span)proj.vy = vec.vy;[span_181](end_span)
+    [span_182](start_span)proj.active = true;[span_182](end_span)
+    [span_183](start_span)proj.trail = [];[span_183](end_span)
+    [span_184](start_span)game.state = 'flying';[span_184](end_span)
+    [span_185](start_span)updateWindDisplay();[span_185](end_span)
 }
 
 // ═══════════════════════════════════════════════════════
 //  TOUCH HANDLING (Pan / Pinch / Aim)
 // ═══════════════════════════════════════════════════════
-let panStart = null;
-let pinchStart = null;
+[span_186](start_span)let panStart = null;[span_186](end_span)
+[span_187](start_span)let pinchStart = null;[span_187](end_span)
+function dist2(a, b) { return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); [span_188](start_span)}
+function midpoint(a, b) { return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }; }[span_188](end_span)
 
-function dist2(a, b) {
-    return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-}
-function midpoint(a, b) {
-    return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
-}
-
-// Touchlist helpers
-function primaryTouch(e) { return e.touches[0]; }
-
-// We need to track active touches
-let activeTouches = {};
-
+[span_189](start_span)let activeTouches = {};[span_189](end_span)
 canvas.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    for (const t of e.changedTouches) activeTouches[t.identifier] = t;
-    const ids = Object.keys(activeTouches);
+    [span_190](start_span)e.preventDefault();[span_190](end_span)
+    [span_191](start_span)for (const t of e.changedTouches) activeTouches[t.identifier] = t;[span_191](end_span)
+    [span_192](start_span)const ids = Object.keys(activeTouches);[span_192](end_span)
 
-    if (ids.length === 1 && game.state === 'aiming') {
-        // Single-finger: aim drag
-        const t = e.changedTouches[0];
-        const sx = t.clientX, sy = t.clientY;
-        aimDrag = { active: true, startX: sx, startY: sy };
-        cam.animating = false;
+    [span_193](start_span)if (ids.length === 1 && game.state === 'aiming') {[span_193](end_span)
+        [span_194](start_span)const t = e.changedTouches[0];[span_194](end_span)
+        [span_195](start_span)const sx = t.clientX, sy = t.clientY;[span_195](end_span)
+        [span_196](start_span)aimDrag = { active: true, startX: sx, startY: sy };[span_196](end_span)
+        [span_197](start_span)cam.animating = false;[span_197](end_span)
     }
 
-    if (ids.length === 2) {
-        // Pinch start
-        aimDrag.active = false;
-        const ts = Object.values(activeTouches);
+    [span_198](start_span)if (ids.length === 2) {[span_198](end_span)
+        [span_199](start_span)aimDrag.active = false;[span_199](end_span)
+        [span_200](start_span)const ts = Object.values(activeTouches);[span_200](end_span)
         pinchStart = {
-            dist: dist2(ts[0], ts[1]),
-            zoom: cam.zoom,
-            mid: midpoint(ts[0], ts[1]),
-            camX: cam.x, camY: cam.y
+            [span_201](start_span)dist: dist2(ts[0], ts[1]),[span_201](end_span)
+            [span_202](start_span)zoom: cam.zoom,[span_202](end_span)
+            [span_203](start_span)mid: midpoint(ts[0], ts[1]),[span_203](end_span)
+            [span_204](start_span)camX: cam.x, camY: cam.y[span_204](end_span)
         };
-        panStart = null;
-    } else if (ids.length === 1 && game.state !== 'aiming') {
-        // Pan only when not aiming
-        const t = e.changedTouches[0];
-        panStart = { sx: t.clientX, sy: t.clientY, cx: cam.x, cy: cam.y };
-        cam.animating = false;
+        [span_205](start_span)panStart = null;[span_205](end_span)
+    [span_206](start_span)} else if (ids.length === 1 && game.state !== 'aiming') {[span_206](end_span)
+        [span_207](start_span)const t = e.changedTouches[0];[span_207](end_span)
+        [span_208](start_span)panStart = { sx: t.clientX, sy: t.clientY, cx: cam.x, cy: cam.y };[span_208](end_span)
+        [span_209](start_span)cam.animating = false;[span_209](end_span)
     }
 }, { passive: false });
 
 canvas.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-    for (const t of e.changedTouches) activeTouches[t.identifier] = t;
-    const ts = Object.values(activeTouches);
+    [span_210](start_span)e.preventDefault();[span_210](end_span)
+    [span_211](start_span)for (const t of e.changedTouches) activeTouches[t.identifier] = t;[span_211](end_span)
+    [span_212](start_span)const ts = Object.values(activeTouches);[span_212](end_span)
 
-    if (ts.length === 2 && pinchStart) {
-        // Pinch-zoom + pan
-        const d = dist2(ts[0], ts[1]);
-        const newZoom = Math.max(0.4, Math.min(3.0, pinchStart.zoom * d / pinchStart.dist));
-        const mid = midpoint(ts[0], ts[1]);
+    [span_213](start_span)if (ts.length === 2 && pinchStart) {[span_213](end_span)
+        [span_214](start_span)const d = dist2(ts[0], ts[1]);[span_214](end_span)
+        [span_215](start_span)const newZoom = Math.max(0.4, Math.min(3.0, pinchStart.zoom * d / pinchStart.dist));[span_215](end_span)
+        [span_216](start_span)const mid = midpoint(ts[0], ts[1]);[span_216](end_span)
 
-        // Keep the mid-point stationary in world space
-        const worldMidX = pinchStart.camX + pinchStart.mid.x / pinchStart.zoom;
-        const worldMidY = pinchStart.camY + pinchStart.mid.y / pinchStart.zoom;
-        cam.zoom = newZoom;
-        cam.x = worldMidX - mid.x / newZoom;
-        cam.y = worldMidY - mid.y / newZoom;
-        cam.clamp();
-        return;
+        [span_217](start_span)const worldMidX = pinchStart.camX + pinchStart.mid.x / pinchStart.zoom;[span_217](end_span)
+        [span_218](start_span)const worldMidY = pinchStart.camY + pinchStart.mid.y / pinchStart.zoom;[span_218](end_span)
+        [span_219](start_span)cam.zoom = newZoom;[span_219](end_span)
+        [span_220](start_span)cam.x = worldMidX - mid.x / newZoom;[span_220](end_span)
+        [span_221](start_span)cam.y = worldMidY - mid.y / newZoom;[span_221](end_span)
+        [span_222](start_span)cam.clamp();[span_222](end_span)
+        [span_223](start_span)return;[span_223](end_span)
     }
 
-    if (ts.length === 1) {
-        const t = ts[0];
+    [span_224](start_span)if (ts.length === 1) {[span_224](end_span)
+        [span_225](start_span)const t = ts[0];[span_225](end_span)
 
-        if (aimDrag.active && game.state === 'aiming') {
-            // Compute angle from drag direction
-            const dx = t.clientX - aimDrag.startX;
-            const dy = t.clientY - aimDrag.startY;
-            const len = Math.hypot(dx, dy);
-            if (len > 6) {
-                const angleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
-                players[game.turn].angle = angleDeg;
-                setAngleDisplay(angleDeg);
+        [span_226](start_span)if (aimDrag.active && game.state === 'aiming') {[span_226](end_span)
+            [span_227](start_span)const dx = t.clientX - aimDrag.startX;[span_227](end_span)
+            [span_228](start_span)const dy = t.clientY - aimDrag.startY;[span_228](end_span)
+            [span_229](start_span)const len = Math.hypot(dx, dy);[span_229](end_span)
+            [span_230](start_span)if (len > 6) {[span_230](end_span)
+                [span_231](start_span)const angleDeg = Math.atan2(dy, dx) * 180 / Math.PI;[span_231](end_span)
+                [span_232](start_span)players[game.turn].angle = angleDeg;[span_232](end_span)
+                [span_233](start_span)setAngleDisplay(angleDeg);[span_233](end_span)
             }
-        } else if (panStart && game.state !== 'aiming') {
-            // Pan camera
-            const dx = (t.clientX - panStart.sx) / cam.zoom;
-            const dy = (t.clientY - panStart.sy) / cam.zoom;
-            cam.x = panStart.cx - dx;
-            cam.y = panStart.cy - dy;
-            cam.clamp();
+        [span_234](start_span)} else if (panStart && game.state !== 'aiming') {[span_234](end_span)
+            [span_235](start_span)const dx = (t.clientX - panStart.sx) / cam.zoom;[span_235](end_span)
+            [span_236](start_span)const dy = (t.clientY - panStart.sy) / cam.zoom;[span_236](end_span)
+            [span_237](start_span)cam.x = panStart.cx - dx;[span_237](end_span)
+            [span_238](start_span)cam.y = panStart.cy - dy;[span_238](end_span)
+            [span_239](start_span)cam.clamp();[span_239](end_span)
         }
     }
 }, { passive: false });
 
 canvas.addEventListener('touchend', (e) => {
-    for (const t of e.changedTouches) delete activeTouches[t.identifier];
-    const remaining = Object.keys(activeTouches).length;
+    [span_240](start_span)for (const t of e.changedTouches) delete activeTouches[t.identifier];[span_240](end_span)
+    [span_241](start_span)const remaining = Object.keys(activeTouches).length;[span_241](end_span)
 
-    if (remaining === 0) {
-        aimDrag.active = false;
-        pinchStart = null;
-        panStart = null;
-    } else if (remaining === 1) {
-        pinchStart = null;
-        // Resume single-touch state
-        const t = Object.values(activeTouches)[0];
-        panStart = { sx: t.clientX, sy: t.clientY, cx: cam.x, cy: cam.y };
+    [span_242](start_span)if (remaining === 0) {[span_242](end_span)
+        [span_243](start_span)aimDrag.active = false;[span_243](end_span)
+        [span_244](start_span)pinchStart = null;[span_244](end_span)
+        [span_245](start_span)panStart = null;[span_245](end_span)
+    [span_246](start_span)} else if (remaining === 1) {[span_246](end_span)
+        [span_247](start_span)pinchStart = null;[span_247](end_span)
+        [span_248](start_span)const t = Object.values(activeTouches)[0];[span_248](end_span)
+        [span_249](start_span)panStart = { sx: t.clientX, sy: t.clientY, cx: cam.x, cy: cam.y };[span_249](end_span)
     }
 });
 
-// Mouse support for desktop testing
-let mouseDown = false;
-let mouseAim  = false;
-
+[span_250](start_span)let mouseDown = false;[span_250](end_span)
+[span_251](start_span)let mouseAim  = false;[span_251](end_span)
 canvas.addEventListener('mousedown', (e) => {
-    mouseDown = true;
-    if (game.state === 'aiming') {
-        mouseAim = true;
-        aimDrag = { active: true, startX: e.clientX, startY: e.clientY };
-        cam.animating = false;
+    [span_252](start_span)mouseDown = true;[span_252](end_span)
+    [span_253](start_span)if (game.state === 'aiming') {[span_253](end_span)
+        [span_254](start_span)mouseAim = true;[span_254](end_span)
+        [span_255](start_span)aimDrag = { active: true, startX: e.clientX, startY: e.clientY };[span_255](end_span)
+        [span_256](start_span)cam.animating = false;[span_256](end_span)
     } else {
-        panStart = { sx: e.clientX, sy: e.clientY, cx: cam.x, cy: cam.y };
+        [span_257](start_span)panStart = { sx: e.clientX, sy: e.clientY, cx: cam.x, cy: cam.y };[span_257](end_span)
     }
-});
-canvas.addEventListener('mousemove', (e) => {
-    if (!mouseDown) return;
-    if (mouseAim && game.state === 'aiming') {
-        const dx = e.clientX - aimDrag.startX;
-        const dy = e.clientY - aimDrag.startY;
-        if (Math.hypot(dx, dy) > 6) {
-            const deg = Math.atan2(dy, dx) * 180 / Math.PI;
-            players[game.turn].angle = deg;
-            setAngleDisplay(deg);
-        }
-    } else if (panStart) {
-        const dx = (e.clientX - panStart.sx) / cam.zoom;
-        const dy = (e.clientY - panStart.sy) / cam.zoom;
-        cam.x = panStart.cx - dx;
-        cam.y = panStart.cy - dy;
-        cam.clamp();
-    }
-});
-canvas.addEventListener('mouseup', () => {
-    mouseDown = false; mouseAim = false;
-    aimDrag.active = false; panStart = null;
 });
 
-// Scroll wheel zoom
+canvas.addEventListener('mousemove', (e) => {
+    [span_258](start_span)if (!mouseDown) return;[span_258](end_span)
+    [span_259](start_span)if (mouseAim && game.state === 'aiming') {[span_259](end_span)
+        [span_260](start_span)const dx = e.clientX - aimDrag.startX;[span_260](end_span)
+        [span_261](start_span)const dy = e.clientY - aimDrag.startY;[span_261](end_span)
+        [span_262](start_span)if (Math.hypot(dx, dy) > 6) {[span_262](end_span)
+            [span_263](start_span)const deg = Math.atan2(dy, dx) * 180 / Math.PI;[span_263](end_span)
+            [span_264](start_span)players[game.turn].angle = deg;[span_264](end_span)
+            [span_265](start_span)setAngleDisplay(deg);[span_265](end_span)
+        }
+    [span_266](start_span)} else if (panStart) {[span_266](end_span)
+        [span_267](start_span)const dx = (e.clientX - panStart.sx) / cam.zoom;[span_267](end_span)
+        [span_268](start_span)const dy = (e.clientY - panStart.sy) / cam.zoom;[span_268](end_span)
+        [span_269](start_span)cam.x = panStart.cx - dx;[span_269](end_span)
+        [span_270](start_span)cam.y = panStart.cy - dy;[span_270](end_span)
+        [span_271](start_span)cam.clamp();[span_271](end_span)
+    }
+});
+
+canvas.addEventListener('mouseup', () => {
+    [span_272](start_span)mouseDown = false; mouseAim = false;[span_272](end_span)
+    [span_273](start_span)aimDrag.active = false; panStart = null;[span_273](end_span)
+});
+
 canvas.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.1 : 0.9;
-    const newZoom = Math.max(0.4, Math.min(3.0, cam.zoom * factor));
-    // Zoom toward cursor
-    const wx = e.clientX / cam.zoom + cam.x;
-    const wy = e.clientY / cam.zoom + cam.y;
-    cam.zoom = newZoom;
-    cam.x = wx - e.clientX / cam.zoom;
-    cam.y = wy - e.clientY / cam.zoom;
-    cam.clamp();
+    [span_274](start_span)e.preventDefault();[span_274](end_span)
+    const factor = e.deltaY < 0 ? [span_275](start_span)1.1 : 0.9;[span_275](end_span)
+    [span_276](start_span)const newZoom = Math.max(0.4, Math.min(3.0, cam.zoom * factor));[span_276](end_span)
+    [span_277](start_span)const wx = e.clientX / cam.zoom + cam.x;[span_277](end_span)
+    [span_278](start_span)const wy = e.clientY / cam.zoom + cam.y;[span_278](end_span)
+    [span_279](start_span)cam.zoom = newZoom;[span_279](end_span)
+    [span_280](start_span)cam.x = wx - e.clientX / cam.zoom;[span_280](end_span)
+    [span_281](start_span)cam.y = wy - e.clientY / cam.zoom;[span_281](end_span)
+    [span_282](start_span)cam.clamp();[span_282](end_span)
 }, { passive: false });
 
 // ═══════════════════════════════════════════════════════
 //  EXPLOSION / GAME OVER
 // ═══════════════════════════════════════════════════════
 function triggerExplosion(ex, ey) {
-    explosion = { active: true, x: ex, y: ey, t: 0 };
-    destroyTerrain(ex, ey, BLAST_RADIUS);
+    [span_283](start_span)explosion = { active: true, x: ex, y: ey, t: 0 };[span_283](end_span)
+    [span_284](start_span)destroyTerrain(ex, ey, BLAST_RADIUS);[span_284](end_span)
 
-    // Damage check
-    for (let p = 1; p <= 2; p++) {
-        const dx = players[p].x - ex;
-        const dy = (players[p].y + TANK_RADIUS) - ey;
-        if (Math.hypot(dx, dy) < BLAST_RADIUS) players[p].alive = false;
+    [span_285](start_span)for (let p = 1; p <= 2; p++) {[span_285](end_span)
+        [span_286](start_span)const dx = players[p].x - ex;[span_286](end_span)
+        [span_287](start_span)const dy = (players[p].y + TANK_RADIUS) - ey;[span_287](end_span)
+        [span_288](start_span)if (Math.hypot(dx, dy) < BLAST_RADIUS) players[p].alive = false;[span_288](end_span)
     }
-
-    checkGameOver();
+    [span_289](start_span)checkGameOver();[span_289](end_span)
 }
 
 function checkGameOver() {
-    const both = !players[1].alive && !players[2].alive;
-    const p1d  = !players[1].alive;
-    const p2d  = !players[2].alive;
-
-    if (both || p1d || p2d) {
-        game.state = 'game_over';
-        const title = both ? 'DRAW' : (p2d ? 'PLAYER 1 WINS' : 'PLAYER 2 WINS');
-        document.getElementById('overlay-title').textContent = title;
-        document.getElementById('overlay-title').style.color = both ? '#fff' : COLORS[p2d ? 1 : 2];
-        document.getElementById('overlay').classList.remove('hidden');
-        return true;
+    [span_290](start_span)const both = !players[1].alive && !players[2].alive;[span_290](end_span)
+    [span_291](start_span)const p1d  = !players[1].alive;[span_291](end_span)
+    [span_292](start_span)const p2d  = !players[2].alive;[span_292](end_span)
+    [span_293](start_span)if (both || p1d || p2d) {[span_293](end_span)
+        [span_294](start_span)game.state = 'game_over';[span_294](end_span)
+        const title = both ? [span_295](start_span)'DRAW' : (p2d ? 'PLAYER 1 WINS' : 'PLAYER 2 WINS');[span_295](end_span)
+        [span_296](start_span)document.getElementById('overlay-title').textContent = title;[span_296](end_span)
+        document.getElementById('overlay-title').style.color = both ? '#fff' : COLORS[p2d ? [span_297](start_span)1 : 2];[span_297](end_span)
+        [span_298](start_span)document.getElementById('overlay').classList.remove('hidden');[span_298](end_span)
+        [span_299](start_span)return true;[span_299](end_span)
     }
-    return false;
+    [span_300](start_span)return false;[span_300](end_span)
 }
 
 function endTurn() {
-    if (game.state === 'game_over') return;
-    game.turn = game.turn === 1 ? 2 : 1;
-    generateWind();
-    game.state = 'aiming';
-    updateWindDisplay();
-    syncControlsFromPlayer();
-    // Zoom to current player
-    const p = players[game.turn];
-    cam.focusOn(p.x, p.y, 1.4);
+    [span_301](start_span)if (game.state === 'game_over') return;[span_301](end_span)
+    game.turn = game.turn === 1 ? [span_302](start_span)2 : 1;[span_302](end_span)
+    [span_303](start_span)generateWind();[span_303](end_span)
+    [span_304](start_span)game.state = 'aiming';[span_304](end_span)
+    [span_305](start_span)updateWindDisplay();[span_305](end_span)
+    [span_306](start_span)syncControlsFromPlayer();[span_306](end_span)
+    [span_307](start_span)const p = players[game.turn];[span_307](end_span)
+    [span_308](start_span)cam.focusOn(p.x, p.y, 1.4);[span_308](end_span)
 }
 
 function updateWindDisplay() {
-    const dir  = wind >= 0 ? '→' : '←';
-    const spd  = Math.abs(wind * 300).toFixed(1);
-    document.getElementById('wind-display').textContent = `WIND ${dir} ${spd}`;
+    const dir  = wind >= 0 ? [span_309](start_span)'→' : '←';[span_309](end_span)
+    [span_310](start_span)const spd  = Math.abs(wind * 300).toFixed(1);[span_310](end_span)
+    [span_311](start_span)document.getElementById('wind-display').textContent = `WIND ${dir} ${spd}`;[span_311](end_span)
 }
 
-// ═══════════════════════════════════════════════════════
-//  RESTART
-// ═══════════════════════════════════════════════════════
 document.getElementById('restart-btn').addEventListener('click', () => {
-    document.getElementById('overlay').classList.add('hidden');
-    buildTerrain();
-    placePlayers();
-    generateWind();
-    explosion.active = false;
-    proj.active = false;
-    game.turn = 1;
-    game.state = 'aiming';
-    cam.focusOn(players[1].x, players[1].y, 1.4);
-    syncControlsFromPlayer();
-    updateWindDisplay();
+    [span_312](start_span)document.getElementById('overlay').classList.add('hidden');[span_312](end_span)
+    [span_313](start_span)buildTerrain();[span_313](end_span)
+    [span_314](start_span)placePlayers();[span_314](end_span)
+    [span_315](start_span)generateWind();[span_315](end_span)
+    [span_316](start_span)explosion.active = false;[span_316](end_span)
+    [span_317](start_span)proj.active = false;[span_317](end_span)
+    [span_318](start_span)game.turn = 1;[span_318](end_span)
+    [span_319](start_span)game.state = 'aiming';[span_319](end_span)
+    [span_320](start_span)cam.focusOn(players[1].x, players[1].y, 1.4);[span_320](end_span)
+    [span_321](start_span)syncControlsFromPlayer();[span_321](end_span)
+    [span_322](start_span)updateWindDisplay();[span_322](end_span)
 });
 
 // ═══════════════════════════════════════════════════════
 //  UPDATE LOOP
 // ═══════════════════════════════════════════════════════
 function update() {
-    cam.update();
+    [span_323](start_span)cam.update();[span_323](end_span)
+    [span_324](start_span)if (game.state === 'flying' && proj.active) {[span_324](end_span)
+        [span_325](start_span)proj.vx += wind;[span_325](end_span)
+        [span_326](start_span)proj.vy += GRAVITY;[span_326](end_span)
+        [span_327](start_span)proj.x  += proj.vx;[span_327](end_span)
+        [span_328](start_span)proj.y  += proj.vy;[span_328](end_span)
 
-    if (game.state === 'flying' && proj.active) {
-        proj.vx += wind;
-        proj.vy += GRAVITY;
-        proj.x  += proj.vx;
-        proj.y  += proj.vy;
-
-        proj.trail.push({ x: proj.x, y: proj.y });
-        if (proj.trail.length > 20) proj.trail.shift();
-
-        if (proj.x < 0 || proj.x > MAP_W || proj.y > MAP_H) {
-            proj.active = false;
-            setTimeout(endTurn, 200);
-            return;
+        [span_329](start_span)proj.trail.push({ x: proj.x, y: proj.y });[span_329](end_span)
+        [span_330](start_span)if (proj.trail.length > 20) proj.trail.shift();[span_330](end_span)
+        [span_331](start_span)if (proj.x < 0 || proj.x > MAP_W || proj.y > MAP_H) {[span_331](end_span)
+            [span_332](start_span)proj.active = false;[span_332](end_span)
+            [span_333](start_span)setTimeout(endTurn, 200);[span_333](end_span)
+            [span_334](start_span)return;[span_334](end_span)
         }
 
-        if (isSolid(proj.x, proj.y)) {
-            proj.active = false;
-            triggerExplosion(proj.x, proj.y);
-            if (game.state !== 'game_over') setTimeout(endTurn, 600);
+        [span_335](start_span)if (isSolid(proj.x, proj.y)) {[span_335](end_span)
+            [span_336](start_span)proj.active = false;[span_336](end_span)
+            [span_337](start_span)triggerExplosion(proj.x, proj.y);[span_337](end_span)
+            [span_338](start_span)if (game.state !== 'game_over') setTimeout(endTurn, 600);[span_338](end_span)
         }
     }
 
-    if (explosion.active) {
-        explosion.t++;
-        if (explosion.t > 30) explosion.active = false;
+    [span_339](start_span)if (explosion.active) {[span_339](end_span)
+        [span_340](start_span)explosion.t++;[span_340](end_span)
+        [span_341](start_span)if (explosion.t > 30) explosion.active = false;[span_341](end_span)
     }
 }
 
@@ -796,172 +801,156 @@ function update() {
 //  DRAW
 // ═══════════════════════════════════════════════════════
 function drawArrow(wx, wy, angleDeg, power, color) {
-    const rad    = angleDeg * Math.PI / 180;
-    const len    = 20 + power * 0.6;
-    const ex     = wx + Math.cos(rad) * len;
-    const ey     = wy + Math.sin(rad) * len;
+    [span_342](start_span)const rad    = angleDeg * Math.PI / 180;[span_342](end_span)
+    [span_343](start_span)const len    = 20 + power * 0.6;[span_343](end_span)
+    [span_344](start_span)const ex     = wx + Math.cos(rad) * len;[span_344](end_span)
+    [span_345](start_span)const ey     = wy + Math.sin(rad) * len;[span_345](end_span)
 
-    ctx.save();
-    ctx.strokeStyle = color;
-    ctx.lineWidth   = 2 / cam.zoom;
-    ctx.globalAlpha = 0.85;
-    ctx.setLineDash([4 / cam.zoom, 4 / cam.zoom]);
-    ctx.beginPath();
-    ctx.moveTo(wx, wy - TANK_RADIUS);
-    ctx.lineTo(ex, ey - TANK_RADIUS);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    // Arrowhead
-    const aw = 8 / cam.zoom;
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.translate(ex, ey - TANK_RADIUS);
-    ctx.rotate(rad);
-    ctx.moveTo(aw, 0);
-    ctx.lineTo(-aw * 0.6, -aw * 0.5);
-    ctx.lineTo(-aw * 0.6,  aw * 0.5);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
+    [span_346](start_span)ctx.save();[span_346](end_span)
+    [span_347](start_span)ctx.strokeStyle = color;[span_347](end_span)
+    [span_348](start_span)ctx.lineWidth   = 2 / cam.zoom;[span_348](end_span)
+    [span_349](start_span)ctx.globalAlpha = 0.85;[span_349](end_span)
+    [span_350](start_span)ctx.setLineDash([4 / cam.zoom, 4 / cam.zoom]);[span_350](end_span)
+    [span_351](start_span)ctx.beginPath();[span_351](end_span)
+    [span_352](start_span)ctx.moveTo(wx, wy - TANK_RADIUS);[span_352](end_span)
+    [span_353](start_span)ctx.lineTo(ex, ey - TANK_RADIUS);[span_353](end_span)
+    [span_354](start_span)ctx.stroke();[span_354](end_span)
+    [span_355](start_span)ctx.setLineDash([]);[span_355](end_span)
+    
+    [span_356](start_span)const aw = 8 / cam.zoom;[span_356](end_span)
+    [span_357](start_span)ctx.fillStyle = color;[span_357](end_span)
+    [span_358](start_span)ctx.beginPath();[span_358](end_span)
+    [span_359](start_span)ctx.translate(ex, ey - TANK_RADIUS);[span_359](end_span)
+    [span_360](start_span)ctx.rotate(rad);[span_360](end_span)
+    [span_361](start_span)ctx.moveTo(aw, 0);[span_361](end_span)
+    [span_362](start_span)ctx.lineTo(-aw * 0.6, -aw * 0.5);[span_362](end_span)
+    [span_363](start_span)ctx.lineTo(-aw * 0.6,  aw * 0.5);[span_363](end_span)
+    [span_364](start_span)ctx.closePath();[span_364](end_span)
+    [span_365](start_span)ctx.fill();[span_365](end_span)
+    [span_366](start_span)ctx.restore();[span_366](end_span)
 }
 
 function draw() {
-    const drawH = vh - 80; // canvas height minus controls bar
+    [span_367](start_span)const drawH = vh - 85;[span_367](end_span)
 
-    ctx.clearRect(0, 0, vw, vh);
+    [span_368](start_span)ctx.clearRect(0, 0, vw, vh);[span_368](end_span)
+    [span_369](start_span)const sky = ctx.createLinearGradient(0, 0, 0, drawH);[span_369](end_span)
+    [span_370](start_span)sky.addColorStop(0, '#0a0520');[span_370](end_span)
+    [span_371](start_span)sky.addColorStop(1, '#1a0b3c');[span_371](end_span)
+    [span_372](start_span)ctx.fillStyle = sky;[span_372](end_span)
+    [span_373](start_span)ctx.fillRect(0, 0, vw, drawH);[span_373](end_span)
 
-    // Sky gradient
-    const sky = ctx.createLinearGradient(0, 0, 0, drawH);
-    sky.addColorStop(0, '#0a0520');
-    sky.addColorStop(1, '#1a0b3c');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, vw, drawH);
+    [span_374](start_span)ctx.save();[span_374](end_span)
+    [span_375](start_span)ctx.beginPath();[span_375](end_span)
+    [span_376](start_span)ctx.rect(0, 0, vw, drawH);[span_376](end_span)
+    [span_377](start_span)ctx.clip();[span_377](end_span)
+    [span_378](start_span)ctx.scale(cam.zoom, cam.zoom);[span_378](end_span)
+    [span_379](start_span)ctx.translate(-cam.x, -cam.y);[span_379](end_span)
 
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, vw, drawH);
-    ctx.clip();
-    ctx.scale(cam.zoom, cam.zoom);
-    ctx.translate(-cam.x, -cam.y);
-
-    // Terrain
-    if (terrainCanvas) {
-        ctx.drawImage(terrainCanvas, 0, 0);
+    [span_380](start_span)if (terrainCanvas) {[span_380](end_span)
+        [span_381](start_span)ctx.drawImage(terrainCanvas, 0, 0);[span_381](end_span)
     }
 
-    // Tanks
-    for (let p = 1; p <= 2; p++) {
-        const tank = players[p];
-        if (!tank.alive) continue;
+    [span_382](start_span)for (let p = 1; p <= 2; p++) {[span_382](end_span)
+        [span_383](start_span)const tank = players[p];[span_383](end_span)
+        [span_384](start_span)if (!tank.alive) continue;[span_384](end_span)
 
-        // Tank body
-        ctx.fillStyle = tank.color;
-        ctx.shadowColor = tank.color;
-        ctx.shadowBlur  = 8;
-        ctx.beginPath();
-        ctx.arc(tank.x, tank.y, TANK_RADIUS, Math.PI, 0);
-        ctx.fill();
-        ctx.fillRect(tank.x - TANK_RADIUS, tank.y, TANK_RADIUS * 2, 6);
-        ctx.shadowBlur = 0;
+        [span_385](start_span)ctx.fillStyle = tank.color;[span_385](end_span)
+        [span_386](start_span)ctx.shadowColor = tank.color;[span_386](end_span)
+        [span_387](start_span)ctx.shadowBlur  = 8;[span_387](end_span)
+        [span_388](start_span)ctx.beginPath();[span_388](end_span)
+        [span_389](start_span)ctx.arc(tank.x, tank.y, TANK_RADIUS, Math.PI, 0);[span_389](end_span)
+        [span_390](start_span)ctx.fill();[span_390](end_span)
+        [span_391](start_span)ctx.fillRect(tank.x - TANK_RADIUS, tank.y, TANK_RADIUS * 2, 6);[span_391](end_span)
+        [span_392](start_span)ctx.shadowBlur = 0;[span_392](end_span)
 
-        // Barrel
-        const rad = tank.angle * Math.PI / 180;
-        ctx.strokeStyle = tank.color;
-        ctx.lineWidth   = 4;
-        ctx.lineCap     = 'round';
-        ctx.beginPath();
-        ctx.moveTo(tank.x, tank.y - TANK_RADIUS * 0.3);
+        [span_393](start_span)const rad = tank.angle * Math.PI / 180;[span_393](end_span)
+        [span_394](start_span)ctx.strokeStyle = tank.color;[span_394](end_span)
+        [span_395](start_span)ctx.lineWidth   = 4;[span_395](end_span)
+        [span_396](start_span)ctx.lineCap     = 'round';[span_396](end_span)
+        [span_397](start_span)ctx.beginPath();[span_397](end_span)
+        [span_398](start_span)ctx.moveTo(tank.x, tank.y - TANK_RADIUS * 0.3);[span_398](end_span)
         ctx.lineTo(
             tank.x + Math.cos(rad) * TANK_RADIUS * 1.6,
             tank.y - TANK_RADIUS * 0.3 + Math.sin(rad) * TANK_RADIUS * 1.6
         );
-        ctx.stroke();
+        [span_399](start_span)ctx.stroke();[span_399](end_span)
 
-        // Aim arrow for active player
-        if (game.state === 'aiming' && game.turn === p) {
-            drawArrow(tank.x, tank.y, tank.angle, tank.power, tank.color);
+        [span_400](start_span)if (game.state === 'aiming' && game.turn === p) {[span_400](end_span)
+            [span_401](start_span)drawArrow(tank.x, tank.y, tank.angle, tank.power, tank.color);[span_401](end_span)
         }
     }
 
-    // Projectile trail
-    if (proj.trail.length > 1) {
-        ctx.strokeStyle = 'rgba(255,255,180,0.4)';
-        ctx.lineWidth   = 2;
-        ctx.beginPath();
-        ctx.moveTo(proj.trail[0].x, proj.trail[0].y);
-        for (const p of proj.trail) ctx.lineTo(p.x, p.y);
-        ctx.stroke();
+    [span_402](start_span)if (proj.trail.length > 1) {[span_402](end_span)
+        [span_403](start_span)ctx.strokeStyle = 'rgba(255,255,180,0.4)';[span_403](end_span)
+        [span_404](start_span)ctx.lineWidth   = 2;[span_404](end_span)
+        [span_405](start_span)ctx.beginPath();[span_405](end_span)
+        [span_406](start_span)ctx.moveTo(proj.trail[0].x, proj.trail[0].y);[span_406](end_span)
+        [span_407](start_span)for (const p of proj.trail) ctx.lineTo(p.x, p.y);[span_407](end_span)
+        [span_408](start_span)ctx.stroke();[span_408](end_span)
     }
 
-    // Projectile
-    if (proj.active) {
-        ctx.fillStyle  = '#fff';
-        ctx.shadowColor = '#ffff88';
-        ctx.shadowBlur  = 10;
-        ctx.beginPath();
-        ctx.arc(proj.x, proj.y, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
+    [span_409](start_span)if (proj.active) {[span_409](end_span)
+        [span_410](start_span)ctx.fillStyle  = '#fff';[span_410](end_span)
+        [span_411](start_span)ctx.shadowColor = '#ffff88';[span_411](end_span)
+        [span_412](start_span)ctx.shadowBlur  = 10;[span_412](end_span)
+        [span_413](start_span)ctx.beginPath();[span_413](end_span)
+        [span_414](start_span)ctx.arc(proj.x, proj.y, 5, 0, Math.PI * 2);[span_414](end_span)
+        [span_415](start_span)ctx.fill();[span_415](end_span)
+        [span_416](start_span)ctx.shadowBlur = 0;[span_416](end_span)
     }
 
-    // Explosion
-    if (explosion.active) {
-        const progress = explosion.t / 30;
-        const r = BLAST_RADIUS * progress;
-        const alpha = 1 - progress;
-        const grad = ctx.createRadialGradient(explosion.x, explosion.y, 0, explosion.x, explosion.y, r);
-        grad.addColorStop(0, `rgba(255,255,180,${alpha})`);
-        grad.addColorStop(0.4, `rgba(255,120,30,${alpha * 0.8})`);
-        grad.addColorStop(1, `rgba(255,60,0,0)`);
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(explosion.x, explosion.y, r, 0, Math.PI * 2);
-        ctx.fill();
+    [span_417](start_span)if (explosion.active) {[span_417](end_span)
+        [span_418](start_span)const progress = explosion.t / 30;[span_418](end_span)
+        [span_419](start_span)const r = BLAST_RADIUS * progress;[span_419](end_span)
+        [span_420](start_span)const alpha = 1 - progress;[span_420](end_span)
+        [span_421](start_span)const grad = ctx.createRadialGradient(explosion.x, explosion.y, 0, explosion.x, explosion.y, r);[span_421](end_span)
+        [span_422](start_span)grad.addColorStop(0, `rgba(255,255,180,${alpha})`);[span_422](end_span)
+        [span_423](start_span)grad.addColorStop(0.4, `rgba(255,120,30,${alpha * 0.8})`);[span_423](end_span)
+        [span_424](start_span)grad.addColorStop(1, `rgba(255,60,0,0)`);[span_424](end_span)
+        [span_425](start_span)ctx.fillStyle = grad;[span_425](end_span)
+        [span_426](start_span)ctx.beginPath();[span_426](end_span)
+        [span_427](start_span)ctx.arc(explosion.x, explosion.y, r, 0, Math.PI * 2);[span_427](end_span)
+        [span_428](start_span)ctx.fill();[span_428](end_span)
     }
 
-    ctx.restore();
+    [span_429](start_span)ctx.restore();[span_429](end_span)
 }
 
-// ═══════════════════════════════════════════════════════
-//  RESIZE
-// ═══════════════════════════════════════════════════════
 function resize() {
     vw = window.innerWidth;
     vh = window.innerHeight;
-    canvas.width  = vw;
-    canvas.height = vh;
+    [span_430](start_span)canvas.width  = vw;[span_430](end_span)
+    [span_431](start_span)canvas.height = vh;[span_431](end_span)
+    updateMinimap();
 }
 
-// ═══════════════════════════════════════════════════════
-//  MAIN LOOP & INIT
-// ═══════════════════════════════════════════════════════
 function loop() {
-    update();
-    draw();
-    requestAnimationFrame(loop);
+    [span_432](start_span)update();[span_432](end_span)
+    [span_433](start_span)draw();[span_433](end_span)
+    [span_434](start_span)requestAnimationFrame(loop);[span_434](end_span)
 }
 
 function init() {
-    resize();
-    window.addEventListener('resize', resize);
-    window.addEventListener('contextmenu', e => e.preventDefault());
+    [span_435](start_span)resize();[span_435](end_span)
+    [span_436](start_span)window.addEventListener('resize', resize);[span_436](end_span)
+    [span_437](start_span)window.addEventListener('contextmenu', e => e.preventDefault());[span_437](end_span)
 
-    buildTerrain();
-    placePlayers();
-    generateWind();
-    updateWindDisplay();
-    syncControlsFromPlayer();
+    [span_438](start_span)buildTerrain();[span_438](end_span)
+    [span_439](start_span)placePlayers();[span_439](end_span)
+    [span_440](start_span)generateWind();[span_440](end_span)
+    [span_441](start_span)updateWindDisplay();[span_441](end_span)
+    [span_442](start_span)syncControlsFromPlayer();[span_442](end_span)
 
-    // Start zoomed on player 1
-    cam.x = players[1].x - vw / 2 / 1.4;
-    cam.y = players[1].y - (vh - 80) / 2 / 1.4;
-    cam.zoom = 1.4;
-    cam.clamp();
+    [span_443](start_span)cam.x = players[1].x - vw / 2 / 1.4;[span_443](end_span)
+    cam.y = players[1].y - (vh - 85) / 2 / 1.4;
+    [span_444](start_span)cam.zoom = 1.4;[span_444](end_span)
+    [span_445](start_span)cam.clamp();[span_445](end_span)
 
-    loop();
+    [span_446](start_span)loop();[span_446](end_span)
 }
 
-init();
+[span_447](start_span)init();[span_447](end_span)
 </script>
 </body>
 </html>
