@@ -5,60 +5,60 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Artillery // DUEL</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; [span_4](start_span)}
+        * { box-sizing: border-box; margin: 0; padding: 0; [span_1](start_span)}
 
         body, html {
-            width: 100%; height: 100%; overflow: hidden;[span_4](end_span)
-            background: #0a0a12;
-            font-family: 'Courier New', monospace;
-            touch-action: none;
-            user-select: none;
-            -[span_5](start_span)webkit-user-select: none;[span_5](end_span)
-        }
+            width: 100%; height: 100%; overflow: hidden;[span_1](end_span)
+            [span_2](start_span)background: #0a0a12;[span_2](end_span)
+            [span_3](start_span)font-family: 'Courier New', monospace;[span_3](end_span)
+            [span_4](start_span)touch-action: none;[span_4](end_span)
+            [span_5](start_span)user-select: none;[span_5](end_span)
+            -[span_6](start_span)webkit-user-select: none;[span_6](end_span)
+        [span_7](start_span)}
 
         #gameContainer {
-            position: relative;
-            [span_6](start_span)width: 100vw; height: 100vh;[span_6](end_span)
-            overflow: hidden;
+            position: relative;[span_7](end_span)
+            [span_8](start_span)width: 100vw; height: 100vh;[span_8](end_span)
+            [span_9](start_span)overflow: hidden;[span_9](end_span)
         }
 
         canvas {
-            position: absolute;
-            [span_7](start_span)top: 0; left: 0;[span_7](end_span)
-            image-rendering: pixelated;
+            [span_10](start_span)position: absolute;[span_10](end_span)
+            [span_11](start_span)top: 0; left: 0;[span_11](end_span)
+            [span_12](start_span)image-rendering: pixelated;[span_12](end_span)
         }
 
         /* ── HUD ─────────────────────────────────────────────── */
         #hud {
-            position: absolute;
-            [span_8](start_span)top: 0; left: 0; right: 0;[span_8](end_span)
-            pointer-events: none;
-            [span_9](start_span)z-index: 10;[span_9](end_span)
-        }
+            [span_13](start_span)position: absolute;[span_13](end_span)
+            [span_14](start_span)top: 0; left: 0; right: 0;[span_14](end_span)
+            [span_15](start_span)pointer-events: none;[span_15](end_span)
+            [span_16](start_span)z-index: 10;[span_16](end_span)
+        [span_17](start_span)}
 
         #turn-banner {
-            text-align: center;
-            [span_10](start_span)padding: 8px 20px;[span_10](end_span)
-            font-size: 13px;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            color: #fff;
-            background: rgba(0,0,0,0.55);
-            [span_11](start_span)backdrop-filter: blur(4px);[span_11](end_span)
-        }
+            text-align: center;[span_17](end_span)
+            [span_18](start_span)padding: 8px 20px;[span_18](end_span)
+            [span_19](start_span)font-size: 13px;[span_19](end_span)
+            [span_20](start_span)letter-spacing: 3px;[span_20](end_span)
+            [span_21](start_span)text-transform: uppercase;[span_21](end_span)
+            [span_22](start_span)color: #fff;[span_22](end_span)
+            [span_23](start_span)background: rgba(0,0,0,0.55);[span_23](end_span)
+            [span_24](start_span)backdrop-filter: blur(4px);[span_24](end_span)
+        [span_25](start_span)}
 
-        #turn-banner span { font-weight: bold; [span_12](start_span)}
+        #turn-banner span { font-weight: bold; }[span_25](end_span)
 
         #wind-display {
-            position: absolute;
+            [span_26](start_span)position: absolute;[span_26](end_span)
             top: 38px; left: 10px;
-            font-size: 11px;
-            color: #aaa;
-            letter-spacing: 2px;
-            background: rgba(0,0,0,0.4);
-            padding: 3px 10px;
-            border-radius: 4px;[span_12](end_span)
-        }
+            [span_27](start_span)font-size: 11px;[span_27](end_span)
+            [span_28](start_span)color: #aaa;[span_28](end_span)
+            [span_29](start_span)letter-spacing: 2px;[span_29](end_span)
+            [span_30](start_span)background: rgba(0,0,0,0.4);[span_30](end_span)
+            [span_31](start_span)padding: 3px 10px;[span_31](end_span)
+            [span_32](start_span)border-radius: 4px;[span_32](end_span)
+        [span_33](start_span)}
 
         /* ── Minimap Position Indicator ──────────────────────── */
         #minimap-container {
@@ -85,168 +85,170 @@
 
         /* ── Player stat pills ────────────────────────────────── */
         #p1-hud, #p2-hud {
-            position: absolute;
-            [span_13](start_span)top: 8px;[span_13](end_span)
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 11px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(4px);
-            [span_14](start_span)pointer-events: none;[span_14](end_span)
-        }
-        #p1-hud { left: 10px; border-left: 3px solid #ff3366; color: #ff3366; [span_15](start_span)}
-        #p2-hud { right: 10px; border-right: 3px solid #33ffcc; color: #33ffcc; text-align: right; }[span_15](end_span)
+            position: absolute;[span_33](end_span)
+            [span_34](start_span)top: 8px;[span_34](end_span)
+            [span_35](start_span)padding: 6px 12px;[span_35](end_span)
+            [span_36](start_span)border-radius: 6px;[span_36](end_span)
+            [span_37](start_span)font-size: 11px;[span_37](end_span)
+            [span_38](start_span)letter-spacing: 1px;[span_38](end_span)
+            [span_39](start_span)text-transform: uppercase;[span_39](end_span)
+            [span_40](start_span)background: rgba(0,0,0,0.5);[span_40](end_span)
+            [span_41](start_span)backdrop-filter: blur(4px);[span_41](end_span)
+            [span_42](start_span)pointer-events: none;[span_42](end_span)
+        [span_43](start_span)}
+        #p1-hud { left: 10px; border-left: 3px solid #ff3366; color: #ff3366; }[span_43](end_span)
+        #p2-hud { right: 10px; border-right: 3px solid #33ffcc; color: #33ffcc; text-align: right; [span_44](start_span)}
 
-        .hud-label { font-size: 9px; color: #888; margin-bottom: 2px; [span_16](start_span)}
-        .hud-name  { font-size: 12px; font-weight: bold; }[span_16](end_span)
-        .hud-active { animation: pulse 0.9s infinite alternate; [span_17](start_span)}
+        .hud-label { font-size: 9px; color: #888; margin-bottom: 2px; }[span_44](end_span)
+        .hud-name  { font-size: 12px; font-weight: bold; [span_45](start_span)}
+        .hud-active { animation: pulse 0.9s infinite alternate; }[span_45](end_span)
 
         @keyframes pulse {
-            from { opacity: 0.6; }[span_17](end_span)
-            to   { opacity: 1.0; [span_18](start_span)}
+            from { opacity: 0.6; [span_46](start_span)}
+            to   { opacity: 1.0; }[span_46](end_span)
         }
 
         /* ── Controls bar (bottom) ───────────────────────────── */
         #controls {
-            position: absolute;
-            bottom: 0; left: 0; right: 0;[span_18](end_span)
+            [span_47](start_span)position: absolute;[span_47](end_span)
+            [span_48](start_span)bottom: 0; left: 0; right: 0;[span_48](end_span)
             height: 85px;
             background: rgba(10, 10, 18, 0.9);
             backdrop-filter: blur(8px);
             border-top: 1px solid rgba(255,255,255,0.12);
-            display: flex;
-            align-items: center;
-            [span_19](start_span)justify-content: space-between;[span_19](end_span)
-            padding: 0 20px;
-            gap: 16px;
+            [span_49](start_span)display: flex;[span_49](end_span)
+            [span_50](start_span)align-items: center;[span_50](end_span)
+            [span_51](start_span)justify-content: space-between;[span_51](end_span)
+            [span_52](start_span)padding: 0 20px;[span_52](end_span)
+            [span_53](start_span)gap: 16px;[span_53](end_span)
             z-index: 15;
         }
 
         /* Aim info */
         #aim-info {
-            display: flex;
-            [span_20](start_span)flex-direction: column;[span_20](end_span)
-            gap: 2px;
-            min-width: 90px;
+            [span_54](start_span)display: flex;[span_54](end_span)
+            [span_55](start_span)flex-direction: column;[span_55](end_span)
+            [span_56](start_span)gap: 2px;[span_56](end_span)
+            [span_57](start_span)min-width: 90px;[span_57](end_span)
         }
-        .aim-label { font-size: 10px; color: #666; letter-spacing: 1px; text-transform: uppercase; [span_21](start_span)}
-        .aim-value { font-size: 18px; font-weight: bold; font-variant-numeric: tabular-nums; }[span_21](end_span)
+        .aim-label { font-size: 10px; color: #666; letter-spacing: 1px; text-transform: uppercase; [span_58](start_span)}
+        .aim-value { font-size: 18px; font-weight: bold; font-variant-numeric: tabular-nums; }[span_58](end_span)
 
         /* Power slider */
         #power-wrap {
-            flex: 1;
-            [span_22](start_span)display: flex;[span_22](end_span)
-            flex-direction: column;
-            gap: 4px;
+            [span_59](start_span)flex: 1;[span_59](end_span)
+            [span_60](start_span)display: flex;[span_60](end_span)
+            [span_61](start_span)flex-direction: column;[span_61](end_span)
+            [span_62](start_span)gap: 4px;[span_62](end_span)
         }
         #power-wrap label {
-            font-size: 10px;
-            [span_23](start_span)color: #666;[span_23](end_span)
-            letter-spacing: 2px;
-            text-transform: uppercase;
+            [span_63](start_span)font-size: 10px;[span_63](end_span)
+            [span_64](start_span)color: #666;[span_64](end_span)
+            [span_65](start_span)letter-spacing: 2px;[span_65](end_span)
+            [span_66](start_span)text-transform: uppercase;[span_66](end_span)
         }
         #power-slider {
-            -webkit-appearance: none;
-            [span_24](start_span)appearance: none;[span_24](end_span)
-            width: 100%;
-            height: 8px;
+            -[span_67](start_span)webkit-appearance: none;[span_67](end_span)
+            [span_68](start_span)appearance: none;[span_68](end_span)
+            [span_69](start_span)width: 100%;[span_69](end_span)
+            [span_70](start_span)height: 8px;[span_70](end_span)
             background: #222;
-            border-radius: 4px;
-            outline: none;
-            [span_25](start_span)cursor: pointer;[span_25](end_span)
+            [span_71](start_span)border-radius: 4px;[span_71](end_span)
+            [span_72](start_span)outline: none;[span_72](end_span)
+            [span_73](start_span)cursor: pointer;[span_73](end_span)
         }
         
-        /* Fixed cross-browser thumb styling */
+        /* Cross-browser thumb fixes */
         #power-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            [span_26](start_span)width: 20px; height: 20px;[span_26](end_span)
-            border-radius: 50%;
-            background: #fff;
-            border: 3px solid #ff3366; /* Default color fallback */
-            [span_27](start_span)cursor: pointer;[span_27](end_span)
+            -[span_74](start_span)webkit-appearance: none;[span_74](end_span)
+            [span_75](start_span)width: 20px; height: 20px;[span_75](end_span)
+            [span_76](start_span)border-radius: 50%;[span_76](end_span)
+            [span_77](start_span)background: #fff;[span_77](end_span)
+            [span_78](start_span)border: 3px solid currentColor;[span_78](end_span)
+            [span_79](start_span)cursor: pointer;[span_79](end_span)
         }
         #power-slider::-moz-range-thumb {
             width: 14px; height: 14px;
             border-radius: 50%;
             background: #fff;
-            border: 3px solid #ff3366;
+            border: 3px solid currentColor;
             cursor: pointer;
         }
         
         #power-value {
-            font-size: 10px;
-            [span_28](start_span)color: #888;[span_28](end_span)
-            text-align: right;
-            letter-spacing: 1px;
+            [span_80](start_span)font-size: 10px;[span_80](end_span)
+            [span_81](start_span)color: #888;[span_81](end_span)
+            [span_82](start_span)text-align: right;[span_82](end_span)
+            [span_83](start_span)letter-spacing: 1px;[span_83](end_span)
         }
 
         /* Fire button */
         #fire-btn {
-            width: 60px;
-            [span_29](start_span)height: 60px;[span_29](end_span)
-            border-radius: 50%;
-            border: 2px solid currentColor;
-            background: rgba(255,255,255,0.05);
-            font-size: 11px;
-            font-weight: bold;
-            letter-spacing: 1px;
-            cursor: pointer;
-            text-transform: uppercase;
-            [span_30](start_span)font-family: 'Courier New', monospace;[span_30](end_span)
-            transition: background 0.15s, transform 0.1s;
-            touch-action: manipulation;
-            [span_31](start_span)flex-shrink: 0;[span_31](end_span)
-        }
+            [span_84](start_span)width: 60px;[span_84](end_span)
+            [span_85](start_span)height: 60px;[span_85](end_span)
+            [span_86](start_span)border-radius: 50%;[span_86](end_span)
+            [span_87](start_span)border: 2px solid currentColor;[span_87](end_span)
+            [span_88](start_span)background: rgba(255,255,255,0.05);[span_88](end_span)
+            [span_89](start_span)font-size: 11px;[span_89](end_span)
+            [span_90](start_span)font-weight: bold;[span_90](end_span)
+            [span_91](start_span)letter-spacing: 1px;[span_91](end_span)
+            [span_92](start_span)cursor: pointer;[span_92](end_span)
+            [span_93](start_span)text-transform: uppercase;[span_93](end_span)
+            [span_94](start_span)font-family: 'Courier New', monospace;[span_94](end_span)
+            [span_95](start_span)transition: background 0.15s, transform 0.1s;[span_95](end_span)
+            [span_96](start_span)touch-action: manipulation;[span_96](end_span)
+            [span_97](start_span)flex-shrink: 0;[span_97](end_span)
+        [span_98](start_span)}
         #fire-btn:active { 
-            background: rgba(255,255,255,0.15); 
-            [span_32](start_span)transform: scale(0.95);[span_32](end_span)
+            background: rgba(255,255,255,0.15);[span_98](end_span)
+            transform: scale(0.95);
         }
 
         /* ── Game-over overlay ───────────────────────────────── */
         #overlay {
-            position: absolute;
-            [span_33](start_span)inset: 0;[span_33](end_span)
-            background: rgba(0,0,0,0.75);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 20;
-            [span_34](start_span)color: #fff;[span_34](end_span)
-        }
+            [span_99](start_span)position: absolute;[span_99](end_span)
+            [span_100](start_span)inset: 0;[span_100](end_span)
+            [span_101](start_span)background: rgba(0,0,0,0.75);[span_101](end_span)
+            [span_102](start_span)display: flex;[span_102](end_span)
+            [span_103](start_span)flex-direction: column;[span_103](end_span)
+            [span_104](start_span)align-items: center;[span_104](end_span)
+            [span_105](start_span)justify-content: center;[span_105](end_span)
+            [span_106](start_span)z-index: 20;[span_106](end_span)
+            [span_107](start_span)color: #fff;[span_107](end_span)
+        [span_108](start_span)}
         #overlay h1 {
-            font-size: 32px;
-            [span_35](start_span)letter-spacing: 4px;[span_35](end_span)
-            text-transform: uppercase;
-            margin-bottom: 16px;
+            font-size: 32px;[span_108](end_span)
+            [span_109](start_span)letter-spacing: 4px;[span_109](end_span)
+            [span_110](start_span)text-transform: uppercase;[span_110](end_span)
+            [span_111](start_span)margin-bottom: 16px;[span_111](end_span)
         }
         #overlay button {
-            margin-top: 24px;
-            [span_36](start_span)padding: 12px 32px;[span_36](end_span)
-            border: 1px solid #fff;
-            background: transparent;
-            color: #fff;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            letter-spacing: 3px;
-            [span_37](start_span)text-transform: uppercase;[span_37](end_span)
-            cursor: pointer;
-            border-radius: 4px;
+            [span_112](start_span)margin-top: 24px;[span_112](end_span)
+            [span_113](start_span)padding: 12px 32px;[span_113](end_span)
+            [span_114](start_span)border: 1px solid #fff;[span_114](end_span)
+            [span_115](start_span)background: transparent;[span_115](end_span)
+            [span_116](start_span)color: #fff;[span_116](end_span)
+            [span_117](start_span)font-family: 'Courier New', monospace;[span_117](end_span)
+            [span_118](start_span)font-size: 14px;[span_118](end_span)
+            [span_119](start_span)letter-spacing: 3px;[span_119](end_span)
+            [span_120](start_span)text-transform: uppercase;[span_120](end_span)
+            [span_121](start_span)cursor: pointer;[span_121](end_span)
+            [span_122](start_span)border-radius: 4px;[span_122](end_span)
         }
-        #overlay.hidden { display: none; [span_38](start_span)}
 
+        #overlay.hidden { display: none; [span_123](start_span)}
+
+        /* ── Zoom hint ───────────────────────────────────────── */
         #zoom-hint {
-            position: absolute;
-            bottom: 95px; right: 12px;[span_38](end_span)
-            font-size: 10px;
-            color: #444;
-            letter-spacing: 1px;
-            z-index: 10;
-            pointer-events: none;
-            [span_39](start_span)text-transform: uppercase;[span_39](end_span)
-        }
+            position: absolute;[span_123](end_span)
+            [span_124](start_span)bottom: 95px; right: 12px;[span_124](end_span)
+            [span_125](start_span)font-size: 10px;[span_125](end_span)
+            [span_126](start_span)color: #444;[span_126](end_span)
+            [span_127](start_span)letter-spacing: 1px;[span_127](end_span)
+            [span_128](start_span)z-index: 10;[span_128](end_span)
+            [span_129](start_span)pointer-events: none;[span_129](end_span)
+            [span_130](start_span)text-transform: uppercase;[span_130](end_span)
+        [span_131](start_span)}
     </style>
 </head>
 <body>
@@ -255,8 +257,8 @@
     <canvas id="gameCanvas"></canvas>
 
     <div id="hud">
-        [span_40](start_span)<div id="turn-banner">Player <span id="turn-name">1</span>'s Turn — Drag canvas to aim</div>[span_40](end_span)
-        [span_41](start_span)<div id="wind-display">WIND ● ─ 0.0</div>[span_41](end_span)
+        <div id="turn-banner">Player <span id="turn-name">1</span>'s Turn — Drag canvas to aim</div>
+        <div id="wind-display">WIND ● ─ 0.0</div>
 
         <div id="minimap-container">
             <div id="minimap-p1" class="minimap-dot" style="color: #ff3366;"></div>
@@ -264,36 +266,36 @@
         </div>
 
         <div id="p1-hud">
-            [span_42](start_span)<div class="hud-label">Player 1</div>[span_42](end_span)
-            [span_43](start_span)<div class="hud-name" id="p1-tag">◈ PINK</div>[span_43](end_span)
+            <div class="hud-label">Player 1</div>
+            <div class="hud-name" id="p1-tag">◈ PINK</div>
         </div>
     
-        [span_44](start_span)<div id="p2-hud">[span_44](end_span)
-            [span_45](start_span)<div class="hud-label">Player 2</div>[span_45](end_span)
-            [span_46](start_span)<div class="hud-name" id="p2-tag">◈ CYAN</div>[span_46](end_span)
+        <div id="p2-hud">[span_131](end_span)
+            <div class="hud-label">Player 2</div>
+            <div class="hud-name" id="p2-tag">◈ CYAN</div>
         </div>
     </div>
 
     <div id="controls">
         <div id="aim-info">
-            [span_47](start_span)<div class="aim-label">Angle</div>[span_47](end_span)
-            [span_48](start_span)<div class="aim-value" id="angle-display" style="color:#fff">0°</div>[span_48](end_span)
-        </div>
+            <div class="aim-label">Angle</div>
+            <div class="aim-value" id="angle-display" style="color:#fff">0°</div>
+        [span_132](start_span)</div>[span_132](end_span)
 
         <div id="power-wrap">
-            [span_49](start_span)<label for="power-slider">Power</label>[span_49](end_span)
-            [span_50](start_span)<input type="range" id="power-slider" min="5" max="100" value="50">[span_50](end_span)
-            [span_51](start_span)<div id="power-value">50%</div>[span_51](end_span)
+            <label for="power-slider">Power</label>
+            <input type="range" id="power-slider" min="5" max="100" value="50">
+            <div id="power-value">50%</div>
         </div>
 
-        [span_52](start_span)<button id="fire-btn">FIRE</button>[span_52](end_span)
+        <button id="fire-btn">FIRE</button>
     </div>
 
-    [span_53](start_span)<div id="zoom-hint">Pinch or Scroll to zoom</div>[span_53](end_span)
+    <div id="zoom-hint">Pinch or Scroll to zoom</div>
 
     <div id="overlay" class="hidden">
-        [span_54](start_span)<h1 id="overlay-title">Player 1 Wins!</h1>[span_54](end_span)
-        [span_55](start_span)<button id="restart-btn">Play Again</button>[span_55](end_span)
+        [span_133](start_span)<h1 id="overlay-title">Player 1 Wins!</h1>[span_133](end_span)
+        <button id="restart-btn">Play Again</button>
     </div>
 </div>
 
@@ -301,177 +303,177 @@
 // ═══════════════════════════════════════════════════════
 //  CONSTANTS & CONFIG
 // ═══════════════════════════════════════════════════════
-[span_56](start_span)const GRAVITY      = 0.25;[span_56](end_span)
-[span_57](start_span)const TANK_RADIUS  = 14;[span_57](end_span)
-[span_58](start_span)const BLAST_RADIUS = 40;[span_58](end_span)
-[span_59](start_span)const MAP_W        = 2400;[span_59](end_span)
-[span_60](start_span)const MAP_H        = 900;[span_60](end_span)
-[span_61](start_span)const COLORS       = { 1: '#ff3366', 2: '#33ffcc' };[span_61](end_span)
+[span_134](start_span)const GRAVITY      = 0.25;[span_134](end_span)
+[span_135](start_span)const TANK_RADIUS  = 14;[span_135](end_span)
+[span_136](start_span)const BLAST_RADIUS = 40;[span_136](end_span)
+[span_137](start_span)const MAP_W        = 2400;[span_137](end_span)
+[span_138](start_span)const MAP_H        = 900;[span_138](end_span)
+[span_139](start_span)const COLORS       = { 1: '#ff3366', 2: '#33ffcc' };[span_139](end_span)
 
 // ═══════════════════════════════════════════════════════
 //  CANVAS / CONTEXT
 // ═══════════════════════════════════════════════════════
-[span_62](start_span)const canvas = document.getElementById('gameCanvas');[span_62](end_span)
-[span_63](start_span)const ctx    = canvas.getContext('2d');[span_63](end_span)
-[span_64](start_span)let vw = 0, vh = 0;[span_64](end_span)
+[span_140](start_span)const canvas = document.getElementById('gameCanvas');[span_140](end_span)
+[span_141](start_span)const ctx    = canvas.getContext('2d');[span_141](end_span)
+[span_142](start_span)let vw = 0, vh = 0;[span_142](end_span)
 
 // ═══════════════════════════════════════════════════════
 //  CAMERA
 // ═══════════════════════════════════════════════════════
 let cam = {
-    [span_65](start_span)x: 0, y: 0,[span_65](end_span)
-    zoom: 1,
-    targetX: 0, targetY: 0, targetZoom: 1,
-    animating: false,
+    [span_143](start_span)x: 0, y: 0,[span_143](end_span)
+    [span_144](start_span)zoom: 1,[span_144](end_span)
+    [span_145](start_span)targetX: 0, targetY: 0, targetZoom: 1,[span_145](end_span)
+    [span_146](start_span)animating: false,[span_146](end_span)
 
     clamp() {
-        [span_66](start_span)const maxX = MAP_W - vw / this.zoom;[span_66](end_span)
+        [span_147](start_span)const maxX = MAP_W - vw / this.zoom;[span_147](end_span)
         const maxY = MAP_H - (vh - 85) / this.zoom;
-        [span_67](start_span)this.x = Math.max(0, Math.min(this.x, maxX));[span_67](end_span)
-        [span_68](start_span)this.y = Math.max(0, Math.min(this.y, maxY));[span_68](end_span)
-    },
+        [span_148](start_span)this.x = Math.max(0, Math.min(this.x, maxX));[span_148](end_span)
+        [span_149](start_span)this.y = Math.max(0, Math.min(this.y, maxY));[span_149](end_span)
+    [span_150](start_span)},[span_150](end_span)
 
-    [span_69](start_span)toScreen(wx, wy) {[span_69](end_span)
+    toScreen(wx, wy) {
         return {
-            x: (wx - this.x) * this.zoom,
-            y: (wy - this.y) * this.zoom
-        };
-    },
-    [span_70](start_span)toWorld(sx, sy) {[span_70](end_span)
+            [span_151](start_span)x: (wx - this.x) * this.zoom,[span_151](end_span)
+            [span_152](start_span)y: (wy - this.y) * this.zoom[span_152](end_span)
+        [span_153](start_span)};[span_153](end_span)
+    [span_154](start_span)},[span_154](end_span)
+    toWorld(sx, sy) {
         return {
-            x: sx / this.zoom + this.x,
-            y: sy / this.zoom + this.y
-        };
-    },
+            [span_155](start_span)x: sx / this.zoom + this.x,[span_155](end_span)
+            [span_156](start_span)y: sy / this.zoom + this.y[span_156](end_span)
+        [span_157](start_span)};[span_157](end_span)
+    [span_158](start_span)},[span_158](end_span)
 
-    [span_71](start_span)focusOn(wx, wy, z) {[span_71](end_span)
-        z = z || [span_72](start_span)1.4;[span_72](end_span)
-        this.targetZoom = z;
-        [span_73](start_span)this.targetX = wx - vw / 2 / z;[span_73](end_span)
+    focusOn(wx, wy, z) {
+        z = z || [span_159](start_span)1.4;[span_159](end_span)
+        [span_160](start_span)this.targetZoom = z;[span_160](end_span)
+        [span_161](start_span)this.targetX = wx - vw / 2 / z;[span_161](end_span)
         this.targetY = wy - (vh - 85) / 2 / z;
-        [span_74](start_span)this.animating = true;[span_74](end_span)
-    },
+        [span_162](start_span)this.animating = true;[span_162](end_span)
+    [span_163](start_span)},[span_163](end_span)
 
     update() {
-        [span_75](start_span)if (!this.animating) return;[span_75](end_span)
-        [span_76](start_span)const spd = 0.1;[span_76](end_span)
-        [span_77](start_span)this.zoom += (this.targetZoom - this.zoom) * spd;[span_77](end_span)
-        [span_78](start_span)this.x    += (this.targetX    - this.x)    * spd;[span_78](end_span)
-        [span_79](start_span)this.y    += (this.targetY    - this.y)    * spd;[span_79](end_span)
-        [span_80](start_span)if (Math.abs(this.zoom - this.targetZoom) < 0.005 &&[span_80](end_span)
-            Math.abs(this.x - this.targetX) < 0.5 &&
-            Math.abs(this.y - this.targetY) < 0.5) {
-            [span_81](start_span)this.zoom = this.targetZoom;[span_81](end_span)
-            [span_82](start_span)this.x    = this.targetX;[span_82](end_span)
-            [span_83](start_span)this.y    = this.targetY;[span_83](end_span)
-            [span_84](start_span)this.animating = false;[span_84](end_span)
-        }
-        [span_85](start_span)this.clamp();[span_85](end_span)
+        [span_164](start_span)if (!this.animating) return;[span_164](end_span)
+        [span_165](start_span)const spd = 0.1;[span_165](end_span)
+        [span_166](start_span)this.zoom += (this.targetZoom - this.zoom) * spd;[span_166](end_span)
+        [span_167](start_span)this.x    += (this.targetX    - this.x)    * spd;[span_167](end_span)
+        [span_168](start_span)this.y    += (this.targetY    - this.y)    * spd;[span_168](end_span)
+        [span_169](start_span)if (Math.abs(this.zoom - this.targetZoom) < 0.005 &&[span_169](end_span)
+            [span_170](start_span)Math.abs(this.x - this.targetX) < 0.5 &&[span_170](end_span)
+            [span_171](start_span)Math.abs(this.y - this.targetY) < 0.5) {[span_171](end_span)
+            [span_172](start_span)this.zoom = this.targetZoom;[span_172](end_span)
+            [span_173](start_span)this.x    = this.targetX;[span_173](end_span)
+            [span_174](start_span)this.y    = this.targetY;[span_174](end_span)
+            [span_175](start_span)this.animating = false;[span_175](end_span)
+        [span_176](start_span)}
+        this.clamp();[span_176](end_span)
     }
 };
 
 // ═══════════════════════════════════════════════════════
 //  TERRAIN
 // ═══════════════════════════════════════════════════════
-[span_86](start_span)let terrainCanvas, terrainCtx, terrainImgData;[span_86](end_span)
+[span_177](start_span)let terrainCanvas, terrainCtx, terrainImgData;[span_177](end_span)
 function buildTerrain() {
-    [span_87](start_span)terrainCanvas = document.createElement('canvas');[span_87](end_span)
-    [span_88](start_span)terrainCanvas.width  = MAP_W;[span_88](end_span)
-    [span_89](start_span)terrainCanvas.height = MAP_H;[span_89](end_span)
-    [span_90](start_span)terrainCtx = terrainCanvas.getContext('2d');[span_90](end_span)
-    [span_91](start_span)const tc = terrainCtx;[span_91](end_span)
+    [span_178](start_span)terrainCanvas = document.createElement('canvas');[span_178](end_span)
+    [span_179](start_span)terrainCanvas.width  = MAP_W;[span_179](end_span)
+    [span_180](start_span)terrainCanvas.height = MAP_H;[span_180](end_span)
+    [span_181](start_span)terrainCtx = terrainCanvas.getContext('2d');[span_181](end_span)
+    [span_182](start_span)const tc = terrainCtx;[span_182](end_span)
 
-    [span_92](start_span)const baseH = MAP_H * 0.55;[span_92](end_span)
-    [span_93](start_span)const h1 = Math.random() * 120 + 60;[span_93](end_span)
-    [span_94](start_span)const h2 = Math.random() * 60  + 20;[span_94](end_span)
-    [span_95](start_span)const f1 = Math.random() * 0.003 + 0.001;[span_95](end_span)
-    [span_96](start_span)const f2 = Math.random() * 0.01  + 0.003;[span_96](end_span)
-    [span_97](start_span)const ph1 = Math.random() * Math.PI * 2;[span_97](end_span)
-    [span_98](start_span)const ph2 = Math.random() * Math.PI * 2;[span_98](end_span)
-    [span_99](start_span)tc.fillStyle = '#5a3c22';[span_99](end_span)
-    [span_100](start_span)tc.beginPath();[span_100](end_span)
-    [span_101](start_span)tc.moveTo(0, MAP_H);[span_101](end_span)
-    [span_102](start_span)for (let x = 0; x <= MAP_W; x++) {[span_102](end_span)
-        [span_103](start_span)let y = baseH + Math.sin(x * f1 + ph1) * h1 + Math.cos(x * f2 + ph2) * h2;[span_103](end_span)
-        [span_104](start_span)tc.lineTo(x, y);[span_104](end_span)
+    [span_183](start_span)const baseH = MAP_H * 0.55;[span_183](end_span)
+    [span_184](start_span)const h1 = Math.random() * 120 + 60;[span_184](end_span)
+    [span_185](start_span)const h2 = Math.random() * 60  + 20;[span_185](end_span)
+    [span_186](start_span)const f1 = Math.random() * 0.003 + 0.001;[span_186](end_span)
+    [span_187](start_span)const f2 = Math.random() * 0.01  + 0.003;[span_187](end_span)
+    [span_188](start_span)const ph1 = Math.random() * Math.PI * 2;[span_188](end_span)
+    [span_189](start_span)const ph2 = Math.random() * Math.PI * 2;[span_189](end_span)
+    [span_190](start_span)tc.fillStyle = '#5a3c22';[span_190](end_span)
+    [span_191](start_span)tc.beginPath();[span_191](end_span)
+    [span_192](start_span)tc.moveTo(0, MAP_H);[span_192](end_span)
+    [span_193](start_span)for (let x = 0; x <= MAP_W; x++) {[span_193](end_span)
+        [span_194](start_span)let y = baseH + Math.sin(x * f1 + ph1) * h1 + Math.cos(x * f2 + ph2) * h2;[span_194](end_span)
+        [span_195](start_span)tc.lineTo(x, y);[span_195](end_span)
     }
-    [span_105](start_span)tc.lineTo(MAP_W, MAP_H);[span_105](end_span)
-    [span_106](start_span)tc.closePath();[span_106](end_span)
-    [span_107](start_span)tc.fill();[span_107](end_span)
+    [span_196](start_span)tc.lineTo(MAP_W, MAP_H);[span_196](end_span)
+    [span_197](start_span)tc.closePath();[span_197](end_span)
+    [span_198](start_span)tc.fill();[span_198](end_span)
 
-    [span_108](start_span)tc.fillStyle = '#2d8c2b';[span_108](end_span)
-    [span_109](start_span)tc.globalCompositeOperation = 'source-atop';[span_109](end_span)
-    [span_110](start_span)tc.fillRect(0, 0, MAP_W, MAP_H);[span_110](end_span)
-    [span_111](start_span)tc.globalCompositeOperation = 'source-over';[span_111](end_span)
-    [span_112](start_span)terrainImgData = tc.getImageData(0, 0, MAP_W, MAP_H);[span_112](end_span)
-}
+    [span_199](start_span)tc.fillStyle = '#2d8c2b';[span_199](end_span)
+    [span_200](start_span)tc.globalCompositeOperation = 'source-atop';[span_200](end_span)
+    [span_201](start_span)tc.fillRect(0, 0, MAP_W, MAP_H);[span_201](end_span)
+    [span_202](start_span)tc.globalCompositeOperation = 'source-over';[span_202](end_span)
+    [span_203](start_span)terrainImgData = tc.getImageData(0, 0, MAP_W, MAP_H);[span_203](end_span)
+[span_204](start_span)}
 
 function getTerrainHeight(wx) {
-    [span_113](start_span)if (wx < 0 || wx >= MAP_W) return MAP_H;[span_113](end_span)
-    [span_114](start_span)const xi = Math.floor(wx);[span_114](end_span)
-    [span_115](start_span)for (let y = 0; y < MAP_H; y++) {[span_115](end_span)
-        [span_116](start_span)if (terrainImgData.data[(y * MAP_W + xi) * 4 + 3] > 0) return y;[span_116](end_span)
-    }
-    [span_117](start_span)return MAP_H;[span_117](end_span)
+    if (wx < 0 || wx >= MAP_W) return MAP_H;[span_204](end_span)
+    [span_205](start_span)const xi = Math.floor(wx);[span_205](end_span)
+    [span_206](start_span)for (let y = 0; y < MAP_H; y++) {[span_206](end_span)
+        [span_207](start_span)if (terrainImgData.data[(y * MAP_W + xi) * 4 + 3] > 0) return y;[span_207](end_span)
+    [span_208](start_span)}
+    return MAP_H;[span_208](end_span)
 }
 
 function isSolid(wx, wy) {
-    [span_118](start_span)const xi = Math.floor(wx), yi = Math.floor(wy);[span_118](end_span)
-    [span_119](start_span)if (xi < 0 || xi >= MAP_W || yi < 0 || yi >= MAP_H) return false;[span_119](end_span)
-    [span_120](start_span)return terrainImgData.data[(yi * MAP_W + xi) * 4 + 3] > 0;[span_120](end_span)
-}
+    [span_209](start_span)const xi = Math.floor(wx), yi = Math.floor(wy);[span_209](end_span)
+    [span_210](start_span)if (xi < 0 || xi >= MAP_W || yi < 0 || yi >= MAP_H) return false;[span_210](end_span)
+    [span_211](start_span)return terrainImgData.data[(yi * MAP_W + xi) * 4 + 3] > 0;[span_211](end_span)
+[span_212](start_span)}
 
 function destroyTerrain(cx, cy, radius) {
-    [span_121](start_span)const sx = Math.max(0, Math.floor(cx - radius));[span_121](end_span)
-    [span_122](start_span)const ex = Math.min(MAP_W - 1, Math.floor(cx + radius));[span_122](end_span)
-    [span_123](start_span)const sy = Math.max(0, Math.floor(cy - radius));[span_123](end_span)
-    [span_124](start_span)const ey = Math.min(MAP_H - 1, Math.floor(cy + radius));[span_124](end_span)
-    [span_125](start_span)for (let x = sx; x <= ex; x++) {[span_125](end_span)
-        [span_126](start_span)for (let y = sy; y <= ey; y++) {[span_126](end_span)
-            [span_127](start_span)if ((x-cx)**2 + (y-cy)**2 <= radius*radius) {[span_127](end_span)
-                [span_128](start_span)terrainImgData.data[(y * MAP_W + x) * 4 + 3] = 0;[span_128](end_span)
+    const sx = Math.max(0, Math.floor(cx - radius));[span_212](end_span)
+    [span_213](start_span)const ex = Math.min(MAP_W - 1, Math.floor(cx + radius));[span_213](end_span)
+    [span_214](start_span)const sy = Math.max(0, Math.floor(cy - radius));[span_214](end_span)
+    [span_215](start_span)const ey = Math.min(MAP_H - 1, Math.floor(cy + radius));[span_215](end_span)
+    [span_216](start_span)for (let x = sx; x <= ex; x++) {[span_216](end_span)
+        [span_217](start_span)for (let y = sy; y <= ey; y++) {[span_217](end_span)
+            [span_218](start_span)if ((x-cx)**2 + (y-cy)**2 <= radius*radius) {[span_218](end_span)
+                [span_219](start_span)terrainImgData.data[(y * MAP_W + x) * 4 + 3] = 0;[span_219](end_span)
             }
         }
     }
-    [span_129](start_span)terrainCtx.putImageData(terrainImgData, 0, 0);[span_129](end_span)
-    [span_130](start_span)settleTanks();[span_130](end_span)
+    [span_220](start_span)terrainCtx.putImageData(terrainImgData, 0, 0);[span_220](end_span)
+    [span_221](start_span)settleTanks();[span_221](end_span)
     updateMinimap();
 }
 
 // ═══════════════════════════════════════════════════════
 //  PLAYERS & MINIMAP LOGIC
 // ═══════════════════════════════════════════════════════
-let players = {
-    [span_131](start_span)1: { x: 0, y: 0, alive: true, angle: -45, power: 50, color: COLORS[1] },[span_131](end_span)
-    [span_132](start_span)2: { x: 0, y: 0, alive: true, angle: -135, power: 50, color: COLORS[2] }[span_132](end_span)
-};
+[span_222](start_span)let players = {[span_222](end_span)
+    [span_223](start_span)1: { x: 0, y: 0, alive: true, angle: -45, power: 50, color: COLORS[1] },[span_223](end_span)
+    [span_224](start_span)2: { x: 0, y: 0, alive: true, angle: -135, power: 50, color: COLORS[2] }[span_224](end_span)
+[span_225](start_span)};[span_225](end_span)
 
 function placePlayers() {
-    [span_133](start_span)players[1].x = MAP_W * 0.12;[span_133](end_span)
-    [span_134](start_span)players[1].y = getTerrainHeight(players[1].x) - TANK_RADIUS;[span_134](end_span)
-    [span_135](start_span)players[1].alive = true;[span_135](end_span)
-    [span_136](start_span)players[2].x = MAP_W * 0.88;[span_136](end_span)
-    [span_137](start_span)players[2].y = getTerrainHeight(players[2].x) - TANK_RADIUS;[span_137](end_span)
-    [span_138](start_span)players[2].alive = true;[span_138](end_span)
+    [span_226](start_span)players[1].x = MAP_W * 0.12;[span_226](end_span)
+    [span_227](start_span)players[1].y = getTerrainHeight(players[1].x) - TANK_RADIUS;[span_227](end_span)
+    [span_228](start_span)players[1].alive = true;[span_228](end_span)
+    [span_229](start_span)players[2].x = MAP_W * 0.88;[span_229](end_span)
+    [span_230](start_span)players[2].y = getTerrainHeight(players[2].x) - TANK_RADIUS;[span_230](end_span)
+    [span_231](start_span)players[2].alive = true;[span_231](end_span)
     updateMinimap();
-}
+[span_232](start_span)}
 
 function settleTanks() {
-    [span_139](start_span)for (let p = 1; p <= 2; p++) {[span_139](end_span)
-        [span_140](start_span)const newY = getTerrainHeight(players[p].x) - TANK_RADIUS;[span_140](end_span)
-        [span_141](start_span)if (newY >= MAP_H - TANK_RADIUS * 2) {[span_141](end_span)
-            [span_142](start_span)players[p].alive = false;[span_142](end_span)
-        } else {
-            [span_143](start_span)players[p].y = newY;[span_143](end_span)
+    for (let p = 1; p <= 2; p++) {[span_232](end_span)
+        [span_233](start_span)const newY = getTerrainHeight(players[p].x) - TANK_RADIUS;[span_233](end_span)
+        [span_234](start_span)if (newY >= MAP_H - TANK_RADIUS * 2) {[span_234](end_span)
+            [span_235](start_span)players[p].alive = false;[span_235](end_span)
+        [span_236](start_span)} else {[span_236](end_span)
+            [span_237](start_span)players[p].y = newY;[span_237](end_span)
         }
-    }
+    [span_238](start_span)}
     updateMinimap();
 }
 
 function updateMinimap() {
     const containerW = 160; 
     for (let p = 1; p <= 2; p++) {
-        const dot = document.getElementById(`minimap-p1${p === 2 ? '2' : '1'}`);
+        const dot = document.getElementById(`minimap-p${p}`);
         if (!players[p].alive) {
             dot.style.display = 'none';
         } else {
@@ -485,315 +487,312 @@ function updateMinimap() {
 // ═══════════════════════════════════════════════════════
 //  GAME STATE
 // ═══════════════════════════════════════════════════════
-[span_144](start_span)let wind = 0;[span_144](end_span)
-[span_145](start_span)let game = { turn: 1, state: 'aiming', winner: null };[span_145](end_span)
-[span_146](start_span)let proj = { x: 0, y: 0, vx: 0, vy: 0, active: false, trail: [] };[span_146](end_span)
-[span_147](start_span)let explosion = { active: false, x: 0, y: 0, t: 0 };[span_147](end_span)
+let wind = 0;[span_238](end_span)
+[span_239](start_span)let game = { turn: 1, state: 'aiming', winner: null };[span_239](end_span)
+[span_240](start_span)let proj = { x: 0, y: 0, vx: 0, vy: 0, active: false, trail: [] };[span_240](end_span)
+[span_241](start_span)let explosion = { active: false, x: 0, y: 0, t: 0 };[span_241](end_span)
 
 function generateWind() {
-    [span_148](start_span)wind = (Math.random() - 0.5) * 0.08;[span_148](end_span)
+    [span_242](start_span)wind = (Math.random() - 0.5) * 0.08;[span_242](end_span)
 }
 
 // ═══════════════════════════════════════════════════════
 //  AIM CONTROLS
 // ═══════════════════════════════════════════════════════
-[span_149](start_span)let aimDrag = { active: false, startX: 0, startY: 0 };[span_149](end_span)
+[span_243](start_span)let aimDrag = { active: false, startX: 0, startY: 0 };[span_243](end_span)
 
 function getAimVector() {
-    [span_150](start_span)const p = players[game.turn];[span_150](end_span)
-    [span_151](start_span)const rad = p.angle * Math.PI / 180;[span_151](end_span)
-    [span_152](start_span)const spd = p.power * 0.18;[span_152](end_span)
-    [span_153](start_span)return { vx: Math.cos(rad) * spd, vy: Math.sin(rad) * spd };[span_153](end_span)
-}
+    [span_244](start_span)const p = players[game.turn];[span_244](end_span)
+    [span_245](start_span)const rad = p.angle * Math.PI / 180;[span_245](end_span)
+    [span_246](start_span)const spd = p.power * 0.18;[span_246](end_span)
+    [span_247](start_span)return { vx: Math.cos(rad) * spd, vy: Math.sin(rad) * spd };[span_247](end_span)
+[span_248](start_span)}
 
 function setAngleDisplay(deg) {
-    [span_154](start_span)document.getElementById('angle-display').textContent = Math.round(deg) + '°';[span_154](end_span)
+    document.getElementById('angle-display').textContent = Math.round(deg) + '°';[span_248](end_span)
 }
 
 function applyPlayerColors() {
-    [span_155](start_span)const c = COLORS[game.turn];[span_155](end_span)
-    [span_156](start_span)document.getElementById('fire-btn').style.color = c;[span_156](end_span)
-    [span_157](start_span)document.getElementById('fire-btn').style.borderColor = c;[span_157](end_span)
-    
-    // Fallback UI slider rule adjustments
-    const slider = document.getElementById('power-slider');
-    [span_158](start_span)slider.style.accentColor = c;[span_158](end_span)
-    
-    [span_159](start_span)document.getElementById('angle-display').style.color = c;[span_159](end_span)
-    [span_160](start_span)document.getElementById('turn-name').textContent = game.turn;[span_160](end_span)
-    [span_161](start_span)document.getElementById('turn-name').style.color = c;[span_161](end_span)
+    [span_249](start_span)const c = COLORS[game.turn];[span_249](end_span)
+    [span_250](start_span)document.getElementById('fire-btn').style.color = c;[span_250](end_span)
+    [span_251](start_span)document.getElementById('fire-btn').style.borderColor = c;[span_251](end_span)
+    [span_252](start_span)document.getElementById('power-slider').style.accentColor = c;[span_252](end_span)
+    [span_253](start_span)document.getElementById('angle-display').style.color = c;[span_253](end_span)
+    [span_254](start_span)document.getElementById('turn-name').textContent = game.turn;[span_254](end_span)
+    [span_255](start_span)document.getElementById('turn-name').style.color = c;[span_255](end_span)
 
-    [span_162](start_span)const p1 = document.getElementById('p1-hud');[span_162](end_span)
-    [span_163](start_span)const p2 = document.getElementById('p2-hud');[span_163](end_span)
-    [span_164](start_span)p1.classList.toggle('hud-active', game.turn === 1);[span_164](end_span)
-    [span_165](start_span)p2.classList.toggle('hud-active', game.turn === 2);[span_165](end_span)
+    [span_256](start_span)const p1 = document.getElementById('p1-hud');[span_256](end_span)
+    [span_257](start_span)const p2 = document.getElementById('p2-hud');[span_257](end_span)
+    [span_258](start_span)p1.classList.toggle('hud-active', game.turn === 1);[span_258](end_span)
+    [span_259](start_span)p2.classList.toggle('hud-active', game.turn === 2);[span_259](end_span)
 }
 
 function syncControlsFromPlayer() {
-    [span_166](start_span)const p = players[game.turn];[span_166](end_span)
-    [span_167](start_span)const slider = document.getElementById('power-slider');[span_167](end_span)
-    [span_168](start_span)slider.value = p.power;[span_168](end_span)
-    [span_169](start_span)document.getElementById('power-value').textContent = Math.round(p.power) + '%';[span_169](end_span)
-    [span_170](start_span)setAngleDisplay(p.angle);[span_170](end_span)
-    [span_171](start_span)applyPlayerColors();[span_171](end_span)
+    [span_260](start_span)const p = players[game.turn];[span_260](end_span)
+    [span_261](start_span)const slider = document.getElementById('power-slider');[span_261](end_span)
+    [span_262](start_span)slider.value = p.power;[span_262](end_span)
+    [span_263](start_span)document.getElementById('power-value').textContent = Math.round(p.power) + '%';[span_263](end_span)
+    [span_264](start_span)setAngleDisplay(p.angle);[span_264](end_span)
+    [span_265](start_span)applyPlayerColors();[span_265](end_span)
 }
 
-document.getElementById('power-slider').addEventListener('input', function() {
-    [span_172](start_span)players[game.turn].power = parseInt(this.value);[span_172](end_span)
-    [span_173](start_span)document.getElementById('power-value').textContent = Math.round(this.value) + '%';[span_173](end_span)
+[span_266](start_span)document.getElementById('power-slider').addEventListener('input', function() {[span_266](end_span)
+    [span_267](start_span)players[game.turn].power = parseInt(this.value);[span_267](end_span)
+    [span_268](start_span)document.getElementById('power-value').textContent = Math.round(this.value) + '%';[span_268](end_span)
 });
 
-document.getElementById('fire-btn').addEventListener('click', () => {
-    [span_174](start_span)if (game.state !== 'aiming') return;[span_174](end_span)
-    [span_175](start_span)fireProjectile();[span_175](end_span)
-});
+[span_269](start_span)document.getElementById('fire-btn').addEventListener('click', () => {[span_269](end_span)
+    [span_270](start_span)if (game.state !== 'aiming') return;[span_270](end_span)
+    [span_271](start_span)fireProjectile();[span_271](end_span)
+[span_272](start_span)});[span_272](end_span)
 
 function fireProjectile() {
-    [span_176](start_span)const p = players[game.turn];[span_176](end_span)
-    [span_177](start_span)const vec = getAimVector();[span_177](end_span)
-    [span_178](start_span)proj.x = p.x;[span_178](end_span)
-    [span_179](start_span)proj.y = p.y - TANK_RADIUS;[span_179](end_span)
-    [span_180](start_span)proj.vx = vec.vx;[span_180](end_span)
-    [span_181](start_span)proj.vy = vec.vy;[span_181](end_span)
-    [span_182](start_span)proj.active = true;[span_182](end_span)
-    [span_183](start_span)proj.trail = [];[span_183](end_span)
-    [span_184](start_span)game.state = 'flying';[span_184](end_span)
-    [span_185](start_span)updateWindDisplay();[span_185](end_span)
+    [span_273](start_span)const p = players[game.turn];[span_273](end_span)
+    [span_274](start_span)const vec = getAimVector();[span_274](end_span)
+    [span_275](start_span)proj.x = p.x;[span_275](end_span)
+    [span_276](start_span)proj.y = p.y - TANK_RADIUS;[span_276](end_span)
+    [span_277](start_span)proj.vx = vec.vx;[span_277](end_span)
+    [span_278](start_span)proj.vy = vec.vy;[span_278](end_span)
+    [span_279](start_span)proj.active = true;[span_279](end_span)
+    [span_280](start_span)proj.trail = [];[span_280](end_span)
+    [span_281](start_span)game.state = 'flying';[span_281](end_span)
+    [span_282](start_span)updateWindDisplay();[span_282](end_span)
 }
 
 // ═══════════════════════════════════════════════════════
 //  TOUCH HANDLING (Pan / Pinch / Aim)
 // ═══════════════════════════════════════════════════════
-[span_186](start_span)let panStart = null;[span_186](end_span)
-[span_187](start_span)let pinchStart = null;[span_187](end_span)
-function dist2(a, b) { return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); [span_188](start_span)}
-function midpoint(a, b) { return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }; }[span_188](end_span)
+[span_283](start_span)let panStart = null;[span_283](end_span)
+[span_284](start_span)let pinchStart = null;[span_284](end_span)
+function dist2(a, b) { return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); [span_285](start_span)}
+function midpoint(a, b) { return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }; }[span_285](end_span)
 
-[span_189](start_span)let activeTouches = {};[span_189](end_span)
-canvas.addEventListener('touchstart', (e) => {
-    [span_190](start_span)e.preventDefault();[span_190](end_span)
-    [span_191](start_span)for (const t of e.changedTouches) activeTouches[t.identifier] = t;[span_191](end_span)
-    [span_192](start_span)const ids = Object.keys(activeTouches);[span_192](end_span)
+[span_286](start_span)let activeTouches = {};[span_286](end_span)
+[span_287](start_span)canvas.addEventListener('touchstart', (e) => {[span_287](end_span)
+    [span_288](start_span)e.preventDefault();[span_288](end_span)
+    [span_289](start_span)for (const t of e.changedTouches) activeTouches[t.identifier] = t;[span_289](end_span)
+    [span_290](start_span)const ids = Object.keys(activeTouches);[span_290](end_span)
 
-    [span_193](start_span)if (ids.length === 1 && game.state === 'aiming') {[span_193](end_span)
-        [span_194](start_span)const t = e.changedTouches[0];[span_194](end_span)
-        [span_195](start_span)const sx = t.clientX, sy = t.clientY;[span_195](end_span)
-        [span_196](start_span)aimDrag = { active: true, startX: sx, startY: sy };[span_196](end_span)
-        [span_197](start_span)cam.animating = false;[span_197](end_span)
+    [span_291](start_span)if (ids.length === 1 && game.state === 'aiming') {[span_291](end_span)
+        [span_292](start_span)const t = e.changedTouches[0];[span_292](end_span)
+        [span_293](start_span)const sx = t.clientX, sy = t.clientY;[span_293](end_span)
+        [span_294](start_span)aimDrag = { active: true, startX: sx, startY: sy };[span_294](end_span)
+        [span_295](start_span)cam.animating = false;[span_295](end_span)
     }
 
-    [span_198](start_span)if (ids.length === 2) {[span_198](end_span)
-        [span_199](start_span)aimDrag.active = false;[span_199](end_span)
-        [span_200](start_span)const ts = Object.values(activeTouches);[span_200](end_span)
-        pinchStart = {
-            [span_201](start_span)dist: dist2(ts[0], ts[1]),[span_201](end_span)
-            [span_202](start_span)zoom: cam.zoom,[span_202](end_span)
-            [span_203](start_span)mid: midpoint(ts[0], ts[1]),[span_203](end_span)
-            [span_204](start_span)camX: cam.x, camY: cam.y[span_204](end_span)
-        };
-        [span_205](start_span)panStart = null;[span_205](end_span)
-    [span_206](start_span)} else if (ids.length === 1 && game.state !== 'aiming') {[span_206](end_span)
-        [span_207](start_span)const t = e.changedTouches[0];[span_207](end_span)
-        [span_208](start_span)panStart = { sx: t.clientX, sy: t.clientY, cx: cam.x, cy: cam.y };[span_208](end_span)
-        [span_209](start_span)cam.animating = false;[span_209](end_span)
+    [span_296](start_span)if (ids.length === 2) {[span_296](end_span)
+        [span_297](start_span)aimDrag.active = false;[span_297](end_span)
+        [span_298](start_span)const ts = Object.values(activeTouches);[span_298](end_span)
+        [span_299](start_span)pinchStart = {[span_299](end_span)
+            [span_300](start_span)dist: dist2(ts[0], ts[1]),[span_300](end_span)
+            [span_301](start_span)zoom: cam.zoom,[span_301](end_span)
+            [span_302](start_span)mid: midpoint(ts[0], ts[1]),[span_302](end_span)
+            [span_303](start_span)camX: cam.x, camY: cam.y[span_303](end_span)
+        [span_304](start_span)};[span_304](end_span)
+        [span_305](start_span)panStart = null;[span_305](end_span)
+    [span_306](start_span)} else if (ids.length === 1 && game.state !== 'aiming') {[span_306](end_span)
+        [span_307](start_span)const t = e.changedTouches[0];[span_307](end_span)
+        [span_308](start_span)panStart = { sx: t.clientX, sy: t.clientY, cx: cam.x, cy: cam.y };[span_308](end_span)
+        [span_309](start_span)cam.animating = false;[span_309](end_span)
     }
-}, { passive: false });
+[span_310](start_span)}, { passive: false });[span_310](end_span)
 
-canvas.addEventListener('touchmove', (e) => {
-    [span_210](start_span)e.preventDefault();[span_210](end_span)
-    [span_211](start_span)for (const t of e.changedTouches) activeTouches[t.identifier] = t;[span_211](end_span)
-    [span_212](start_span)const ts = Object.values(activeTouches);[span_212](end_span)
+[span_311](start_span)canvas.addEventListener('touchmove', (e) => {[span_311](end_span)
+    [span_312](start_span)e.preventDefault();[span_312](end_span)
+    [span_313](start_span)for (const t of e.changedTouches) activeTouches[t.identifier] = t;[span_313](end_span)
+    [span_314](start_span)const ts = Object.values(activeTouches);[span_314](end_span)
 
-    [span_213](start_span)if (ts.length === 2 && pinchStart) {[span_213](end_span)
-        [span_214](start_span)const d = dist2(ts[0], ts[1]);[span_214](end_span)
-        [span_215](start_span)const newZoom = Math.max(0.4, Math.min(3.0, pinchStart.zoom * d / pinchStart.dist));[span_215](end_span)
-        [span_216](start_span)const mid = midpoint(ts[0], ts[1]);[span_216](end_span)
+    [span_315](start_span)if (ts.length === 2 && pinchStart) {[span_315](end_span)
+        [span_316](start_span)const d = dist2(ts[0], ts[1]);[span_316](end_span)
+        [span_317](start_span)const newZoom = Math.max(0.4, Math.min(3.0, pinchStart.zoom * d / pinchStart.dist));[span_317](end_span)
+        [span_318](start_span)const mid = midpoint(ts[0], ts[1]);[span_318](end_span)
 
-        [span_217](start_span)const worldMidX = pinchStart.camX + pinchStart.mid.x / pinchStart.zoom;[span_217](end_span)
-        [span_218](start_span)const worldMidY = pinchStart.camY + pinchStart.mid.y / pinchStart.zoom;[span_218](end_span)
-        [span_219](start_span)cam.zoom = newZoom;[span_219](end_span)
-        [span_220](start_span)cam.x = worldMidX - mid.x / newZoom;[span_220](end_span)
-        [span_221](start_span)cam.y = worldMidY - mid.y / newZoom;[span_221](end_span)
-        [span_222](start_span)cam.clamp();[span_222](end_span)
-        [span_223](start_span)return;[span_223](end_span)
+        [span_319](start_span)const worldMidX = pinchStart.camX + pinchStart.mid.x / pinchStart.zoom;[span_319](end_span)
+        [span_320](start_span)const worldMidY = pinchStart.camY + pinchStart.mid.y / pinchStart.zoom;[span_320](end_span)
+        [span_321](start_span)cam.zoom = newZoom;[span_321](end_span)
+        [span_322](start_span)cam.x = worldMidX - mid.x / newZoom;[span_322](end_span)
+        [span_323](start_span)cam.y = worldMidY - mid.y / newZoom;[span_323](end_span)
+        [span_324](start_span)cam.clamp();[span_324](end_span)
+        [span_325](start_span)return;[span_325](end_span)
     }
 
-    [span_224](start_span)if (ts.length === 1) {[span_224](end_span)
-        [span_225](start_span)const t = ts[0];[span_225](end_span)
+    [span_326](start_span)if (ts.length === 1) {[span_326](end_span)
+        [span_327](start_span)const t = ts[0];[span_327](end_span)
 
-        [span_226](start_span)if (aimDrag.active && game.state === 'aiming') {[span_226](end_span)
-            [span_227](start_span)const dx = t.clientX - aimDrag.startX;[span_227](end_span)
-            [span_228](start_span)const dy = t.clientY - aimDrag.startY;[span_228](end_span)
-            [span_229](start_span)const len = Math.hypot(dx, dy);[span_229](end_span)
-            [span_230](start_span)if (len > 6) {[span_230](end_span)
-                [span_231](start_span)const angleDeg = Math.atan2(dy, dx) * 180 / Math.PI;[span_231](end_span)
-                [span_232](start_span)players[game.turn].angle = angleDeg;[span_232](end_span)
-                [span_233](start_span)setAngleDisplay(angleDeg);[span_233](end_span)
+        [span_328](start_span)if (aimDrag.active && game.state === 'aiming') {[span_328](end_span)
+            [span_329](start_span)const dx = t.clientX - aimDrag.startX;[span_329](end_span)
+            [span_330](start_span)const dy = t.clientY - aimDrag.startY;[span_330](end_span)
+            [span_331](start_span)const len = Math.hypot(dx, dy);[span_331](end_span)
+            [span_332](start_span)if (len > 6) {[span_332](end_span)
+                [span_333](start_span)const angleDeg = Math.atan2(dy, dx) * 180 / Math.PI;[span_333](end_span)
+                [span_334](start_span)players[game.turn].angle = angleDeg;[span_334](end_span)
+                [span_335](start_span)setAngleDisplay(angleDeg);[span_335](end_span)
             }
-        [span_234](start_span)} else if (panStart && game.state !== 'aiming') {[span_234](end_span)
-            [span_235](start_span)const dx = (t.clientX - panStart.sx) / cam.zoom;[span_235](end_span)
-            [span_236](start_span)const dy = (t.clientY - panStart.sy) / cam.zoom;[span_236](end_span)
-            [span_237](start_span)cam.x = panStart.cx - dx;[span_237](end_span)
-            [span_238](start_span)cam.y = panStart.cy - dy;[span_238](end_span)
-            [span_239](start_span)cam.clamp();[span_239](end_span)
+        [span_336](start_span)} else if (panStart && game.state !== 'aiming') {[span_336](end_span)
+            [span_337](start_span)const dx = (t.clientX - panStart.sx) / cam.zoom;[span_337](end_span)
+            [span_338](start_span)const dy = (t.clientY - panStart.sy) / cam.zoom;[span_338](end_span)
+            [span_339](start_span)cam.x = panStart.cx - dx;[span_339](end_span)
+            [span_340](start_span)cam.y = panStart.cy - dy;[span_340](end_span)
+            [span_341](start_span)cam.clamp();[span_341](end_span)
         }
     }
-}, { passive: false });
+[span_342](start_span)}, { passive: false });[span_342](end_span)
 
-canvas.addEventListener('touchend', (e) => {
-    [span_240](start_span)for (const t of e.changedTouches) delete activeTouches[t.identifier];[span_240](end_span)
-    [span_241](start_span)const remaining = Object.keys(activeTouches).length;[span_241](end_span)
+[span_343](start_span)canvas.addEventListener('touchend', (e) => {[span_343](end_span)
+    [span_344](start_span)for (const t of e.changedTouches) delete activeTouches[t.identifier];[span_344](end_span)
+    [span_345](start_span)const remaining = Object.keys(activeTouches).length;[span_345](end_span)
 
-    [span_242](start_span)if (remaining === 0) {[span_242](end_span)
-        [span_243](start_span)aimDrag.active = false;[span_243](end_span)
-        [span_244](start_span)pinchStart = null;[span_244](end_span)
-        [span_245](start_span)panStart = null;[span_245](end_span)
-    [span_246](start_span)} else if (remaining === 1) {[span_246](end_span)
-        [span_247](start_span)pinchStart = null;[span_247](end_span)
-        [span_248](start_span)const t = Object.values(activeTouches)[0];[span_248](end_span)
-        [span_249](start_span)panStart = { sx: t.clientX, sy: t.clientY, cx: cam.x, cy: cam.y };[span_249](end_span)
+    [span_346](start_span)if (remaining === 0) {[span_346](end_span)
+        [span_347](start_span)aimDrag.active = false;[span_347](end_span)
+        [span_348](start_span)pinchStart = null;[span_348](end_span)
+        [span_349](start_span)panStart = null;[span_349](end_span)
+    [span_350](start_span)} else if (remaining === 1) {[span_350](end_span)
+        [span_351](start_span)pinchStart = null;[span_351](end_span)
+        [span_352](start_span)const t = Object.values(activeTouches)[0];[span_352](end_span)
+        [span_353](start_span)panStart = { sx: t.clientX, sy: t.clientY, cx: cam.x, cy: cam.y };[span_353](end_span)
     }
 });
 
-[span_250](start_span)let mouseDown = false;[span_250](end_span)
-[span_251](start_span)let mouseAim  = false;[span_251](end_span)
-canvas.addEventListener('mousedown', (e) => {
-    [span_252](start_span)mouseDown = true;[span_252](end_span)
-    [span_253](start_span)if (game.state === 'aiming') {[span_253](end_span)
-        [span_254](start_span)mouseAim = true;[span_254](end_span)
-        [span_255](start_span)aimDrag = { active: true, startX: e.clientX, startY: e.clientY };[span_255](end_span)
-        [span_256](start_span)cam.animating = false;[span_256](end_span)
+[span_354](start_span)let mouseDown = false;[span_354](end_span)
+[span_355](start_span)let mouseAim  = false;[span_355](end_span)
+[span_356](start_span)canvas.addEventListener('mousedown', (e) => {[span_356](end_span)
+    [span_357](start_span)mouseDown = true;[span_357](end_span)
+    [span_358](start_span)if (game.state === 'aiming') {[span_358](end_span)
+        [span_359](start_span)mouseAim = true;[span_359](end_span)
+        [span_360](start_span)aimDrag = { active: true, startX: e.clientX, startY: e.clientY };[span_360](end_span)
+        [span_361](start_span)cam.animating = false;[span_361](end_span)
     } else {
-        [span_257](start_span)panStart = { sx: e.clientX, sy: e.clientY, cx: cam.x, cy: cam.y };[span_257](end_span)
+        [span_362](start_span)panStart = { sx: e.clientX, sy: e.clientY, cx: cam.x, cy: cam.y };[span_362](end_span)
     }
-});
+[span_363](start_span)});[span_363](end_span)
 
-canvas.addEventListener('mousemove', (e) => {
-    [span_258](start_span)if (!mouseDown) return;[span_258](end_span)
-    [span_259](start_span)if (mouseAim && game.state === 'aiming') {[span_259](end_span)
-        [span_260](start_span)const dx = e.clientX - aimDrag.startX;[span_260](end_span)
-        [span_261](start_span)const dy = e.clientY - aimDrag.startY;[span_261](end_span)
-        [span_262](start_span)if (Math.hypot(dx, dy) > 6) {[span_262](end_span)
-            [span_263](start_span)const deg = Math.atan2(dy, dx) * 180 / Math.PI;[span_263](end_span)
-            [span_264](start_span)players[game.turn].angle = deg;[span_264](end_span)
-            [span_265](start_span)setAngleDisplay(deg);[span_265](end_span)
+[span_364](start_span)canvas.addEventListener('mousemove', (e) => {[span_364](end_span)
+    [span_365](start_span)if (!mouseDown) return;[span_365](end_span)
+    [span_366](start_span)if (mouseAim && game.state === 'aiming') {[span_366](end_span)
+        [span_367](start_span)const dx = e.clientX - aimDrag.startX;[span_367](end_span)
+        [span_368](start_span)const dy = e.clientY - aimDrag.startY;[span_368](end_span)
+        [span_369](start_span)if (Math.hypot(dx, dy) > 6) {[span_369](end_span)
+            [span_370](start_span)const deg = Math.atan2(dy, dx) * 180 / Math.PI;[span_370](end_span)
+            [span_371](start_span)players[game.turn].angle = deg;[span_371](end_span)
+            [span_372](start_span)setAngleDisplay(deg);[span_372](end_span)
         }
-    [span_266](start_span)} else if (panStart) {[span_266](end_span)
-        [span_267](start_span)const dx = (e.clientX - panStart.sx) / cam.zoom;[span_267](end_span)
-        [span_268](start_span)const dy = (e.clientY - panStart.sy) / cam.zoom;[span_268](end_span)
-        [span_269](start_span)cam.x = panStart.cx - dx;[span_269](end_span)
-        [span_270](start_span)cam.y = panStart.cy - dy;[span_270](end_span)
-        [span_271](start_span)cam.clamp();[span_271](end_span)
+    [span_373](start_span)} else if (panStart) {[span_373](end_span)
+        [span_374](start_span)const dx = (e.clientX - panStart.sx) / cam.zoom;[span_374](end_span)
+        [span_375](start_span)const dy = (e.clientY - panStart.sy) / cam.zoom;[span_375](end_span)
+        [span_376](start_span)cam.x = panStart.cx - dx;[span_376](end_span)
+        [span_377](start_span)cam.y = panStart.cy - dy;[span_377](end_span)
+        [span_378](start_span)cam.clamp();[span_378](end_span)
     }
-});
+[span_379](start_span)});[span_379](end_span)
 
-canvas.addEventListener('mouseup', () => {
-    [span_272](start_span)mouseDown = false; mouseAim = false;[span_272](end_span)
-    [span_273](start_span)aimDrag.active = false; panStart = null;[span_273](end_span)
-});
+[span_380](start_span)canvas.addEventListener('mouseup', () => {[span_380](end_span)
+    [span_381](start_span)mouseDown = false; mouseAim = false;[span_381](end_span)
+    [span_382](start_span)aimDrag.active = false; panStart = null;[span_382](end_span)
+[span_383](start_span)});[span_383](end_span)
 
-canvas.addEventListener('wheel', (e) => {
-    [span_274](start_span)e.preventDefault();[span_274](end_span)
-    const factor = e.deltaY < 0 ? [span_275](start_span)1.1 : 0.9;[span_275](end_span)
-    [span_276](start_span)const newZoom = Math.max(0.4, Math.min(3.0, cam.zoom * factor));[span_276](end_span)
-    [span_277](start_span)const wx = e.clientX / cam.zoom + cam.x;[span_277](end_span)
-    [span_278](start_span)const wy = e.clientY / cam.zoom + cam.y;[span_278](end_span)
-    [span_279](start_span)cam.zoom = newZoom;[span_279](end_span)
-    [span_280](start_span)cam.x = wx - e.clientX / cam.zoom;[span_280](end_span)
-    [span_281](start_span)cam.y = wy - e.clientY / cam.zoom;[span_281](end_span)
-    [span_282](start_span)cam.clamp();[span_282](end_span)
-}, { passive: false });
+[span_384](start_span)canvas.addEventListener('wheel', (e) => {[span_384](end_span)
+    [span_385](start_span)e.preventDefault();[span_385](end_span)
+    const factor = e.deltaY < 0 ? [span_386](start_span)1.1 : 0.9;[span_386](end_span)
+    [span_387](start_span)const newZoom = Math.max(0.4, Math.min(3.0, cam.zoom * factor));[span_387](end_span)
+    [span_388](start_span)const wx = e.clientX / cam.zoom + cam.x;[span_388](end_span)
+    [span_389](start_span)const wy = e.clientY / cam.zoom + cam.y;[span_389](end_span)
+    [span_390](start_span)cam.zoom = newZoom;[span_390](end_span)
+    [span_391](start_span)cam.x = wx - e.clientX / cam.zoom;[span_391](end_span)
+    [span_392](start_span)cam.y = wy - e.clientY / cam.zoom;[span_392](end_span)
+    [span_393](start_span)cam.clamp();[span_393](end_span)
+[span_394](start_span)}, { passive: false });[span_394](end_span)
 
 // ═══════════════════════════════════════════════════════
 //  EXPLOSION / GAME OVER
 // ═══════════════════════════════════════════════════════
 function triggerExplosion(ex, ey) {
-    [span_283](start_span)explosion = { active: true, x: ex, y: ey, t: 0 };[span_283](end_span)
-    [span_284](start_span)destroyTerrain(ex, ey, BLAST_RADIUS);[span_284](end_span)
+    [span_395](start_span)explosion = { active: true, x: ex, y: ey, t: 0 };[span_395](end_span)
+    [span_396](start_span)destroyTerrain(ex, ey, BLAST_RADIUS);[span_396](end_span)
 
-    [span_285](start_span)for (let p = 1; p <= 2; p++) {[span_285](end_span)
-        [span_286](start_span)const dx = players[p].x - ex;[span_286](end_span)
-        [span_287](start_span)const dy = (players[p].y + TANK_RADIUS) - ey;[span_287](end_span)
-        [span_288](start_span)if (Math.hypot(dx, dy) < BLAST_RADIUS) players[p].alive = false;[span_288](end_span)
+    [span_397](start_span)for (let p = 1; p <= 2; p++) {[span_397](end_span)
+        [span_398](start_span)const dx = players[p].x - ex;[span_398](end_span)
+        [span_399](start_span)const dy = (players[p].y + TANK_RADIUS) - ey;[span_399](end_span)
+        [span_400](start_span)if (Math.hypot(dx, dy) < BLAST_RADIUS) players[p].alive = false;[span_400](end_span)
     }
-    [span_289](start_span)checkGameOver();[span_289](end_span)
+
+    [span_401](start_span)checkGameOver();[span_401](end_span)
 }
 
 function checkGameOver() {
-    [span_290](start_span)const both = !players[1].alive && !players[2].alive;[span_290](end_span)
-    [span_291](start_span)const p1d  = !players[1].alive;[span_291](end_span)
-    [span_292](start_span)const p2d  = !players[2].alive;[span_292](end_span)
-    [span_293](start_span)if (both || p1d || p2d) {[span_293](end_span)
-        [span_294](start_span)game.state = 'game_over';[span_294](end_span)
-        const title = both ? [span_295](start_span)'DRAW' : (p2d ? 'PLAYER 1 WINS' : 'PLAYER 2 WINS');[span_295](end_span)
-        [span_296](start_span)document.getElementById('overlay-title').textContent = title;[span_296](end_span)
-        document.getElementById('overlay-title').style.color = both ? '#fff' : COLORS[p2d ? [span_297](start_span)1 : 2];[span_297](end_span)
-        [span_298](start_span)document.getElementById('overlay').classList.remove('hidden');[span_298](end_span)
-        [span_299](start_span)return true;[span_299](end_span)
+    [span_402](start_span)const both = !players[1].alive && !players[2].alive;[span_402](end_span)
+    [span_403](start_span)const p1d  = !players[1].alive;[span_403](end_span)
+    [span_404](start_span)const p2d  = !players[2].alive;[span_404](end_span)
+    [span_405](start_span)if (both || p1d || p2d) {[span_405](end_span)
+        [span_406](start_span)game.state = 'game_over';[span_406](end_span)
+        const title = both ? [span_407](start_span)'DRAW' : (p2d ? 'PLAYER 1 WINS' : 'PLAYER 2 WINS');[span_407](end_span)
+        [span_408](start_span)document.getElementById('overlay-title').textContent = title;[span_408](end_span)
+        document.getElementById('overlay-title').style.color = both ? '#fff' : COLORS[p2d ? [span_409](start_span)1 : 2];[span_409](end_span)
+        [span_410](start_span)document.getElementById('overlay').classList.remove('hidden');[span_410](end_span)
+        [span_411](start_span)return true;[span_411](end_span)
     }
-    [span_300](start_span)return false;[span_300](end_span)
+    [span_412](start_span)return false;[span_412](end_span)
 }
 
 function endTurn() {
-    [span_301](start_span)if (game.state === 'game_over') return;[span_301](end_span)
-    game.turn = game.turn === 1 ? [span_302](start_span)2 : 1;[span_302](end_span)
-    [span_303](start_span)generateWind();[span_303](end_span)
-    [span_304](start_span)game.state = 'aiming';[span_304](end_span)
-    [span_305](start_span)updateWindDisplay();[span_305](end_span)
-    [span_306](start_span)syncControlsFromPlayer();[span_306](end_span)
-    [span_307](start_span)const p = players[game.turn];[span_307](end_span)
-    [span_308](start_span)cam.focusOn(p.x, p.y, 1.4);[span_308](end_span)
+    [span_413](start_span)if (game.state === 'game_over') return;[span_413](end_span)
+    game.turn = game.turn === 1 ? [span_414](start_span)2 : 1;[span_414](end_span)
+    [span_415](start_span)generateWind();[span_415](end_span)
+    [span_416](start_span)game.state = 'aiming';[span_416](end_span)
+    [span_417](start_span)updateWindDisplay();[span_417](end_span)
+    [span_418](start_span)syncControlsFromPlayer();[span_418](end_span)
+    [span_419](start_span)const p = players[game.turn];[span_419](end_span)
+    [span_420](start_span)cam.focusOn(p.x, p.y, 1.4);[span_420](end_span)
 }
 
 function updateWindDisplay() {
-    const dir  = wind >= 0 ? [span_309](start_span)'→' : '←';[span_309](end_span)
-    [span_310](start_span)const spd  = Math.abs(wind * 300).toFixed(1);[span_310](end_span)
-    [span_311](start_span)document.getElementById('wind-display').textContent = `WIND ${dir} ${spd}`;[span_311](end_span)
+    const dir  = wind >= 0 ? [span_421](start_span)'→' : '←';[span_421](end_span)
+    [span_422](start_span)const spd  = Math.abs(wind * 300).toFixed(1);[span_422](end_span)
+    [span_423](start_span)document.getElementById('wind-display').textContent = `WIND ${dir} ${spd}`;[span_423](end_span)
 }
 
-document.getElementById('restart-btn').addEventListener('click', () => {
-    [span_312](start_span)document.getElementById('overlay').classList.add('hidden');[span_312](end_span)
-    [span_313](start_span)buildTerrain();[span_313](end_span)
-    [span_314](start_span)placePlayers();[span_314](end_span)
-    [span_315](start_span)generateWind();[span_315](end_span)
-    [span_316](start_span)explosion.active = false;[span_316](end_span)
-    [span_317](start_span)proj.active = false;[span_317](end_span)
-    [span_318](start_span)game.turn = 1;[span_318](end_span)
-    [span_319](start_span)game.state = 'aiming';[span_319](end_span)
-    [span_320](start_span)cam.focusOn(players[1].x, players[1].y, 1.4);[span_320](end_span)
-    [span_321](start_span)syncControlsFromPlayer();[span_321](end_span)
-    [span_322](start_span)updateWindDisplay();[span_322](end_span)
+[span_424](start_span)document.getElementById('restart-btn').addEventListener('click', () => {[span_424](end_span)
+    [span_425](start_span)document.getElementById('overlay').classList.add('hidden');[span_425](end_span)
+    [span_426](start_span)buildTerrain();[span_426](end_span)
+    [span_427](start_span)placePlayers();[span_427](end_span)
+    [span_428](start_span)generateWind();[span_428](end_span)
+    [span_429](start_span)explosion.active = false;[span_429](end_span)
+    [span_430](start_span)proj.active = false;[span_430](end_span)
+    [span_431](start_span)game.turn = 1;[span_431](end_span)
+    [span_432](start_span)game.state = 'aiming';[span_432](end_span)
+    [span_433](start_span)cam.focusOn(players[1].x, players[1].y, 1.4);[span_433](end_span)
+    [span_434](start_span)syncControlsFromPlayer();[span_434](end_span)
+    [span_435](start_span)updateWindDisplay();[span_435](end_span)
 });
 
 // ═══════════════════════════════════════════════════════
 //  UPDATE LOOP
 // ═══════════════════════════════════════════════════════
 function update() {
-    [span_323](start_span)cam.update();[span_323](end_span)
-    [span_324](start_span)if (game.state === 'flying' && proj.active) {[span_324](end_span)
-        [span_325](start_span)proj.vx += wind;[span_325](end_span)
-        [span_326](start_span)proj.vy += GRAVITY;[span_326](end_span)
-        [span_327](start_span)proj.x  += proj.vx;[span_327](end_span)
-        [span_328](start_span)proj.y  += proj.vy;[span_328](end_span)
+    [span_436](start_span)cam.update();[span_436](end_span)
+    [span_437](start_span)if (game.state === 'flying' && proj.active) {[span_437](end_span)
+        [span_438](start_span)proj.vx += wind;[span_438](end_span)
+        [span_439](start_span)proj.vy += GRAVITY;[span_439](end_span)
+        [span_440](start_span)proj.x  += proj.vx;[span_440](end_span)
+        [span_441](start_span)proj.y  += proj.vy;[span_441](end_span)
 
-        [span_329](start_span)proj.trail.push({ x: proj.x, y: proj.y });[span_329](end_span)
-        [span_330](start_span)if (proj.trail.length > 20) proj.trail.shift();[span_330](end_span)
-        [span_331](start_span)if (proj.x < 0 || proj.x > MAP_W || proj.y > MAP_H) {[span_331](end_span)
-            [span_332](start_span)proj.active = false;[span_332](end_span)
-            [span_333](start_span)setTimeout(endTurn, 200);[span_333](end_span)
-            [span_334](start_span)return;[span_334](end_span)
+        [span_442](start_span)proj.trail.push({ x: proj.x, y: proj.y });[span_442](end_span)
+        [span_443](start_span)if (proj.trail.length > 20) proj.trail.shift();[span_443](end_span)
+        [span_444](start_span)if (proj.x < 0 || proj.x > MAP_W || proj.y > MAP_H) {[span_444](end_span)
+            [span_445](start_span)proj.active = false;[span_445](end_span)
+            [span_446](start_span)setTimeout(endTurn, 200);[span_446](end_span)
+            [span_447](start_span)return;[span_447](end_span)
         }
 
-        [span_335](start_span)if (isSolid(proj.x, proj.y)) {[span_335](end_span)
-            [span_336](start_span)proj.active = false;[span_336](end_span)
-            [span_337](start_span)triggerExplosion(proj.x, proj.y);[span_337](end_span)
-            [span_338](start_span)if (game.state !== 'game_over') setTimeout(endTurn, 600);[span_338](end_span)
+        [span_448](start_span)if (isSolid(proj.x, proj.y)) {[span_448](end_span)
+            [span_449](start_span)proj.active = false;[span_449](end_span)
+            [span_450](start_span)triggerExplosion(proj.x, proj.y);[span_450](end_span)
+            [span_451](start_span)if (game.state !== 'game_over') setTimeout(endTurn, 600);[span_451](end_span)
         }
     }
 
-    [span_339](start_span)if (explosion.active) {[span_339](end_span)
-        [span_340](start_span)explosion.t++;[span_340](end_span)
-        [span_341](start_span)if (explosion.t > 30) explosion.active = false;[span_341](end_span)
+    if (explosion.active) {
+        [span_452](start_span)explosion.t++;[span_452](end_span)
+        [span_453](start_span)if (explosion.t > 30) explosion.active = false;[span_453](end_span)
     }
 }
 
@@ -801,156 +800,156 @@ function update() {
 //  DRAW
 // ═══════════════════════════════════════════════════════
 function drawArrow(wx, wy, angleDeg, power, color) {
-    [span_342](start_span)const rad    = angleDeg * Math.PI / 180;[span_342](end_span)
-    [span_343](start_span)const len    = 20 + power * 0.6;[span_343](end_span)
-    [span_344](start_span)const ex     = wx + Math.cos(rad) * len;[span_344](end_span)
-    [span_345](start_span)const ey     = wy + Math.sin(rad) * len;[span_345](end_span)
+    [span_454](start_span)const rad    = angleDeg * Math.PI / 180;[span_454](end_span)
+    [span_455](start_span)const len    = 20 + power * 0.6;[span_455](end_span)
+    [span_456](start_span)const ex     = wx + Math.cos(rad) * len;[span_456](end_span)
+    [span_457](start_span)const ey     = wy + Math.sin(rad) * len;[span_457](end_span)
 
-    [span_346](start_span)ctx.save();[span_346](end_span)
-    [span_347](start_span)ctx.strokeStyle = color;[span_347](end_span)
-    [span_348](start_span)ctx.lineWidth   = 2 / cam.zoom;[span_348](end_span)
-    [span_349](start_span)ctx.globalAlpha = 0.85;[span_349](end_span)
-    [span_350](start_span)ctx.setLineDash([4 / cam.zoom, 4 / cam.zoom]);[span_350](end_span)
-    [span_351](start_span)ctx.beginPath();[span_351](end_span)
-    [span_352](start_span)ctx.moveTo(wx, wy - TANK_RADIUS);[span_352](end_span)
-    [span_353](start_span)ctx.lineTo(ex, ey - TANK_RADIUS);[span_353](end_span)
-    [span_354](start_span)ctx.stroke();[span_354](end_span)
-    [span_355](start_span)ctx.setLineDash([]);[span_355](end_span)
+    [span_458](start_span)ctx.save();[span_458](end_span)
+    [span_459](start_span)ctx.strokeStyle = color;[span_459](end_span)
+    [span_460](start_span)ctx.lineWidth   = 2 / cam.zoom;[span_460](end_span)
+    [span_461](start_span)ctx.globalAlpha = 0.85;[span_461](end_span)
+    [span_462](start_span)ctx.setLineDash([4 / cam.zoom, 4 / cam.zoom]);[span_462](end_span)
+    [span_463](start_span)ctx.beginPath();[span_463](end_span)
+    [span_464](start_span)ctx.moveTo(wx, wy - TANK_RADIUS);[span_464](end_span)
+    [span_465](start_span)ctx.lineTo(ex, ey - TANK_RADIUS);[span_465](end_span)
+    [span_466](start_span)ctx.stroke();[span_466](end_span)
+    [span_467](start_span)ctx.setLineDash([]);[span_467](end_span)
     
-    [span_356](start_span)const aw = 8 / cam.zoom;[span_356](end_span)
-    [span_357](start_span)ctx.fillStyle = color;[span_357](end_span)
-    [span_358](start_span)ctx.beginPath();[span_358](end_span)
-    [span_359](start_span)ctx.translate(ex, ey - TANK_RADIUS);[span_359](end_span)
-    [span_360](start_span)ctx.rotate(rad);[span_360](end_span)
-    [span_361](start_span)ctx.moveTo(aw, 0);[span_361](end_span)
-    [span_362](start_span)ctx.lineTo(-aw * 0.6, -aw * 0.5);[span_362](end_span)
-    [span_363](start_span)ctx.lineTo(-aw * 0.6,  aw * 0.5);[span_363](end_span)
-    [span_364](start_span)ctx.closePath();[span_364](end_span)
-    [span_365](start_span)ctx.fill();[span_365](end_span)
-    [span_366](start_span)ctx.restore();[span_366](end_span)
+    [span_468](start_span)const aw = 8 / cam.zoom;[span_468](end_span)
+    [span_469](start_span)ctx.fillStyle = color;[span_469](end_span)
+    [span_470](start_span)ctx.beginPath();[span_470](end_span)
+    [span_471](start_span)ctx.translate(ex, ey - TANK_RADIUS);[span_471](end_span)
+    [span_472](start_span)ctx.rotate(rad);[span_472](end_span)
+    [span_473](start_span)ctx.moveTo(aw, 0);[span_473](end_span)
+    [span_474](start_span)ctx.lineTo(-aw * 0.6, -aw * 0.5);[span_474](end_span)
+    [span_475](start_span)ctx.lineTo(-aw * 0.6,  aw * 0.5);[span_475](end_span)
+    [span_476](start_span)ctx.closePath();[span_476](end_span)
+    [span_477](start_span)ctx.fill();[span_477](end_span)
+    [span_478](start_span)ctx.restore();[span_478](end_span)
 }
 
 function draw() {
-    [span_367](start_span)const drawH = vh - 85;[span_367](end_span)
+    const drawH = vh - 85;
 
-    [span_368](start_span)ctx.clearRect(0, 0, vw, vh);[span_368](end_span)
-    [span_369](start_span)const sky = ctx.createLinearGradient(0, 0, 0, drawH);[span_369](end_span)
-    [span_370](start_span)sky.addColorStop(0, '#0a0520');[span_370](end_span)
-    [span_371](start_span)sky.addColorStop(1, '#1a0b3c');[span_371](end_span)
-    [span_372](start_span)ctx.fillStyle = sky;[span_372](end_span)
-    [span_373](start_span)ctx.fillRect(0, 0, vw, drawH);[span_373](end_span)
+    [span_479](start_span)ctx.clearRect(0, 0, vw, vh);[span_479](end_span)
+    [span_480](start_span)const sky = ctx.createLinearGradient(0, 0, 0, drawH);[span_480](end_span)
+    [span_481](start_span)sky.addColorStop(0, '#0a0520');[span_481](end_span)
+    [span_482](start_span)sky.addColorStop(1, '#1a0b3c');[span_482](end_span)
+    [span_483](start_span)ctx.fillStyle = sky;[span_483](end_span)
+    [span_484](start_span)ctx.fillRect(0, 0, vw, drawH);[span_484](end_span)
 
-    [span_374](start_span)ctx.save();[span_374](end_span)
-    [span_375](start_span)ctx.beginPath();[span_375](end_span)
-    [span_376](start_span)ctx.rect(0, 0, vw, drawH);[span_376](end_span)
-    [span_377](start_span)ctx.clip();[span_377](end_span)
-    [span_378](start_span)ctx.scale(cam.zoom, cam.zoom);[span_378](end_span)
-    [span_379](start_span)ctx.translate(-cam.x, -cam.y);[span_379](end_span)
+    [span_485](start_span)ctx.save();[span_485](end_span)
+    [span_486](start_span)ctx.beginPath();[span_486](end_span)
+    [span_487](start_span)ctx.rect(0, 0, vw, drawH);[span_487](end_span)
+    [span_488](start_span)ctx.clip();[span_488](end_span)
+    [span_489](start_span)ctx.scale(cam.zoom, cam.zoom);[span_489](end_span)
+    [span_490](start_span)ctx.translate(-cam.x, -cam.y);[span_490](end_span)
 
-    [span_380](start_span)if (terrainCanvas) {[span_380](end_span)
-        [span_381](start_span)ctx.drawImage(terrainCanvas, 0, 0);[span_381](end_span)
+    [span_491](start_span)if (terrainCanvas) {[span_491](end_span)
+        [span_492](start_span)ctx.drawImage(terrainCanvas, 0, 0);[span_492](end_span)
     }
 
-    [span_382](start_span)for (let p = 1; p <= 2; p++) {[span_382](end_span)
-        [span_383](start_span)const tank = players[p];[span_383](end_span)
-        [span_384](start_span)if (!tank.alive) continue;[span_384](end_span)
+    [span_493](start_span)for (let p = 1; p <= 2; p++) {[span_493](end_span)
+        [span_494](start_span)const tank = players[p];[span_494](end_span)
+        [span_495](start_span)if (!tank.alive) continue;[span_495](end_span)
 
-        [span_385](start_span)ctx.fillStyle = tank.color;[span_385](end_span)
-        [span_386](start_span)ctx.shadowColor = tank.color;[span_386](end_span)
-        [span_387](start_span)ctx.shadowBlur  = 8;[span_387](end_span)
-        [span_388](start_span)ctx.beginPath();[span_388](end_span)
-        [span_389](start_span)ctx.arc(tank.x, tank.y, TANK_RADIUS, Math.PI, 0);[span_389](end_span)
-        [span_390](start_span)ctx.fill();[span_390](end_span)
-        [span_391](start_span)ctx.fillRect(tank.x - TANK_RADIUS, tank.y, TANK_RADIUS * 2, 6);[span_391](end_span)
-        [span_392](start_span)ctx.shadowBlur = 0;[span_392](end_span)
+        [span_496](start_span)ctx.fillStyle = tank.color;[span_496](end_span)
+        [span_497](start_span)ctx.shadowColor = tank.color;[span_497](end_span)
+        [span_498](start_span)ctx.shadowBlur  = 8;[span_498](end_span)
+        [span_499](start_span)ctx.beginPath();[span_499](end_span)
+        [span_500](start_span)ctx.arc(tank.x, tank.y, TANK_RADIUS, Math.PI, 0);[span_500](end_span)
+        [span_501](start_span)ctx.fill();[span_501](end_span)
+        [span_502](start_span)ctx.fillRect(tank.x - TANK_RADIUS, tank.y, TANK_RADIUS * 2, 6);[span_502](end_span)
+        [span_503](start_span)ctx.shadowBlur = 0;[span_503](end_span)
 
-        [span_393](start_span)const rad = tank.angle * Math.PI / 180;[span_393](end_span)
-        [span_394](start_span)ctx.strokeStyle = tank.color;[span_394](end_span)
-        [span_395](start_span)ctx.lineWidth   = 4;[span_395](end_span)
-        [span_396](start_span)ctx.lineCap     = 'round';[span_396](end_span)
-        [span_397](start_span)ctx.beginPath();[span_397](end_span)
-        [span_398](start_span)ctx.moveTo(tank.x, tank.y - TANK_RADIUS * 0.3);[span_398](end_span)
-        ctx.lineTo(
-            tank.x + Math.cos(rad) * TANK_RADIUS * 1.6,
-            tank.y - TANK_RADIUS * 0.3 + Math.sin(rad) * TANK_RADIUS * 1.6
-        );
-        [span_399](start_span)ctx.stroke();[span_399](end_span)
+        [span_504](start_span)const rad = tank.angle * Math.PI / 180;[span_504](end_span)
+        [span_505](start_span)ctx.strokeStyle = tank.color;[span_505](end_span)
+        [span_506](start_span)ctx.lineWidth   = 4;[span_506](end_span)
+        [span_507](start_span)ctx.lineCap     = 'round';[span_507](end_span)
+        [span_508](start_span)ctx.beginPath();[span_508](end_span)
+        [span_509](start_span)ctx.moveTo(tank.x, tank.y - TANK_RADIUS * 0.3);[span_509](end_span)
+        [span_510](start_span)ctx.lineTo([span_510](end_span)
+            [span_511](start_span)tank.x + Math.cos(rad) * TANK_RADIUS * 1.6,[span_511](end_span)
+            [span_512](start_span)tank.y - TANK_RADIUS * 0.3 + Math.sin(rad) * TANK_RADIUS * 1.6[span_512](end_span)
+        [span_513](start_span));[span_513](end_span)
+        [span_514](start_span)ctx.stroke();[span_514](end_span)
 
-        [span_400](start_span)if (game.state === 'aiming' && game.turn === p) {[span_400](end_span)
-            [span_401](start_span)drawArrow(tank.x, tank.y, tank.angle, tank.power, tank.color);[span_401](end_span)
+        [span_515](start_span)if (game.state === 'aiming' && game.turn === p) {[span_515](end_span)
+            [span_516](start_span)drawArrow(tank.x, tank.y, tank.angle, tank.power, tank.color);[span_516](end_span)
         }
     }
 
-    [span_402](start_span)if (proj.trail.length > 1) {[span_402](end_span)
-        [span_403](start_span)ctx.strokeStyle = 'rgba(255,255,180,0.4)';[span_403](end_span)
-        [span_404](start_span)ctx.lineWidth   = 2;[span_404](end_span)
-        [span_405](start_span)ctx.beginPath();[span_405](end_span)
-        [span_406](start_span)ctx.moveTo(proj.trail[0].x, proj.trail[0].y);[span_406](end_span)
-        [span_407](start_span)for (const p of proj.trail) ctx.lineTo(p.x, p.y);[span_407](end_span)
-        [span_408](start_span)ctx.stroke();[span_408](end_span)
+    [span_517](start_span)if (proj.trail.length > 1) {[span_517](end_span)
+        [span_518](start_span)ctx.strokeStyle = 'rgba(255,255,180,0.4)';[span_518](end_span)
+        [span_519](start_span)ctx.lineWidth   = 2;[span_519](end_span)
+        [span_520](start_span)ctx.beginPath();[span_520](end_span)
+        [span_521](start_span)ctx.moveTo(proj.trail[0].x, proj.trail[0].y);[span_521](end_span)
+        [span_522](start_span)for (const p of proj.trail) ctx.lineTo(p.x, p.y);[span_522](end_span)
+        [span_523](start_span)ctx.stroke();[span_523](end_span)
     }
 
-    [span_409](start_span)if (proj.active) {[span_409](end_span)
-        [span_410](start_span)ctx.fillStyle  = '#fff';[span_410](end_span)
-        [span_411](start_span)ctx.shadowColor = '#ffff88';[span_411](end_span)
-        [span_412](start_span)ctx.shadowBlur  = 10;[span_412](end_span)
-        [span_413](start_span)ctx.beginPath();[span_413](end_span)
-        [span_414](start_span)ctx.arc(proj.x, proj.y, 5, 0, Math.PI * 2);[span_414](end_span)
-        [span_415](start_span)ctx.fill();[span_415](end_span)
-        [span_416](start_span)ctx.shadowBlur = 0;[span_416](end_span)
+    [span_524](start_span)if (proj.active) {[span_524](end_span)
+        [span_525](start_span)ctx.fillStyle  = '#fff';[span_525](end_span)
+        [span_526](start_span)ctx.shadowColor = '#ffff88';[span_526](end_span)
+        [span_527](start_span)ctx.shadowBlur  = 10;[span_527](end_span)
+        [span_528](start_span)ctx.beginPath();[span_528](end_span)
+        [span_529](start_span)ctx.arc(proj.x, proj.y, 5, 0, Math.PI * 2);[span_529](end_span)
+        [span_530](start_span)ctx.fill();[span_530](end_span)
+        [span_531](start_span)ctx.shadowBlur = 0;[span_531](end_span)
     }
 
-    [span_417](start_span)if (explosion.active) {[span_417](end_span)
-        [span_418](start_span)const progress = explosion.t / 30;[span_418](end_span)
-        [span_419](start_span)const r = BLAST_RADIUS * progress;[span_419](end_span)
-        [span_420](start_span)const alpha = 1 - progress;[span_420](end_span)
-        [span_421](start_span)const grad = ctx.createRadialGradient(explosion.x, explosion.y, 0, explosion.x, explosion.y, r);[span_421](end_span)
-        [span_422](start_span)grad.addColorStop(0, `rgba(255,255,180,${alpha})`);[span_422](end_span)
-        [span_423](start_span)grad.addColorStop(0.4, `rgba(255,120,30,${alpha * 0.8})`);[span_423](end_span)
-        [span_424](start_span)grad.addColorStop(1, `rgba(255,60,0,0)`);[span_424](end_span)
-        [span_425](start_span)ctx.fillStyle = grad;[span_425](end_span)
-        [span_426](start_span)ctx.beginPath();[span_426](end_span)
-        [span_427](start_span)ctx.arc(explosion.x, explosion.y, r, 0, Math.PI * 2);[span_427](end_span)
-        [span_428](start_span)ctx.fill();[span_428](end_span)
+    [span_532](start_span)if (explosion.active) {[span_532](end_span)
+        [span_533](start_span)const progress = explosion.t / 30;[span_533](end_span)
+        [span_534](start_span)const r = BLAST_RADIUS * progress;[span_534](end_span)
+        [span_535](start_span)const alpha = 1 - progress;[span_535](end_span)
+        [span_536](start_span)const grad = ctx.createRadialGradient(explosion.x, explosion.y, 0, explosion.x, explosion.y, r);[span_536](end_span)
+        [span_537](start_span)grad.addColorStop(0, `rgba(255,255,180,${alpha})`);[span_537](end_span)
+        [span_538](start_span)grad.addColorStop(0.4, `rgba(255,120,30,${alpha * 0.8})`);[span_538](end_span)
+        [span_539](start_span)grad.addColorStop(1, `rgba(255,60,0,0)`);[span_539](end_span)
+        [span_540](start_span)ctx.fillStyle = grad;[span_540](end_span)
+        [span_541](start_span)ctx.beginPath();[span_541](end_span)
+        [span_542](start_span)ctx.arc(explosion.x, explosion.y, r, 0, Math.PI * 2);[span_542](end_span)
+        [span_543](start_span)ctx.fill();[span_543](end_span)
     }
 
-    [span_429](start_span)ctx.restore();[span_429](end_span)
+    [span_544](start_span)ctx.restore();[span_544](end_span)
 }
 
 function resize() {
-    vw = window.innerWidth;
-    vh = window.innerHeight;
-    [span_430](start_span)canvas.width  = vw;[span_430](end_span)
-    [span_431](start_span)canvas.height = vh;[span_431](end_span)
+    [span_545](start_span)vw = window.innerWidth;[span_545](end_span)
+    [span_546](start_span)vh = window.innerHeight;[span_546](end_span)
+    [span_547](start_span)canvas.width  = vw;[span_547](end_span)
+    [span_548](start_span)canvas.height = vh;[span_548](end_span)
     updateMinimap();
 }
 
 function loop() {
-    [span_432](start_span)update();[span_432](end_span)
-    [span_433](start_span)draw();[span_433](end_span)
-    [span_434](start_span)requestAnimationFrame(loop);[span_434](end_span)
+    [span_549](start_span)update();[span_549](end_span)
+    [span_550](start_span)draw();[span_550](end_span)
+    [span_551](start_span)requestAnimationFrame(loop);[span_551](end_span)
 }
 
 function init() {
-    [span_435](start_span)resize();[span_435](end_span)
-    [span_436](start_span)window.addEventListener('resize', resize);[span_436](end_span)
-    [span_437](start_span)window.addEventListener('contextmenu', e => e.preventDefault());[span_437](end_span)
+    [span_552](start_span)resize();[span_552](end_span)
+    [span_553](start_span)window.addEventListener('resize', resize);[span_553](end_span)
+    [span_554](start_span)window.addEventListener('contextmenu', e => e.preventDefault());[span_554](end_span)
 
-    [span_438](start_span)buildTerrain();[span_438](end_span)
-    [span_439](start_span)placePlayers();[span_439](end_span)
-    [span_440](start_span)generateWind();[span_440](end_span)
-    [span_441](start_span)updateWindDisplay();[span_441](end_span)
-    [span_442](start_span)syncControlsFromPlayer();[span_442](end_span)
+    [span_555](start_span)buildTerrain();[span_555](end_span)
+    [span_556](start_span)placePlayers();[span_556](end_span)
+    [span_557](start_span)generateWind();[span_557](end_span)
+    [span_558](start_span)updateWindDisplay();[span_558](end_span)
+    [span_559](start_span)syncControlsFromPlayer();[span_559](end_span)
 
-    [span_443](start_span)cam.x = players[1].x - vw / 2 / 1.4;[span_443](end_span)
+    [span_560](start_span)cam.x = players[1].x - vw / 2 / 1.4;[span_560](end_span)
     cam.y = players[1].y - (vh - 85) / 2 / 1.4;
-    [span_444](start_span)cam.zoom = 1.4;[span_444](end_span)
-    [span_445](start_span)cam.clamp();[span_445](end_span)
+    [span_561](start_span)cam.zoom = 1.4;[span_561](end_span)
+    [span_562](start_span)cam.clamp();[span_562](end_span)
 
-    [span_446](start_span)loop();[span_446](end_span)
+    [span_563](start_span)loop();[span_563](end_span)
 }
 
-[span_447](start_span)init();[span_447](end_span)
+[span_564](start_span)init();[span_564](end_span)
 </script>
 </body>
 </html>
