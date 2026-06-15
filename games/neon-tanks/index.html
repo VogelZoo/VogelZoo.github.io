@@ -3,455 +3,965 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Touch Artillery Sandbox</title>
+    <title>Artillery // DUEL</title>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
         body, html {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #111;
-            font-family: sans-serif;
+            width: 100%; height: 100%; overflow: hidden;
+            background: #0a0a12;
+            font-family: 'Courier New', monospace;
             touch-action: none;
             user-select: none;
             -webkit-user-select: none;
         }
+
         #gameContainer {
             position: relative;
             width: 100vw;
             height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            overflow: hidden;
         }
+
         canvas {
-            background: linear-gradient(to bottom, #1a0b2e, #0b0518);
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
-        }
-        /* Rotated UI for Player 2 at the top */
-        .ui-panel {
             position: absolute;
-            padding: 15px;
-            color: #fff;
-            font-weight: bold;
+            top: 0; left: 0;
+            image-rendering: pixelated;
+        }
+
+        /* ── HUD ─────────────────────────────────────────────── */
+        #hud {
+            position: absolute;
+            top: 0; left: 0; right: 0;
             pointer-events: none;
-            font-size: 14px;
+            z-index: 10;
+        }
+
+        #turn-banner {
+            text-align: center;
+            padding: 8px 20px;
+            font-size: 13px;
+            letter-spacing: 3px;
             text-transform: uppercase;
+            color: #fff;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(4px);
+        }
+
+        #turn-banner span { font-weight: bold; }
+
+        #wind-display {
+            position: absolute;
+            top: 38px; left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            color: #aaa;
+            letter-spacing: 2px;
+            background: rgba(0,0,0,0.4);
+            padding: 3px 10px;
+            border-radius: 4px;
+        }
+
+        /* ── Player stat pills ────────────────────────────────── */
+        #p1-hud, #p2-hud {
+            position: absolute;
+            top: 8px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11px;
             letter-spacing: 1px;
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
+            text-transform: uppercase;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            pointer-events: none;
         }
-        #ui-p2 {
-            top: 10px;
-            left: 10px;
-            right: 10px;
-            transform: rotate(180deg);
-            text-align: right;
-        }
-        #ui-p1 {
-            bottom: 10px;
-            left: 10px;
-            right: 10px;
-        }
-        .turn-indicator {
-            color: #ff3366;
-            animation: pulse 1s infinite alternate;
-        }
+        #p1-hud { left: 10px; border-left: 3px solid #ff3366; color: #ff3366; }
+        #p2-hud { right: 10px; border-right: 3px solid #33ffcc; color: #33ffcc; text-align: right; }
+
+        .hud-label { font-size: 9px; color: #888; margin-bottom: 2px; }
+        .hud-name  { font-size: 12px; font-weight: bold; }
+        .hud-active { animation: pulse 0.9s infinite alternate; }
+
         @keyframes pulse {
             from { opacity: 0.6; }
-            to { opacity: 1; }
+            to   { opacity: 1.0; }
+        }
+
+        /* ── Controls bar (bottom) ───────────────────────────── */
+        #controls {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 80px;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(6px);
+            border-top: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            gap: 16px;
+            z-index: 10;
+        }
+
+        /* Aim info */
+        #aim-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 90px;
+        }
+        .aim-label { font-size: 10px; color: #555; letter-spacing: 1px; text-transform: uppercase; }
+        .aim-value { font-size: 18px; font-weight: bold; font-variant-numeric: tabular-nums; }
+
+        /* Power slider */
+        #power-wrap {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        #power-wrap label {
+            font-size: 10px;
+            color: #555;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        #power-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            background: linear-gradient(to right, #333, #555);
+            border-radius: 4px;
+            outline: none;
+            cursor: pointer;
+        }
+        #power-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            background: #fff;
+            border: 3px solid currentColor;
+            cursor: pointer;
+        }
+        #power-value {
+            font-size: 10px;
+            color: #888;
+            text-align: right;
+            letter-spacing: 1px;
+        }
+
+        /* Fire button */
+        #fire-btn {
+            width: 64px; height: 64px;
+            border-radius: 50%;
+            border: 2px solid currentColor;
+            background: rgba(255,255,255,0.05);
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-family: 'Courier New', monospace;
+            transition: background 0.15s;
+            touch-action: manipulation;
+            flex-shrink: 0;
+        }
+        #fire-btn:active { background: rgba(255,255,255,0.15); }
+
+        /* ── Game-over overlay ───────────────────────────────── */
+        #overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            color: #fff;
+        }
+        #overlay h1 {
+            font-size: 32px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+        }
+        #overlay button {
+            margin-top: 24px;
+            padding: 12px 32px;
+            border: 1px solid #fff;
+            background: transparent;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        #overlay.hidden { display: none; }
+
+        /* ── Zoom hint ───────────────────────────────────────── */
+        #zoom-hint {
+            position: absolute;
+            bottom: 90px; right: 12px;
+            font-size: 10px;
+            color: #444;
+            letter-spacing: 1px;
+            z-index: 10;
+            pointer-events: none;
+            text-transform: uppercase;
         }
     </style>
 </head>
 <body>
 
 <div id="gameContainer">
-    <div id="ui-p2" class="ui-panel">
-        <div>Player 2 (Green)</div>
-        <div id="p2-status">Drag behind tank to Aim & Fire</div>
-        <div id="p2-turn" class="turn-indicator"></div>
-    </div>
-    
     <canvas id="gameCanvas"></canvas>
-    
-    <div id="ui-p1" class="ui-panel">
-        <div id="p1-turn" class="turn-indicator"></div>
-        <div id="p1-status">Drag behind tank to Aim & Fire</div>
-        <div>Player 1 (Pink)</div>
+
+    <!-- HUD -->
+    <div id="hud">
+        <div id="turn-banner">Player <span id="turn-name">1</span>'s Turn — Drag canvas to aim</div>
+        <div id="wind-display">WIND ● ─ 0.0</div>
+
+        <div id="p1-hud">
+            <div class="hud-label">Player 1</div>
+            <div class="hud-name" id="p1-tag">◈ PINK</div>
+        </div>
+        <div id="p2-hud">
+            <div class="hud-label">Player 2</div>
+            <div class="hud-name" id="p2-tag">◈ CYAN</div>
+        </div>
+    </div>
+
+    <!-- Controls bar -->
+    <div id="controls">
+        <div id="aim-info">
+            <div class="aim-label">Angle</div>
+            <div class="aim-value" id="angle-display" style="color:#fff">0°</div>
+        </div>
+
+        <div id="power-wrap">
+            <label for="power-slider">Power</label>
+            <input type="range" id="power-slider" min="5" max="100" value="50">
+            <div id="power-value">50%</div>
+        </div>
+
+        <button id="fire-btn">FIRE</button>
+    </div>
+
+    <div id="zoom-hint">Pinch to zoom</div>
+
+    <!-- Game-over overlay -->
+    <div id="overlay" class="hidden">
+        <h1 id="overlay-title">Player 1 Wins!</h1>
+        <button id="restart-btn">Play Again</button>
     </div>
 </div>
 
 <script>
+// ═══════════════════════════════════════════════════════
+//  CONSTANTS & CONFIG
+// ═══════════════════════════════════════════════════════
+const GRAVITY      = 0.25;
+const TANK_RADIUS  = 14;
+const BLAST_RADIUS = 40;
+const MAP_W        = 2400;   // logical world width
+const MAP_H        = 900;    // logical world height
+const COLORS       = { 1: '#ff3366', 2: '#33ffcc' };
+
+// ═══════════════════════════════════════════════════════
+//  CANVAS / CONTEXT
+// ═══════════════════════════════════════════════════════
 const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+const ctx    = canvas.getContext('2d');
 
-// Game state constants
-const GRAVITY = 0.2;
-const TANK_RADIUS = 12;
-const BLAST_RADIUS = 35;
+let vw = 0, vh = 0;   // viewport dims
 
-let width, height;
-let terrainImgData = null; // Store terrain pixels for quick destruction
-let wind = 0;
+// ═══════════════════════════════════════════════════════
+//  CAMERA
+// ═══════════════════════════════════════════════════════
+let cam = {
+    x: 0, y: 0,   // world-space top-left of viewport
+    zoom: 1,
+    targetX: 0, targetY: 0, targetZoom: 1,
+    animating: false,
 
-let game = {
-    turn: 1, // 1 or 2
-    state: 'aiming', // 'aiming', 'projectile_flying', 'explosion', 'game_over'
-    winner: null
-};
+    clamp() {
+        const maxX = MAP_W - vw / this.zoom;
+        const maxY = MAP_H - (vh - 80) / this.zoom;
+        this.x = Math.max(0, Math.min(this.x, maxX));
+        this.y = Math.max(0, Math.min(this.y, maxY));
+    },
 
-let players = {
-    1: { x: 0, y: 0, color: '#ff3366', alive: true },
-    2: { x: 0, y: 0, color: '#33ff66', alive: true }
-};
+    // World → screen
+    toScreen(wx, wy) {
+        return {
+            x: (wx - this.x) * this.zoom,
+            y: (wy - this.y) * this.zoom
+        };
+    },
+    // Screen → world
+    toWorld(sx, sy) {
+        return {
+            x: sx / this.zoom + this.x,
+            y: sy / this.zoom + this.y
+        };
+    },
 
-let projectile = {
-    x: 0, y: 0, vx: 0, vy: 0, active: false
-};
+    // Smoothly pan to center a world point
+    focusOn(wx, wy, z) {
+        z = z || 1.4;
+        this.targetZoom = z;
+        this.targetX = wx - vw / 2 / z;
+        this.targetY = wy - (vh - 80) / 2 / z;
+        this.animating = true;
+    },
 
-let touchStart = { x: 0, y: 0 };
-let isDragging = false;
-let currentDrag = { x: 0, y: 0 };
+    update() {
+        if (!this.animating) return;
+        const spd = 0.1;
+        this.zoom += (this.targetZoom - this.zoom) * spd;
+        this.x    += (this.targetX    - this.x)    * spd;
+        this.y    += (this.targetY    - this.y)    * spd;
 
-// Prevent long-press menus
-window.addEventListener('contextmenu', e => e.preventDefault());
-
-function resize() {
-    width = window.innerWidth;
-    height = window.innerHeight;
-    canvas.width = width;
-    canvas.height = height;
-    generateTerrain();
-    placePlayers();
-    generateWind();
-    updateUI();
-}
-
-function generateWind() {
-    wind = (Math.random() * 0.1 - 0.05); // Subtle left/right wind push
-}
-
-function generateTerrain() {
-    // Fill background/sky on canvas first
-    ctx.clearRect(0, 0, width, height);
-    
-    // Draw procedural mountains using sine waves
-    ctx.fillStyle = '#4a3728';
-    ctx.beginPath();
-    ctx.moveTo(0, height);
-    
-    let baseHeight = height * 0.6;
-    let h1 = Math.random() * 80 + 40;
-    let h2 = Math.random() * 40 + 10;
-    let f1 = Math.random() * 0.005 + 0.002;
-    let f2 = Math.random() * 0.02 + 0.005;
-
-    for (let x = 0; x <= width; x++) {
-        let y = baseHeight + Math.sin(x * f1) * h1 + Math.cos(x * f2) * h2;
-        ctx.lineTo(x, y);
-    }
-    ctx.lineTo(width, height);
-    ctx.closePath();
-    ctx.fill();
-
-    // Add a layer of green grass on top surface
-    ctx.fillStyle = '#2d7c2b';
-    ctx.globalCompositeOperation = 'source-atop';
-    ctx.fillRect(0, 0, width, height);
-    ctx.globalCompositeOperation = 'source-over';
-
-    // Cache the drawn terrain as clean pixel data for fast pixel-perfect collision/destruction
-    terrainImgData = ctx.getImageData(0, 0, width, height);
-}
-
-function getTerrainHeight(x) {
-    if (x < 0 || x >= width) return height;
-    // Scan down from top to find first non-transparent pixel
-    for (let y = 0; y < height; y++) {
-        let alphaIndex = (Math.floor(y) * width + Math.floor(x)) * 4 + 3;
-        if (terrainImgData.data[alphaIndex] > 0) {
-            return y;
+        if (Math.abs(this.zoom - this.targetZoom) < 0.005 &&
+            Math.abs(this.x - this.targetX) < 0.5 &&
+            Math.abs(this.y - this.targetY) < 0.5) {
+            this.zoom = this.targetZoom;
+            this.x    = this.targetX;
+            this.y    = this.targetY;
+            this.animating = false;
         }
+        this.clamp();
     }
-    return height;
+};
+
+// ═══════════════════════════════════════════════════════
+//  TERRAIN
+// ═══════════════════════════════════════════════════════
+let terrainCanvas, terrainCtx, terrainImgData;
+
+function buildTerrain() {
+    terrainCanvas = document.createElement('canvas');
+    terrainCanvas.width  = MAP_W;
+    terrainCanvas.height = MAP_H;
+    terrainCtx = terrainCanvas.getContext('2d');
+
+    const tc = terrainCtx;
+
+    // Sky gradient painted into terrain canvas (we'll blit it each frame)
+    // Just draw the ground shape — sky is separate
+    const baseH = MAP_H * 0.55;
+    const h1 = Math.random() * 120 + 60;
+    const h2 = Math.random() * 60  + 20;
+    const f1 = Math.random() * 0.003 + 0.001;
+    const f2 = Math.random() * 0.01  + 0.003;
+    const ph1 = Math.random() * Math.PI * 2;
+    const ph2 = Math.random() * Math.PI * 2;
+
+    // Brown earth
+    tc.fillStyle = '#5a3c22';
+    tc.beginPath();
+    tc.moveTo(0, MAP_H);
+    for (let x = 0; x <= MAP_W; x++) {
+        let y = baseH + Math.sin(x * f1 + ph1) * h1 + Math.cos(x * f2 + ph2) * h2;
+        tc.lineTo(x, y);
+    }
+    tc.lineTo(MAP_W, MAP_H);
+    tc.closePath();
+    tc.fill();
+
+    // Green grass cap
+    tc.fillStyle = '#2d8c2b';
+    tc.globalCompositeOperation = 'source-atop';
+    tc.fillRect(0, 0, MAP_W, MAP_H);
+    tc.globalCompositeOperation = 'source-over';
+
+    // Cache pixel data for collision/destruction
+    terrainImgData = tc.getImageData(0, 0, MAP_W, MAP_H);
 }
 
-function placePlayers() {
-    players[1].x = width * 0.15;
-    players[1].y = getTerrainHeight(players[1].x) - TANK_RADIUS;
-    
-    players[2].x = width * 0.85;
-    players[2].y = getTerrainHeight(players[2].x) - TANK_RADIUS;
-    
-    players[1].alive = true;
-    players[2].alive = true;
-    game.winner = null;
-    game.state = 'aiming';
-    game.turn = 1;
+function getTerrainHeight(wx) {
+    if (wx < 0 || wx >= MAP_W) return MAP_H;
+    const xi = Math.floor(wx);
+    for (let y = 0; y < MAP_H; y++) {
+        if (terrainImgData.data[(y * MAP_W + xi) * 4 + 3] > 0) return y;
+    }
+    return MAP_H;
 }
 
-// Check if pixel coordinates match solid terrain
-function isSolid(x, y) {
-    if (x < 0 || x >= width || y < 0 || y >= height) return false;
-    let idx = (Math.floor(y) * width + Math.floor(x)) * 4 + 3;
-    return terrainImgData.data[idx] > 0;
+function isSolid(wx, wy) {
+    const xi = Math.floor(wx), yi = Math.floor(wy);
+    if (xi < 0 || xi >= MAP_W || yi < 0 || yi >= MAP_H) return false;
+    return terrainImgData.data[(yi * MAP_W + xi) * 4 + 3] > 0;
 }
 
-// Destruction algorithm: Clears out a circular radial bite out of the cached pixel grid
 function destroyTerrain(cx, cy, radius) {
-    let startX = Math.max(0, Math.floor(cx - radius));
-    let endX = Math.min(width - 1, Math.floor(cx + radius));
-    let startY = Math.max(0, Math.floor(cy - radius));
-    let endY = Math.min(height - 1, Math.floor(cy + radius));
-
-    for (let x = startX; x <= endX; x++) {
-        for (let y = startY; y <= endY; y++) {
-            let dx = x - cx;
-            let dy = y - cy;
-            if (dx * dx + dy * dy <= radius * radius) {
-                let idx = (y * width + x) * 4;
-                terrainImgData.data[idx + 3] = 0; // Alpha channel to 0 (transparent)
+    const sx = Math.max(0, Math.floor(cx - radius));
+    const ex = Math.min(MAP_W - 1, Math.floor(cx + radius));
+    const sy = Math.max(0, Math.floor(cy - radius));
+    const ey = Math.min(MAP_H - 1, Math.floor(cy + radius));
+    for (let x = sx; x <= ex; x++) {
+        for (let y = sy; y <= ey; y++) {
+            if ((x-cx)**2 + (y-cy)**2 <= radius*radius) {
+                terrainImgData.data[(y * MAP_W + x) * 4 + 3] = 0;
             }
         }
     }
-    
-    // Settle tanks down if earth beneath them vanished
+    // Sync back to terrainCanvas
+    terrainCtx.putImageData(terrainImgData, 0, 0);
     settleTanks();
 }
 
+// ═══════════════════════════════════════════════════════
+//  PLAYERS
+// ═══════════════════════════════════════════════════════
+let players = {
+    1: { x: 0, y: 0, alive: true, angle: -45, power: 50, color: COLORS[1] },
+    2: { x: 0, y: 0, alive: true, angle: -135, power: 50, color: COLORS[2] }
+};
+
+function placePlayers() {
+    players[1].x = MAP_W * 0.12;
+    players[1].y = getTerrainHeight(players[1].x) - TANK_RADIUS;
+    players[1].alive = true;
+
+    players[2].x = MAP_W * 0.88;
+    players[2].y = getTerrainHeight(players[2].x) - TANK_RADIUS;
+    players[2].alive = true;
+}
+
 function settleTanks() {
-    for (let p in players) {
-        let newY = getTerrainHeight(players[p].x) - TANK_RADIUS;
-        if (newY >= height - TANK_RADIUS * 2) {
-            players[p].alive = false; // Tank fell off map bounds
-            checkGameOver();
+    for (let p = 1; p <= 2; p++) {
+        const newY = getTerrainHeight(players[p].x) - TANK_RADIUS;
+        if (newY >= MAP_H - TANK_RADIUS * 2) {
+            players[p].alive = false;
         } else {
             players[p].y = newY;
         }
     }
 }
 
-function checkGameOver() {
-    if (!players[1].alive && !players[2].alive) {
-        game.winner = "Draw!";
-        game.state = 'game_over';
-    } else if (!players[1].alive) {
-        game.winner = "Player 2 Wins!";
-        game.state = 'game_over';
-    } else if (!players[2].alive) {
-        game.winner = "Player 1 Wins!";
-        game.state = 'game_over';
+// ═══════════════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════════════
+let wind = 0;
+let game = { turn: 1, state: 'aiming', winner: null };
+
+// Projectile
+let proj = { x: 0, y: 0, vx: 0, vy: 0, active: false, trail: [] };
+
+// Explosion anim
+let explosion = { active: false, x: 0, y: 0, t: 0 };
+
+function generateWind() {
+    wind = (Math.random() - 0.5) * 0.08;
+}
+
+// ═══════════════════════════════════════════════════════
+//  AIM CONTROLS
+// ═══════════════════════════════════════════════════════
+let aimDrag = { active: false, startX: 0, startY: 0 };
+
+// Read current angle/power from player data
+function getAimVector() {
+    const p = players[game.turn];
+    const rad = p.angle * Math.PI / 180;
+    const spd = p.power * 0.18;
+    return { vx: Math.cos(rad) * spd, vy: Math.sin(rad) * spd };
+}
+
+function setAngleDisplay(deg) {
+    document.getElementById('angle-display').textContent = Math.round(deg) + '°';
+}
+
+function applyPlayerColors() {
+    const c = COLORS[game.turn];
+    document.getElementById('fire-btn').style.color = c;
+    document.getElementById('fire-btn').style.borderColor = c;
+    document.getElementById('power-slider').style.accentColor = c;
+    document.getElementById('angle-display').style.color = c;
+    document.getElementById('turn-name').textContent = game.turn;
+    document.getElementById('turn-name').style.color = c;
+
+    const p1 = document.getElementById('p1-hud');
+    const p2 = document.getElementById('p2-hud');
+    p1.classList.toggle('hud-active', game.turn === 1);
+    p2.classList.toggle('hud-active', game.turn === 2);
+}
+
+function syncControlsFromPlayer() {
+    const p = players[game.turn];
+    const slider = document.getElementById('power-slider');
+    slider.value = p.power;
+    document.getElementById('power-value').textContent = Math.round(p.power) + '%';
+    setAngleDisplay(p.angle);
+    applyPlayerColors();
+}
+
+// Power slider
+document.getElementById('power-slider').addEventListener('input', function() {
+    players[game.turn].power = parseInt(this.value);
+    document.getElementById('power-value').textContent = Math.round(this.value) + '%';
+});
+
+// Fire button
+document.getElementById('fire-btn').addEventListener('click', () => {
+    if (game.state !== 'aiming') return;
+    fireProjectile();
+});
+
+function fireProjectile() {
+    const p = players[game.turn];
+    const vec = getAimVector();
+    proj.x = p.x;
+    proj.y = p.y - TANK_RADIUS;
+    proj.vx = vec.vx;
+    proj.vy = vec.vy;
+    proj.active = true;
+    proj.trail = [];
+    game.state = 'flying';
+    updateWindDisplay();
+}
+
+// ═══════════════════════════════════════════════════════
+//  TOUCH HANDLING (Pan / Pinch / Aim)
+// ═══════════════════════════════════════════════════════
+let panStart = null;
+let pinchStart = null;
+
+function dist2(a, b) {
+    return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+}
+function midpoint(a, b) {
+    return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
+}
+
+// Touchlist helpers
+function primaryTouch(e) { return e.touches[0]; }
+
+// We need to track active touches
+let activeTouches = {};
+
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) activeTouches[t.identifier] = t;
+    const ids = Object.keys(activeTouches);
+
+    if (ids.length === 1 && game.state === 'aiming') {
+        // Single-finger: aim drag
+        const t = e.changedTouches[0];
+        const sx = t.clientX, sy = t.clientY;
+        aimDrag = { active: true, startX: sx, startY: sy };
+        cam.animating = false;
     }
-}
 
-function fire(vx, vy) {
-    let activeTank = players[game.turn];
-    projectile.x = activeTank.x;
-    projectile.y = activeTank.y - 12;
-    projectile.vx = vx;
-    projectile.vy = vy;
-    projectile.active = true;
-    game.state = 'projectile_flying';
-    updateUI();
-}
+    if (ids.length === 2) {
+        // Pinch start
+        aimDrag.active = false;
+        const ts = Object.values(activeTouches);
+        pinchStart = {
+            dist: dist2(ts[0], ts[1]),
+            zoom: cam.zoom,
+            mid: midpoint(ts[0], ts[1]),
+            camX: cam.x, camY: cam.y
+        };
+        panStart = null;
+    } else if (ids.length === 1 && game.state !== 'aiming') {
+        // Pan only when not aiming
+        const t = e.changedTouches[0];
+        panStart = { sx: t.clientX, sy: t.clientY, cx: cam.x, cy: cam.y };
+        cam.animating = false;
+    }
+}, { passive: false });
 
-function triggerExplosion(ex, ey) {
-    game.state = 'explosion';
-    destroyTerrain(ex, ey, BLAST_RADIUS);
-    
-    // Check damage to players
-    for (let p in players) {
-        let dx = players[p].x - ex;
-        let dy = (players[p].y + TANK_RADIUS) - ey;
-        let dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < BLAST_RADIUS) {
-            players[p].alive = false; // Instant kill if inside blast radius
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) activeTouches[t.identifier] = t;
+    const ts = Object.values(activeTouches);
+
+    if (ts.length === 2 && pinchStart) {
+        // Pinch-zoom + pan
+        const d = dist2(ts[0], ts[1]);
+        const newZoom = Math.max(0.4, Math.min(3.0, pinchStart.zoom * d / pinchStart.dist));
+        const mid = midpoint(ts[0], ts[1]);
+
+        // Keep the mid-point stationary in world space
+        const worldMidX = pinchStart.camX + pinchStart.mid.x / pinchStart.zoom;
+        const worldMidY = pinchStart.camY + pinchStart.mid.y / pinchStart.zoom;
+        cam.zoom = newZoom;
+        cam.x = worldMidX - mid.x / newZoom;
+        cam.y = worldMidY - mid.y / newZoom;
+        cam.clamp();
+        return;
+    }
+
+    if (ts.length === 1) {
+        const t = ts[0];
+
+        if (aimDrag.active && game.state === 'aiming') {
+            // Compute angle from drag direction
+            const dx = t.clientX - aimDrag.startX;
+            const dy = t.clientY - aimDrag.startY;
+            const len = Math.hypot(dx, dy);
+            if (len > 6) {
+                const angleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
+                players[game.turn].angle = angleDeg;
+                setAngleDisplay(angleDeg);
+            }
+        } else if (panStart && game.state !== 'aiming') {
+            // Pan camera
+            const dx = (t.clientX - panStart.sx) / cam.zoom;
+            const dy = (t.clientY - panStart.sy) / cam.zoom;
+            cam.x = panStart.cx - dx;
+            cam.y = panStart.cy - dy;
+            cam.clamp();
         }
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchend', (e) => {
+    for (const t of e.changedTouches) delete activeTouches[t.identifier];
+    const remaining = Object.keys(activeTouches).length;
+
+    if (remaining === 0) {
+        aimDrag.active = false;
+        pinchStart = null;
+        panStart = null;
+    } else if (remaining === 1) {
+        pinchStart = null;
+        // Resume single-touch state
+        const t = Object.values(activeTouches)[0];
+        panStart = { sx: t.clientX, sy: t.clientY, cx: cam.x, cy: cam.y };
+    }
+});
+
+// Mouse support for desktop testing
+let mouseDown = false;
+let mouseAim  = false;
+
+canvas.addEventListener('mousedown', (e) => {
+    mouseDown = true;
+    if (game.state === 'aiming') {
+        mouseAim = true;
+        aimDrag = { active: true, startX: e.clientX, startY: e.clientY };
+        cam.animating = false;
+    } else {
+        panStart = { sx: e.clientX, sy: e.clientY, cx: cam.x, cy: cam.y };
+    }
+});
+canvas.addEventListener('mousemove', (e) => {
+    if (!mouseDown) return;
+    if (mouseAim && game.state === 'aiming') {
+        const dx = e.clientX - aimDrag.startX;
+        const dy = e.clientY - aimDrag.startY;
+        if (Math.hypot(dx, dy) > 6) {
+            const deg = Math.atan2(dy, dx) * 180 / Math.PI;
+            players[game.turn].angle = deg;
+            setAngleDisplay(deg);
+        }
+    } else if (panStart) {
+        const dx = (e.clientX - panStart.sx) / cam.zoom;
+        const dy = (e.clientY - panStart.sy) / cam.zoom;
+        cam.x = panStart.cx - dx;
+        cam.y = panStart.cy - dy;
+        cam.clamp();
+    }
+});
+canvas.addEventListener('mouseup', () => {
+    mouseDown = false; mouseAim = false;
+    aimDrag.active = false; panStart = null;
+});
+
+// Scroll wheel zoom
+canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.1 : 0.9;
+    const newZoom = Math.max(0.4, Math.min(3.0, cam.zoom * factor));
+    // Zoom toward cursor
+    const wx = e.clientX / cam.zoom + cam.x;
+    const wy = e.clientY / cam.zoom + cam.y;
+    cam.zoom = newZoom;
+    cam.x = wx - e.clientX / cam.zoom;
+    cam.y = wy - e.clientY / cam.zoom;
+    cam.clamp();
+}, { passive: false });
+
+// ═══════════════════════════════════════════════════════
+//  EXPLOSION / GAME OVER
+// ═══════════════════════════════════════════════════════
+function triggerExplosion(ex, ey) {
+    explosion = { active: true, x: ex, y: ey, t: 0 };
+    destroyTerrain(ex, ey, BLAST_RADIUS);
+
+    // Damage check
+    for (let p = 1; p <= 2; p++) {
+        const dx = players[p].x - ex;
+        const dy = (players[p].y + TANK_RADIUS) - ey;
+        if (Math.hypot(dx, dy) < BLAST_RADIUS) players[p].alive = false;
     }
 
     checkGameOver();
-
-    // Explosion visual hold frame
-    setTimeout(() => {
-        if (game.state !== 'game_over') {
-            game.turn = game.turn === 1 ? 2 : 1;
-            generateWind();
-            game.state = 'aiming';
-        }
-        updateUI();
-    }, 400);
 }
 
-// Handle Touch Inputs
-function getTouchPos(e) {
-    let t = e.touches[0];
-    return { x: t.clientX, y: t.clientY };
+function checkGameOver() {
+    const both = !players[1].alive && !players[2].alive;
+    const p1d  = !players[1].alive;
+    const p2d  = !players[2].alive;
+
+    if (both || p1d || p2d) {
+        game.state = 'game_over';
+        const title = both ? 'DRAW' : (p2d ? 'PLAYER 1 WINS' : 'PLAYER 2 WINS');
+        document.getElementById('overlay-title').textContent = title;
+        document.getElementById('overlay-title').style.color = both ? '#fff' : COLORS[p2d ? 1 : 2];
+        document.getElementById('overlay').classList.remove('hidden');
+        return true;
+    }
+    return false;
 }
 
-window.addEventListener('touchstart', (e) => {
-    if (game.state !== 'aiming') return;
-    isDragging = true;
-    let pos = getTouchPos(e);
-    touchStart = pos;
-    currentDrag = pos;
-});
-
-window.addEventListener('touchmove', (e) => {
-    if (!isDragging) return;
-    currentDrag = getTouchPos(e);
-});
-
-window.addEventListener('touchend', () => {
-    if (!isDragging) return;
-    isDragging = false;
-
-    let dx = touchStart.x - currentDrag.x;
-    let dy = touchStart.y - currentDrag.y;
-
-    // Flip math calculations contextually for P2 upside down position
-    if (game.turn === 2) {
-        dx = -dx;
-        dy = -dy;
-    }
-
-    // Fire if pull strength is substantial
-    let force = Math.sqrt(dx*dx + dy*dy);
-    if (force > 10) {
-        // Map pull vectors straight into velocity trajectories
-        fire(dx * 0.12, dy * 0.12);
-    }
-});
-
-function updateUI() {
-    const p1T = document.getElementById('p1-turn');
-    const p2T = document.getElementById('p2-turn');
-    const p1S = document.getElementById('p1-status');
-    const p2S = document.getElementById('p2-status');
-
-    p1T.innerText = (game.turn === 1 && game.state === 'aiming') ? "YOUR TURN" : "";
-    p2T.innerText = (game.turn === 2 && game.state === 'aiming') ? "YOUR TURN" : "";
-
-    let windText = `Wind: ${wind > 0 ? '→' : '←'} ${Math.abs(wind * 200).toFixed(1)}`;
-    
-    if (game.state === 'game_over') {
-        p1S.innerText = game.winner;
-        p2S.innerText = game.winner;
-    } else {
-        p1S.innerText = windText;
-        p2S.innerText = windText;
-    }
+function endTurn() {
+    if (game.state === 'game_over') return;
+    game.turn = game.turn === 1 ? 2 : 1;
+    generateWind();
+    game.state = 'aiming';
+    updateWindDisplay();
+    syncControlsFromPlayer();
+    // Zoom to current player
+    const p = players[game.turn];
+    cam.focusOn(p.x, p.y, 1.4);
 }
 
-// Game Core Engine Loop
+function updateWindDisplay() {
+    const dir  = wind >= 0 ? '→' : '←';
+    const spd  = Math.abs(wind * 300).toFixed(1);
+    document.getElementById('wind-display').textContent = `WIND ${dir} ${spd}`;
+}
+
+// ═══════════════════════════════════════════════════════
+//  RESTART
+// ═══════════════════════════════════════════════════════
+document.getElementById('restart-btn').addEventListener('click', () => {
+    document.getElementById('overlay').classList.add('hidden');
+    buildTerrain();
+    placePlayers();
+    generateWind();
+    explosion.active = false;
+    proj.active = false;
+    game.turn = 1;
+    game.state = 'aiming';
+    cam.focusOn(players[1].x, players[1].y, 1.4);
+    syncControlsFromPlayer();
+    updateWindDisplay();
+});
+
+// ═══════════════════════════════════════════════════════
+//  UPDATE LOOP
+// ═══════════════════════════════════════════════════════
 function update() {
-    if (game.state === 'projectile_flying' && projectile.active) {
-        // Physics integration steps
-        projectile.vx += wind;
-        projectile.vy += GRAVITY;
-        projectile.x += projectile.vx;
-        projectile.y += projectile.vy;
+    cam.update();
 
-        // Wall limits
-        if (projectile.x < 0 || projectile.x > width || projectile.y > height) {
-            projectile.active = false;
-            game.turn = game.turn === 1 ? 2 : 1;
-            generateWind();
-            game.state = 'aiming';
-            updateUI();
+    if (game.state === 'flying' && proj.active) {
+        proj.vx += wind;
+        proj.vy += GRAVITY;
+        proj.x  += proj.vx;
+        proj.y  += proj.vy;
+
+        proj.trail.push({ x: proj.x, y: proj.y });
+        if (proj.trail.length > 20) proj.trail.shift();
+
+        if (proj.x < 0 || proj.x > MAP_W || proj.y > MAP_H) {
+            proj.active = false;
+            setTimeout(endTurn, 200);
+            return;
         }
 
-        // Direct ground/terrain impact detection
-        if (isSolid(projectile.x, projectile.y)) {
-            projectile.active = false;
-            triggerExplosion(projectile.x, projectile.y);
+        if (isSolid(proj.x, proj.y)) {
+            proj.active = false;
+            triggerExplosion(proj.x, proj.y);
+            if (game.state !== 'game_over') setTimeout(endTurn, 600);
         }
     }
+
+    if (explosion.active) {
+        explosion.t++;
+        if (explosion.t > 30) explosion.active = false;
+    }
+}
+
+// ═══════════════════════════════════════════════════════
+//  DRAW
+// ═══════════════════════════════════════════════════════
+function drawArrow(wx, wy, angleDeg, power, color) {
+    const rad    = angleDeg * Math.PI / 180;
+    const len    = 20 + power * 0.6;
+    const ex     = wx + Math.cos(rad) * len;
+    const ey     = wy + Math.sin(rad) * len;
+
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 2 / cam.zoom;
+    ctx.globalAlpha = 0.85;
+    ctx.setLineDash([4 / cam.zoom, 4 / cam.zoom]);
+    ctx.beginPath();
+    ctx.moveTo(wx, wy - TANK_RADIUS);
+    ctx.lineTo(ex, ey - TANK_RADIUS);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Arrowhead
+    const aw = 8 / cam.zoom;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.translate(ex, ey - TANK_RADIUS);
+    ctx.rotate(rad);
+    ctx.moveTo(aw, 0);
+    ctx.lineTo(-aw * 0.6, -aw * 0.5);
+    ctx.lineTo(-aw * 0.6,  aw * 0.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
 }
 
 function draw() {
-    // Clear backbuffer frame
-    ctx.clearRect(0,0,width,height);
+    const drawH = vh - 80; // canvas height minus controls bar
 
-    // Blit updated terrain map
-    if (terrainImgData) {
-        ctx.putImageData(terrainImgData, 0, 0);
+    ctx.clearRect(0, 0, vw, vh);
+
+    // Sky gradient
+    const sky = ctx.createLinearGradient(0, 0, 0, drawH);
+    sky.addColorStop(0, '#0a0520');
+    sky.addColorStop(1, '#1a0b3c');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, vw, drawH);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, vw, drawH);
+    ctx.clip();
+    ctx.scale(cam.zoom, cam.zoom);
+    ctx.translate(-cam.x, -cam.y);
+
+    // Terrain
+    if (terrainCanvas) {
+        ctx.drawImage(terrainCanvas, 0, 0);
     }
 
-    // Render remaining living players
-    for (let p in players) {
-        let tank = players[p];
+    // Tanks
+    for (let p = 1; p <= 2; p++) {
+        const tank = players[p];
         if (!tank.alive) continue;
 
+        // Tank body
         ctx.fillStyle = tank.color;
+        ctx.shadowColor = tank.color;
+        ctx.shadowBlur  = 8;
         ctx.beginPath();
-        // Draw dome chassis base
         ctx.arc(tank.x, tank.y, TANK_RADIUS, Math.PI, 0);
         ctx.fill();
-        
-        // Underbelly square base
-        ctx.fillRect(tank.x - TANK_RADIUS, tank.y, TANK_RADIUS * 2, 5);
-    }
+        ctx.fillRect(tank.x - TANK_RADIUS, tank.y, TANK_RADIUS * 2, 6);
+        ctx.shadowBlur = 0;
 
-    // Render real-time slingshot dragging reticle target guide lines
-    if (isDragging && game.state === 'aiming') {
-        let activeTank = players[game.turn];
-        ctx.strokeStyle = activeTank.color;
-        ctx.lineWidth = 3;
-        ctx.setLineDash([4, 4]);
+        // Barrel
+        const rad = tank.angle * Math.PI / 180;
+        ctx.strokeStyle = tank.color;
+        ctx.lineWidth   = 4;
+        ctx.lineCap     = 'round';
         ctx.beginPath();
-        ctx.moveTo(activeTank.x, activeTank.y - 12);
-
-        let dx = touchStart.x - currentDrag.x;
-        let dy = touchStart.y - currentDrag.y;
-        
-        if (game.turn === 2) {
-            dx = -dx;
-            dy = -dy;
-        }
-
-        // Target intercept layout prediction line visualizer
-        ctx.lineTo(activeTank.x + dx, (activeTank.y - 12) + dy);
+        ctx.moveTo(tank.x, tank.y - TANK_RADIUS * 0.3);
+        ctx.lineTo(
+            tank.x + Math.cos(rad) * TANK_RADIUS * 1.6,
+            tank.y - TANK_RADIUS * 0.3 + Math.sin(rad) * TANK_RADIUS * 1.6
+        );
         ctx.stroke();
-        ctx.setLineDash([]);
+
+        // Aim arrow for active player
+        if (game.state === 'aiming' && game.turn === p) {
+            drawArrow(tank.x, tank.y, tank.angle, tank.power, tank.color);
+        }
     }
 
-    // Draw bullet tracking point
-    if (game.state === 'projectile_flying' && projectile.active) {
-        ctx.fillStyle = '#ffffff';
-        ctx.shadowColor = '#ffffaa';
-        ctx.shadowBlur = 8;
+    // Projectile trail
+    if (proj.trail.length > 1) {
+        ctx.strokeStyle = 'rgba(255,255,180,0.4)';
+        ctx.lineWidth   = 2;
         ctx.beginPath();
-        ctx.arc(projectile.x, projectile.y, 4, 0, Math.PI*2);
-        ctx.fill();
-        ctx.shadowBlur = 0; // reset
+        ctx.moveTo(proj.trail[0].x, proj.trail[0].y);
+        for (const p of proj.trail) ctx.lineTo(p.x, p.y);
+        ctx.stroke();
     }
 
-    // Draw momentary flash burst ring frame
-    if (game.state === 'explosion') {
-        ctx.fillStyle = '#ffaa44';
+    // Projectile
+    if (proj.active) {
+        ctx.fillStyle  = '#fff';
+        ctx.shadowColor = '#ffff88';
+        ctx.shadowBlur  = 10;
         ctx.beginPath();
-        // Animate shell impact visuals locally
-        ctx.arc(projectile.x, projectile.y, BLAST_RADIUS, 0, Math.PI*2);
+        ctx.arc(proj.x, proj.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+
+    // Explosion
+    if (explosion.active) {
+        const progress = explosion.t / 30;
+        const r = BLAST_RADIUS * progress;
+        const alpha = 1 - progress;
+        const grad = ctx.createRadialGradient(explosion.x, explosion.y, 0, explosion.x, explosion.y, r);
+        grad.addColorStop(0, `rgba(255,255,180,${alpha})`);
+        grad.addColorStop(0.4, `rgba(255,120,30,${alpha * 0.8})`);
+        grad.addColorStop(1, `rgba(255,60,0,0)`);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(explosion.x, explosion.y, r, 0, Math.PI * 2);
         ctx.fill();
     }
+
+    ctx.restore();
 }
 
+// ═══════════════════════════════════════════════════════
+//  RESIZE
+// ═══════════════════════════════════════════════════════
+function resize() {
+    vw = window.innerWidth;
+    vh = window.innerHeight;
+    canvas.width  = vw;
+    canvas.height = vh;
+}
+
+// ═══════════════════════════════════════════════════════
+//  MAIN LOOP & INIT
+// ═══════════════════════════════════════════════════════
 function loop() {
     update();
     draw();
     requestAnimationFrame(loop);
 }
 
-// Launch application init triggers
-window.addEventListener('resize', resize);
-resize();
-loop();
+function init() {
+    resize();
+    window.addEventListener('resize', resize);
+    window.addEventListener('contextmenu', e => e.preventDefault());
 
+    buildTerrain();
+    placePlayers();
+    generateWind();
+    updateWindDisplay();
+    syncControlsFromPlayer();
+
+    // Start zoomed on player 1
+    cam.x = players[1].x - vw / 2 / 1.4;
+    cam.y = players[1].y - (vh - 80) / 2 / 1.4;
+    cam.zoom = 1.4;
+    cam.clamp();
+
+    loop();
+}
+
+init();
 </script>
 </body>
 </html>
