@@ -33,10 +33,9 @@
   /* Full-screen canvas layer */
   #game-canvas {
     position: fixed;
-    inset: 0;
-    width: 100%;
-    height: 100%;
     display: block;
+    background: #050810;
+    box-shadow: 0 0 0 1px #00f5ff22, 0 0 40px #00f5ff11;
   }
 
   /* Score Dashboard overlay (Top Bar) */
@@ -212,13 +211,14 @@
 // ===================== CONFIG & STATE CONSTANTS =====================
 const WIN_SCORE = 7;
 const PADDLE_SPEED = 7.5;
-const BALL_SPEED_START = 5.5;
-const BALL_ACCEL = 1.06;
-const BALL_MAX_SPEED = 16;
+const BALL_SPEED_START = 4.0;
+const BALL_ACCEL = 1.05;
+const BALL_MAX_SPEED = 11;
 
 let canvas, ctx, W, H;
 let p1, p2, ball, particles;
 let p1Score, p2Score, gameRunning = false;
+let rafId = null;
 
 // Input processing tracker dictionaries
 let keys = { w: false, s: false, ArrowUp: false, ArrowDown: false };
@@ -227,8 +227,12 @@ canvas = document.getElementById('game-canvas');
 ctx = canvas.getContext('2d');
 
 function resize() {
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
+  W = canvas.width = Math.floor(window.innerWidth * 0.85);
+  H = canvas.height = Math.floor(window.innerHeight * 0.85);
+  canvas.style.left = Math.floor(window.innerWidth * 0.075) + 'px';
+  canvas.style.top  = Math.floor(window.innerHeight * 0.075) + 'px';
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
 }
 window.addEventListener('resize', resize);
 resize();
@@ -260,7 +264,8 @@ function initGame() {
   resetBall(Math.random() < 0.5 ? 1 : -1);
   updateUI();
   gameRunning = true;
-  requestAnimationFrame(gameLoop);
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(gameLoop);
 }
 
 function resetBall(direction) {
@@ -280,7 +285,7 @@ function gameLoop() {
   if (!gameRunning) return;
   update();
   draw();
-  requestAnimationFrame(gameLoop);
+  rafId = requestAnimationFrame(gameLoop);
 }
 
 function update() {
@@ -326,7 +331,7 @@ function update() {
     ball.vx = Math.cos(angle) * speed;
     ball.vy = Math.sin(angle) * speed;
 
-    spawnImpactParticles(ball.x, ball.y, 'var(--cyan)', 6);
+    spawnImpactParticles(ball.x, ball.y, '#00f5ff', 6);
   }
 
   // Collision Intersection Checks (Paddle 2 Right Area)
@@ -347,13 +352,13 @@ function update() {
     ball.vx = -Math.cos(angle) * speed;
     ball.vy = Math.sin(angle) * speed;
 
-    spawnImpactParticles(ball.x, ball.y, 'var(--magenta)', 6);
+    spawnImpactParticles(ball.x, ball.y, '#ff00aa', 6);
   }
 
   // 4. Out-of-Bounds Metric Integration (Goal Checking)
   if (ball.x - ball.r < 0) {
     p2Score++;
-    spawnImpactParticles(ball.x, ball.y, 'var(--magenta)', 20);
+    spawnImpactParticles(ball.x, ball.y, '#ff00aa', 20);
     updateUI();
     if (p2Score >= WIN_SCORE) {
       endGame(2);
@@ -365,7 +370,7 @@ function update() {
 
   if (ball.x + ball.r > W) {
     p1Score++;
-    spawnImpactParticles(ball.x, ball.y, 'var(--cyan)', 20);
+    spawnImpactParticles(ball.x, ball.y, '#00f5ff', 20);
     updateUI();
     if (p1Score >= WIN_SCORE) {
       endGame(1);
@@ -416,22 +421,22 @@ function draw() {
 
   // Draw Paddle 1 (Left Player)
   ctx.save();
-  ctx.shadowColor = 'var(--cyan)';
+  ctx.shadowColor = '#00f5ff';
   ctx.shadowBlur = 12;
-  ctx.fillStyle = 'var(--cyan)33';
+  ctx.fillStyle = '#00f5ff33';
   ctx.fillRect(p1.x, p1.y, p1.w, p1.h);
-  ctx.strokeStyle = 'var(--cyan)';
+  ctx.strokeStyle = '#00f5ff';
   ctx.lineWidth = 2;
   ctx.strokeRect(p1.x, p1.y, p1.w, p1.h);
   ctx.restore();
 
   // Draw Paddle 2 (Right Player)
   ctx.save();
-  ctx.shadowColor = 'var(--magenta)';
+  ctx.shadowColor = '#ff00aa';
   ctx.shadowBlur = 12;
-  ctx.fillStyle = 'var(--magenta)33';
+  ctx.fillStyle = '#ff00aa33';
   ctx.fillRect(p2.x, p2.y, p2.w, p2.h);
-  ctx.strokeStyle = 'var(--magenta)';
+  ctx.strokeStyle = '#ff00aa';
   ctx.lineWidth = 2;
   ctx.strokeRect(p2.x, p2.y, p2.w, p2.h);
   ctx.restore();
@@ -442,7 +447,7 @@ function draw() {
   ctx.shadowBlur = 16;
   let bGrad = ctx.createRadialGradient(ball.x, ball.y, ball.r * 0.1, ball.x, ball.y, ball.r);
   bGrad.addColorStop(0, '#ffffff');
-  bGrad.addColorStop(0.4, 'var(--cyan)');
+  bGrad.addColorStop(0.4, '#00f5ff');
   bGrad.addColorStop(1, '#050810');
   ctx.fillStyle = bGrad;
   ctx.beginPath();
@@ -483,8 +488,8 @@ function spawnImpactParticles(x, y, color, count) {
 
 // ===================== INPUT DEVICE CONTROL INTERFACES =====================
 window.addEventListener('keydown', e => {
-  if (['ArrowUp', 'ArrowDown', 'KeyW', 'KeyS'].includes(e.code)) {
-    // block window browser screen jumping shifts
+  if (['ArrowUp', 'ArrowDown', 'KeyW', 'KeyS', 'Space'].includes(e.code)) {
+    e.preventDefault();
   }
   if (e.key === 'w' || e.key === 'W') keys.w = true;
   if (e.key === 's' || e.key === 'S') keys.s = true;
@@ -502,6 +507,7 @@ window.addEventListener('keyup', e => {
 // Dual Screen Touch Matrix Splits Configuration
 function handleTouch(e) {
   e.preventDefault();
+  if (!gameRunning) return;
   for (let i = 0; i < e.touches.length; i++) {
     let touch = e.touches[i];
     // Left half splits tracking bounds for Player 1
