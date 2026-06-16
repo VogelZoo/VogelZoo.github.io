@@ -111,7 +111,13 @@ function renderStreakWidget() {
         </div>
         <div class="streak-count">🔥 ${currentStreak} <span style="font-size:0.85rem; font-weight:normal; color:var(--text-muted);">Days</span></div>
     `;
-    trackSection.insertBefore(widgetHtml, trackSection.firstChild);
+    // Insert after suggestion box (first child), not before it
+    const suggestionBox = document.getElementById('today-suggestion');
+    if (suggestionBox && suggestionBox.nextSibling) {
+        trackSection.insertBefore(widgetHtml, suggestionBox.nextSibling);
+    } else {
+        trackSection.appendChild(widgetHtml);
+    }
 }
 
 function calculateStreak() {
@@ -134,10 +140,9 @@ function calculateStreak() {
     // Step backwards through time to count consecutive successful days
     for (let i = 0; i < 365; i++) {
         let loopDateStr = checkDate.toISOString().split('T')[0];
-        let plannedExercises = getPlannedExercisesForDate(new Date(checkDate));
-        let isRestDay = (plannedExercises.length === 0 || isRestDayExplicitlyScheduled(new Date(checkDate)));
+        let isExplicitRest = isRestDayExplicitlyScheduled(new Date(checkDate));
 
-        if (historyDates.has(loopDateStr) || isRestDay) {
+        if (historyDates.has(loopDateStr) || isExplicitRest) {
             streak++;
         } else {
             // Break loop if today is a non-rest day that has not been logged yet
@@ -153,15 +158,22 @@ function calculateStreak() {
 }
 
 function isRestDayExplicitlyScheduled(targetDate) {
-    let dayOfWeek = targetDate.getDay();
-    let explicitRest = false;
+    const d = new Date(targetDate);
+    d.setHours(0, 0, 0, 0);
+    const dayOfWeek = d.getDay();
+    const ds = d.toISOString().split('T')[0];
 
-    state.plans.forEach(plan => {
-        if (plan.exercise === "__rest__" && plan.type === 'weekly' && parseInt(plan.day) === dayOfWeek) {
-            explicitRest = true;
+    return state.plans.some(plan => {
+        if (plan.exercise !== '__rest__') return false;
+        if (plan.type === 'weekly') return parseInt(plan.day) === dayOfWeek;
+        if (plan.type === 'interval' && plan.startDate) {
+            const start = new Date(plan.startDate + 'T00:00:00');
+            start.setHours(0, 0, 0, 0);
+            const diff = Math.round((d - start) / 86400000);
+            return diff >= 0 && diff % parseInt(plan.interval) === 0;
         }
+        return false;
     });
-    return explicitRest;
 }
 
 // --- INTERPOLATED ACTIVITY ENGINE & ADVANCED SCHEDULING ---
@@ -269,8 +281,10 @@ function render7DayHorizon(baseDate) {
             </span>
         `).join("");
         
-        if (dayTargets.length === 0 || isRestDayExplicitlyScheduled(futureDate)) {
+        if (isRestDayExplicitlyScheduled(futureDate)) {
             tagsHtml = `<span class="text-muted" style="font-size:0.65rem; display:block; margin-top:2px;">Rest</span>`;
+        } else if (dayTargets.length === 0) {
+            tagsHtml = `<span class="text-muted" style="font-size:0.65rem; display:block; margin-top:2px;">—</span>`;
         }
 
         dayCard.innerHTML = `
@@ -461,10 +475,8 @@ function cancelExerciseEdit() {
     document.getElementById("submit-exercise-btn").innerText = "Create Exercise";
 
     const cancelBtn = document.getElementById("cancel-ex-edit-btn");
-    if (cancelBtn) {
-        cancelBtn.remove();
-        document.getElementById("exercise-action-buttons").style.gridTemplateColumns = "1fr";
-    }
+    if (cancelBtn) cancelBtn.remove();
+    document.getElementById("exercise-action-buttons").style.gridTemplateColumns = "1fr";
 }
 
 function initExerciseDelete(exName) {
@@ -683,8 +695,9 @@ function renderStats() {
         const paddingTop = 30;
         const paddingBottom = 30;
 
+        const xDenom = Math.max(calculatedData.length - 1, 1);
         let points = calculatedData.map((d, idx) => {
-            let x = paddingLeft + (idx / (calculatedData.length - 1)) * (width - paddingLeft - paddingRight);
+            let x = paddingLeft + (idx / xDenom) * (width - paddingLeft - paddingRight);
             let yPri = (height - paddingBottom) - ((d.primary - minPri) / rangePri) * (height - paddingTop - paddingBottom);
             let ySec = hasSecondaryAxis ? ((height - paddingBottom) - ((d.secondary - minSec) / rangeSec) * (height - paddingTop - paddingBottom)) : 0;
             return { x, yPri, ySec, ...d };
@@ -708,7 +721,7 @@ function renderStats() {
 
         let secondaryAxisHtml = hasSecondaryAxis ? `
             <line x1="${width - paddingRight}" y1="${paddingTop}" x2="${width - paddingRight}" y2="${height - paddingBottom}" stroke="#10b981" stroke-width="1" stroke-opacity="0.5"/>
-            <text x="${width - paddingRight + 5}" y="${paddingTop - 10}" font-size="8" fill="#10b981" text-anchor="end">${secondaryMetricLabel}</text>
+            <text x="${width - paddingRight}" y="${paddingTop + 10}" font-size="8" fill="#10b981" text-anchor="end">${secondaryMetricLabel}</text>
         ` : '';
 
         graphContainer.innerHTML = `
@@ -762,10 +775,12 @@ function renderStats() {
                         }).join(" | ");
 
                         let intBadge = item.intensity ? `<span class="badge-intensity intensity-${item.intensity}">${item.intensity}</span>` : '';
+                        const _hEx = state.exercises.find(e => e.name === item.exerciseName);
+                        const _hEmoji = (_hEx && _hEx.emoji) ? _hEx.emoji : getCategoryEmoji(_hEx?.category);
 
                         return `
                             <li class="list-group-item">
-                                <div><strong>${getCategoryEmoji(state.exercises.find(e => e.name === item.exerciseName)?.category)} ${item.exerciseName}</strong>${intBadge}<br><span class="text-muted" style="font-size:0.8rem;">${metricStr}</span></div>
+                                <div><strong>${_hEmoji} ${item.exerciseName}</strong>${intBadge}<br><span class="text-muted" style="font-size:0.8rem;">${metricStr}</span></div>
                                 <div class="history-item-actions">
                                     <span class="action-link" onclick="initEditEntry(${item.id})">Edit</span>
                                     <span class="action-link delete" onclick="deleteEntry(${item.id})">Del</span>
@@ -863,12 +878,13 @@ function setupEventListeners() {
             return;
         }
 
+        const emojiField = document.getElementById('new-ex-emoji');
+        const emoji = emojiField ? emojiField.value.trim() || null : null;
+
         if (editIdxStr !== "") {
-            // Processing structural template update updates
             let idx = parseInt(editIdxStr);
             let oldName = state.exercises[idx].name;
 
-            // Retain historical logging sync maps across downstream children logs if name changed
             if (oldName.toLowerCase() !== name.toLowerCase() && state.exercises.some(ex => ex.name.toLowerCase() === name.toLowerCase())) {
                 alert("This exercise name already exists.");
                 return;
@@ -881,16 +897,15 @@ function setupEventListeners() {
                 if (p.exercise === oldName) p.exercise = name;
             });
 
-            state.exercises[idx] = { name, category, metrics: selectedMetrics };
-            alert("Exercise configuration template updated successfully!");
+            // Preserve existing emoji if field left blank on edit
+            const existingEmoji = state.exercises[idx].emoji || null;
+            state.exercises[idx] = { name, category, emoji: emoji !== null ? emoji : existingEmoji, metrics: selectedMetrics };
         } else {
-            // Standard creation appending routine
             if (state.exercises.some(ex => ex.name.toLowerCase() === name.toLowerCase())) {
                 alert("This exercise name already exists.");
                 return;
             }
-            state.exercises.push({ name: name, category: category, metrics: selectedMetrics });
-            alert(`Created custom template for: ${name}`);
+            state.exercises.push({ name: name, category: category, emoji: emoji, metrics: selectedMetrics });
         }
 
         saveState();
