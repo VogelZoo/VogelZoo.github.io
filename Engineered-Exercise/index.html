@@ -7,6 +7,19 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+
+    <!-- Confirmation modal — inside body, before main so z-index stacking is clean -->
+    <div id="confirmation-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h2 id="modal-title" style="margin-bottom:0.75rem;">Confirm Action</h2>
+            <p id="modal-body" class="text-muted" style="margin-bottom:1.5rem;font-size:0.95rem;line-height:1.5;"></p>
+            <div class="form-row">
+                <button id="modal-cancel-btn" class="btn btn-secondary">Cancel</button>
+                <button id="modal-confirm-btn" class="btn btn-danger">Confirm</button>
+            </div>
+        </div>
+    </div>
+
     <header>
         <h1>Engineered Exercise</h1>
         <nav>
@@ -37,7 +50,6 @@
                         <label for="log-date">Date</label>
                         <input type="date" id="log-date" required>
                     </div>
-
                     <div class="form-group">
                         <label for="log-intensity">Intensity</label>
                         <select id="log-intensity">
@@ -46,14 +58,11 @@
                             <option value="High">High</option>
                         </select>
                     </div>
-
                     <div class="form-group">
                         <label for="exercise-select">Exercise</label>
                         <select id="exercise-select" required></select>
                     </div>
-
                     <div id="dynamic-fields-container"></div>
-
                     <div id="form-action-buttons" class="form-action-row">
                         <button type="submit" class="btn btn-primary" id="submit-log-btn">Save Entry</button>
                     </div>
@@ -66,7 +75,6 @@
             <div class="card">
                 <h2>Schedule Your Routine</h2>
                 <form id="plan-form">
-
                     <div class="form-group">
                         <label for="schedule-type">Schedule Type</label>
                         <select id="schedule-type" onchange="toggleScheduleInputs()">
@@ -74,7 +82,6 @@
                             <option value="interval">Interval (Days)</option>
                         </select>
                     </div>
-
                     <div id="weekly-inputs" class="form-group">
                         <label for="plan-day">Day</label>
                         <select id="plan-day">
@@ -87,7 +94,6 @@
                             <option value="0">Sunday</option>
                         </select>
                     </div>
-
                     <div id="interval-inputs" class="form-group hidden">
                         <div class="form-row">
                             <div>
@@ -100,21 +106,17 @@
                             </div>
                         </div>
                     </div>
-
                     <div id="plan-exercise-group" class="form-group">
                         <label for="plan-exercise">Exercise</label>
                         <select id="plan-exercise" required></select>
                     </div>
-
                     <div class="form-group rest-toggle-row">
                         <input type="checkbox" id="plan-rest-toggle" onchange="togglePlanRestMode()">
                         <label for="plan-rest-toggle" class="rest-toggle-label">Rest Day</label>
                     </div>
-
                     <button type="submit" class="btn btn-success">Add to Plan</button>
                 </form>
             </div>
-
             <div class="card">
                 <h3>Organized Schedule</h3>
                 <div id="organized-plan-view"></div>
@@ -131,9 +133,9 @@
                 </div>
                 <div id="graph-container"></div>
                 <div class="legend-container" id="chart-legend" style="display:none; margin-top:0.5rem; justify-content:center; gap:1rem; font-size:0.7rem;">
-                    <span><span class="legend-dot" style="background-color:#4b5563;"></span> Light</span>
+                    <span><span class="legend-dot" style="background-color:#4b5563;"></span> Low</span>
                     <span><span class="legend-dot" style="background-color:#d97706;"></span> Medium</span>
-                    <span><span class="legend-dot" style="background-color:#dc2626;"></span> Heavy</span>
+                    <span><span class="legend-dot" style="background-color:#dc2626;"></span> High</span>
                     <span><span class="legend-dot" style="background-color:#2563eb;"></span> None</span>
                 </div>
                 <div id="stats-summary" style="margin-top: 1rem;"></div>
@@ -153,6 +155,10 @@
                     <div class="form-group">
                         <label for="new-ex-name">Name</label>
                         <input type="text" id="new-ex-name" required placeholder="e.g., Romanian Deadlift">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-ex-emoji">Emoji (optional)</label>
+                        <input type="text" id="new-ex-emoji" placeholder="e.g. 🏋️" maxlength="4">
                     </div>
                     <div class="form-group">
                         <label for="new-ex-category">Category</label>
@@ -182,13 +188,13 @@
 
             <div class="card">
                 <h3>Manage Existing Exercises</h3>
-                <div id="manage-exercises-container" style="margin-top: 1rem;"></div>
+                <div id="manage-exercises-container" style="margin-top:1rem;"></div>
             </div>
 
             <div class="card">
                 <h2>Manage App Data</h2>
                 <p class="text-muted">Backup your data or import history from another device.</p>
-                <div class="form-row" style="grid-template-columns: 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <div class="form-row" style="grid-template-columns:1fr; gap:0.5rem; margin-bottom:0.5rem;">
                     <button onclick="exportCSV()" class="btn btn-success">Export History Log (CSV)</button>
                 </div>
                 <div class="form-row">
@@ -200,6 +206,7 @@
                 </div>
             </div>
         </section>
+
     </main>
 
     <script src="app.js"></script>
@@ -211,15 +218,5 @@
             exGroup.style.pointerEvents = isRest ? "none" : "auto";
         }
     </script>
-    <div id="confirmation-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1rem;">
-        <div class="card" style="max-width: 400px; width: 100%; margin-bottom: 0; border-top: 4px solid var(--accent);">
-            <h2 id="modal-title" style="color: #f3f4f6;">Confirm Action</h2>
-            <p id="modal-body" class="text-muted" style="margin-bottom: 1.5rem; font-size: 0.95rem; line-height: 1.4;"></p>
-            <div class="form-row">
-                <button id="modal-cancel-btn" class="btn btn-secondary">Cancel</button>
-                <button id="modal-confirm-btn" class="btn btn-danger">Delete Everything</button>
-            </div>
-        </div>
-    </div>
 </body>
 </html>
