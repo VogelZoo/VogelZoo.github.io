@@ -273,8 +273,8 @@ function resetBall(direction) {
   ball.y = H / 2;
   
   // Set calculated angle vector trajectory
-  let angle = (Math.random() * 0.4 - 0.2) * Math.PI; 
-  if (direction === -1) angle = Math.PI - angle;
+  let angle = (Math.random() * 0.4 - 0.2) * Math.PI;
+  if (direction === -1) angle = Math.PI + angle;
 
   ball.vx = Math.cos(angle) * BALL_SPEED_START;
   ball.vy = Math.sin(angle) * BALL_SPEED_START;
@@ -508,17 +508,20 @@ window.addEventListener('keyup', e => {
 function handleTouch(e) {
   e.preventDefault();
   if (!gameRunning) return;
+  const rect = canvas.getBoundingClientRect();
   for (let i = 0; i < e.touches.length; i++) {
     let touch = e.touches[i];
+    const tx = touch.clientX - rect.left;
+    const ty = touch.clientY - rect.top;
     // Left half splits tracking bounds for Player 1
-    if (touch.clientX < W / 2) {
-      p1.y = touch.clientY - p1.h / 2;
+    if (tx < W / 2) {
+      p1.y = ty - p1.h / 2;
       if (p1.y < 0) p1.y = 0;
       if (p1.y + p1.h > H) p1.y = H - p1.h;
-    } 
+    }
     // Right half splits tracking bounds for Player 2
     else {
-      p2.y = touch.clientY - p2.h / 2;
+      p2.y = ty - p2.h / 2;
       if (p2.y < 0) p2.y = 0;
       if (p2.y + p2.h > H) p2.y = H - p2.h;
     }
@@ -539,13 +542,17 @@ function endGame(winnerIndex) {
   const title = document.getElementById('end-title');
   const sub = document.getElementById('end-sub');
   
+  title.style.animation = 'none';
+  title.style.backgroundImage = 'none';
   if (winnerIndex === 1) {
     title.textContent = "PLAYER 1 DOMINANT";
-    title.style.color = "var(--cyan)";
+    title.style.webkitTextFillColor = '#00f5ff';
+    title.style.color = '#00f5ff';
     sub.textContent = "// CYAN MATRIX DECRYPT INTEGRITY SUCCESSFUL //";
   } else {
     title.textContent = "PLAYER 2 DOMINANT";
-    title.style.color = "var(--magenta)";
+    title.style.webkitTextFillColor = '#ff00aa';
+    title.style.color = '#ff00aa';
     sub.textContent = "// MAGENTA MATRIX DECRYPT INTEGRITY SUCCESSFUL //";
   }
 
