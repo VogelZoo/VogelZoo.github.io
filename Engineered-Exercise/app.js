@@ -27,28 +27,11 @@ const FIELD_LABELS = {
 };
 
 const INTENSITY_COLORS = {
-    1: "#4b5563",
-    2: "#65a30d",
-    3: "#d97706",
-    4: "#ea580c",
-    5: "#dc2626",
+    "Low": "#4b5563",
+    "Medium": "#d97706",
+    "High": "#dc2626",
     "Default": "#2563eb"
 };
-
-function getIntensityColor(value) {
-    if (!value || value < 1) return INTENSITY_COLORS["Default"];
-    return INTENSITY_COLORS[Math.round(value)] || INTENSITY_COLORS["Default"];
-}
-
-// Local-date (not UTC) "YYYY-MM-DD" formatter — avoids the day rolling over
-// early/late depending on the user's timezone offset from UTC.
-function getLocalDateString(date) {
-    const d = (date instanceof Date) ? date : new Date(date);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
 
 const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAYS_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -61,6 +44,19 @@ const categoryEmojis = {
     'Default': '🏋️'
 };
 
+// --- HAPTIC FEEDBACK ---
+// Short, distinct patterns for different outcomes. Silently no-ops on devices/browsers without support.
+function vibrateSuccess() {
+    if (navigator.vibrate) navigator.vibrate(40);
+}
+function vibrateDelete() {
+    if (navigator.vibrate) navigator.vibrate([30, 40, 30]);
+}
+function vibrateError() {
+    if (navigator.vibrate) navigator.vibrate(120);
+}
+
+
 let state = {
     exercises: JSON.parse(localStorage.getItem("ee_exercises")) || DEFAULT_EXERCISES,
     history: JSON.parse(localStorage.getItem("ee_history")) || [],
@@ -68,14 +64,12 @@ let state = {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("log-date").value = getLocalDateString(new Date());
+    document.getElementById("log-date").value = new Date().toISOString().split('T')[0];
     initApp();
     setupEventListeners();
-    setupStarRating();
 });
 
 function initApp() {
-    migrateIntensityData();
     saveState();
     evaluateTodayPlans();
     renderPlanList();
@@ -83,28 +77,6 @@ function initApp() {
     renderStats();
     renderManageExercises();
     renderStreakWidget();
-}
-
-function migrateIntensityData() {
-    const legacyMap = { "Low": 1, "Medium": 3, "High": 5 };
-    let changed = false;
-    state.history.forEach(h => {
-        if (typeof h.intensity === "string") {
-            if (legacyMap[h.intensity] !== undefined) {
-                h.intensity = legacyMap[h.intensity];
-            } else if (h.intensity.trim() === "") {
-                h.intensity = null;
-            } else {
-                let parsed = parseInt(h.intensity, 10);
-                h.intensity = Number.isFinite(parsed) ? parsed : null;
-            }
-            changed = true;
-        } else if (h.intensity === undefined) {
-            h.intensity = null;
-            changed = true;
-        }
-    });
-    if (changed) saveState();
 }
 
 function saveState() {
@@ -162,7 +134,7 @@ function renderStreakWidget() {
 }
 
 function calculateStreak() {
-    let todayStr = getLocalDateString(new Date());
+    let todayStr = new Date().toISOString().split('T')[0];
     let checkDate = new Date(todayStr + "T00:00:00");
     let streak = 0;
 
@@ -170,7 +142,7 @@ function calculateStreak() {
     let historyDates = new Set(state.history.map(h => h.date));
 
     // Guard checking if any action occurred today or yesterday to continue loop validation
-    let yesterdayStr = getLocalDateString(new Date(new Date().setDate(new Date().getDate() - 1)));
+    let yesterdayStr = new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0];
     if (!historyDates.has(todayStr) && !historyDates.has(yesterdayStr)) {
         // If nothing logged today or yesterday, check if yesterday was an explicit scheduled plan rest day
         let yesterdayPlan = getPlannedExercisesForDate(new Date(new Date().setDate(new Date().getDate() - 1)));
@@ -180,7 +152,7 @@ function calculateStreak() {
 
     // Step backwards through time to count consecutive successful days
     for (let i = 0; i < 365; i++) {
-        let loopDateStr = getLocalDateString(checkDate);
+        let loopDateStr = checkDate.toISOString().split('T')[0];
         let isExplicitRest = isRestDayExplicitlyScheduled(new Date(checkDate));
 
         if (historyDates.has(loopDateStr) || isExplicitRest) {
@@ -202,7 +174,7 @@ function isRestDayExplicitlyScheduled(targetDate) {
     const d = new Date(targetDate);
     d.setHours(0, 0, 0, 0);
     const dayOfWeek = d.getDay();
-    const ds = getLocalDateString(d);
+    const ds = d.toISOString().split('T')[0];
 
     return state.plans.some(plan => {
         if (plan.exercise !== '__rest__') return false;
@@ -293,32 +265,17 @@ function render7DayHorizon(baseDate) {
     container.innerHTML = "";
     const activeLogDate = document.getElementById("log-date").value;
 
-    // First pass: gather each day's data and find the max item count so all
-    // 7 cards can share a tall-enough events area (prevents clipped text).
-    let daysData = [];
-    let maxItemCount = 1;
     for (let i = 0; i < 7; i++) {
         let futureDate = new Date(baseDate);
         futureDate.setDate(baseDate.getDate() + i);
-
+        
         let dayTargets = getPlannedExercisesForDate(futureDate);
-        let isRest = isRestDayExplicitlyScheduled(futureDate);
-        let itemCount = isRest ? 1 : Math.max(dayTargets.length, 1);
-        if (itemCount > maxItemCount) maxItemCount = itemCount;
-
-        daysData.push({ futureDate, dayTargets, isRest });
-    }
-
-    const perItemHeight = 16; // approx line-height + margin per tag, in px
-    const eventsMinHeight = maxItemCount * perItemHeight;
-
-    daysData.forEach(({ futureDate, dayTargets, isRest }, i) => {
         let dayLabel = i === 0 ? "Today" : DAYS_SHORT[futureDate.getDay()];
-        let dateString = getLocalDateString(futureDate);
+        let dateString = futureDate.toISOString().split('T')[0];
 
         let dayCard = document.createElement("div");
         dayCard.className = `cal-day-card ${dateString === activeLogDate ? 'today' : ''}`;
-
+        
         dayCard.style.display = "flex";
         dayCard.style.flexDirection = "column";
         dayCard.style.minHeight = "fit-content"; 
@@ -332,12 +289,12 @@ function render7DayHorizon(baseDate) {
         };
 
         let tagsHtml = dayTargets.map(t => `
-            <span class="cal-event-tag">
+            <span class="cal-event-tag" style="display: block; margin-top: 2px; word-break: break-word; font-size: 0.65rem;">
                 ${t}
             </span>
         `).join("");
         
-        if (isRest) {
+        if (isRestDayExplicitlyScheduled(futureDate)) {
             tagsHtml = `<span class="text-muted" style="font-size:0.65rem; display:block; margin-top:2px;">Rest</span>`;
         } else if (dayTargets.length === 0) {
             tagsHtml = `<span class="text-muted" style="font-size:0.65rem; display:block; margin-top:2px;">—</span>`;
@@ -346,10 +303,10 @@ function render7DayHorizon(baseDate) {
         dayCard.innerHTML = `
             <div class="cal-day-title" style="font-weight: bold;">${dayLabel}</div>
             <div class="text-muted" style="font-size:0.65rem; margin-bottom: 4px;">${futureDate.getMonth()+1}/${futureDate.getDate()}</div>
-            <div class="cal-day-events" style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px; min-height: ${eventsMinHeight}px;">${tagsHtml}</div>
+            <div class="cal-day-events" style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;">${tagsHtml}</div>
         `;
         container.appendChild(dayCard);
-    });
+    }
 }
 
 // --- DROPDOWN ELEMENT SELECTOR INJECTIONS ---
@@ -436,32 +393,6 @@ function getPreviousEntry(exerciseName) {
 }
 
 // --- CUSTOM INTERACTIVE DIALOG MODAL CONTROLLER ---
-function setupStarRating() {
-    const stars = document.querySelectorAll("#log-intensity-stars .star");
-    const hiddenInput = document.getElementById("log-intensity");
-
-    stars.forEach(star => {
-        star.addEventListener("click", () => {
-            const clickedVal = parseInt(star.dataset.val, 10);
-            const currentVal = parseInt(hiddenInput.value, 10) || 0;
-            // Tapping the currently-highest active star clears the rating back to 0
-            const newVal = (clickedVal === currentVal) ? 0 : clickedVal;
-            setStarRatingValue(newVal);
-        });
-    });
-}
-
-function setStarRatingValue(value) {
-    const val = parseInt(value, 10) || 0;
-    const hiddenInput = document.getElementById("log-intensity");
-    if (hiddenInput) hiddenInput.value = val;
-
-    document.querySelectorAll("#log-intensity-stars .star").forEach(star => {
-        const starVal = parseInt(star.dataset.val, 10);
-        star.classList.toggle("active", starVal <= val);
-    });
-}
-
 function triggerConfirmationModal(title, text, confirmCallback) {
     const modal = document.getElementById("confirmation-modal");
     document.getElementById("modal-title").innerText = title;
@@ -508,7 +439,7 @@ function renderManageExercises() {
 
         item.innerHTML = `
             <div>
-                <strong>${ex.emoji || getCategoryEmoji(ex.category)} ${ex.name}</strong> ${countBadge}
+                <strong>${getCategoryEmoji(ex.category)} ${ex.name}</strong> ${countBadge}
                 <div class="text-muted" style="font-size:0.75rem; margin-top:0.15rem;">Fields: ${ex.metrics.join(", ")}</div>
             </div>
             <div class="history-item-actions">
@@ -528,7 +459,6 @@ function initExerciseEdit(exName) {
     document.getElementById("exercise-form-title").innerText = "Edit Custom Exercise";
     document.getElementById("edit-exercise-index").value = exIdx;
     document.getElementById("new-ex-name").value = ex.name;
-    document.getElementById("new-ex-emoji").value = ex.emoji || "";
     document.getElementById("new-ex-category").value = ex.category;
 
     const checkboxes = document.querySelectorAll('#custom-exercise-form input[name="metric"]');
@@ -582,6 +512,7 @@ function executeExerciseDeletion(exName) {
     state.plans = state.plans.filter(p => p.exercise !== exName);
     
     saveState();
+    vibrateDelete();
     initApp();
     cancelExerciseEdit();
 }
@@ -596,7 +527,7 @@ function initEditEntry(id) {
     document.getElementById("form-title").innerText = "Edit Historical Log";
     document.getElementById("edit-entry-id").value = entry.id;
     document.getElementById("log-date").value = entry.date;
-    setStarRatingValue(entry.intensity || 0);
+    document.getElementById("log-intensity").value = entry.intensity || "";
     
     evaluateTodayPlans();
     document.getElementById("exercise-select").value = entry.exerciseName;
@@ -622,8 +553,7 @@ function cancelFormEdit() {
     document.getElementById("form-title").innerText = "Log Exercise";
     document.getElementById("edit-entry-id").value = "";
     document.getElementById("log-form").reset();
-    document.getElementById("log-date").value = getLocalDateString(new Date());
-    setStarRatingValue(0);
+    document.getElementById("log-date").value = new Date().toISOString().split('T')[0];
     document.getElementById("submit-log-btn").innerText = "Save Entry";
     
     const cancelBtn = document.getElementById("cancel-edit-btn");
@@ -638,6 +568,7 @@ function deleteEntry(id) {
     if (confirm("Are you sure you want to delete this historical entry?")) {
         state.history = state.history.filter(h => h.id !== id);
         saveState();
+        vibrateDelete();
         initApp();
     }
 }
@@ -646,73 +577,9 @@ function deletePlan(id) {
     if (confirm("Are you sure you want to delete this plan?")) {
         state.plans = state.plans.filter(p => p.id !== id);
         saveState();
+        vibrateDelete();
         initApp();
     }
-}
-
-// --- COMPREHENSIVE PROGRESS MATRIX INTERACTIVE GRAPH Engine ---
-function renderIntensityChart() {
-    const container = document.getElementById("intensity-graph-container");
-    if (!container) return;
-
-    // Average intensity per date, ignoring entries with no intensity logged (0/null)
-    let dailyIntensity = {};
-    state.history.forEach(entry => {
-        if (entry.intensity && entry.intensity > 0) {
-            if (!dailyIntensity[entry.date]) dailyIntensity[entry.date] = [];
-            dailyIntensity[entry.date].push(entry.intensity);
-        }
-    });
-
-    let dateKeys = Object.keys(dailyIntensity).sort((a, b) => new Date(a) - new Date(b));
-
-    if (dateKeys.length < 2) {
-        container.innerHTML = `<p class="text-muted" style="text-align:center; padding:1rem; border:1px dashed var(--border); border-radius:8px;">Log a star rating on 2+ days to see this trend.</p>`;
-        return;
-    }
-
-    let avgData = dateKeys.map(date => {
-        let vals = dailyIntensity[date];
-        let avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-        return { date, avg };
-    });
-
-    const width = 440;
-    const height = 180;
-    const paddingLeft = 28;
-    const paddingRight = 14;
-    const paddingTop = 20;
-    const paddingBottom = 28;
-    const usableWidth = width - paddingLeft - paddingRight;
-    const usableHeight = height - paddingTop - paddingBottom;
-    const xDenom = Math.max(avgData.length - 1, 1);
-    const slotWidth = usableWidth / Math.max(avgData.length, 1);
-    const barWidth = Math.max(4, Math.min(26, slotWidth * 0.6));
-
-    let bars = avgData.map((d, idx) => {
-        let x = paddingLeft + (idx / xDenom) * usableWidth;
-        let barHeightPx = (Math.min(d.avg, 5) / 5) * usableHeight;
-        let y = (height - paddingBottom) - barHeightPx;
-        let color = getIntensityColor(Math.round(d.avg));
-        return `
-            <rect x="${x - barWidth / 2}" y="${y}" width="${barWidth}" height="${barHeightPx}" fill="${color}" rx="2"/>
-            <text x="${x}" y="${y - 4}" font-size="7" fill="#f3f4f6" text-anchor="middle">${d.avg.toFixed(1)}</text>
-        `;
-    }).join("");
-
-    container.innerHTML = `
-        <div class="svg-chart-container">
-            <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%">
-                <line x1="${paddingLeft}" y1="${paddingTop}" x2="${paddingLeft}" y2="${height - paddingBottom}" stroke="#374151" stroke-width="1"/>
-                <line x1="${paddingLeft}" y1="${height - paddingBottom}" x2="${width - paddingRight}" y2="${height - paddingBottom}" stroke="#374151" stroke-width="1"/>
-                <text x="${paddingLeft - 4}" y="${height - paddingBottom}" font-size="7" fill="#9ca3af" text-anchor="end">0</text>
-                <text x="${paddingLeft - 4}" y="${paddingTop + 4}" font-size="7" fill="#9ca3af" text-anchor="end">5</text>
-                ${bars}
-                <text x="${paddingLeft}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="start">${avgData[0].date.substring(5)}</text>
-                <text x="${width - paddingRight}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="end">${avgData[avgData.length - 1].date.substring(5)}</text>
-            </svg>
-        </div>
-    `;
 }
 
 // --- COMPREHENSIVE PROGRESS MATRIX INTERACTIVE GRAPH Engine ---
@@ -856,7 +723,7 @@ function renderStats() {
         let secondaryLinePath = hasSecondaryAxis ? (`M ${points[0].x} ${points[0].ySec} ` + points.slice(1).map(p => `L ${p.x} ${p.ySec}`).join(" ")) : "";
 
         let primaryDots = points.map(p => {
-            let color = getIntensityColor(p.intensity);
+            let color = INTENSITY_COLORS[p.intensity] || INTENSITY_COLORS["Default"];
             return `
                 <circle cx="${p.x}" cy="${p.yPri}" r="4" fill="${color}" stroke="#1e1e24" stroke-width="1"/>
                 <text x="${p.x}" y="${p.yPri - 6}" font-size="7" font-weight="bold" fill="#f3f4f6" text-anchor="middle">${p.primary}</text>
@@ -923,7 +790,7 @@ function renderStats() {
                             return `${v}${unit}`;
                         }).join(" | ");
 
-                        let intBadge = item.intensity ? `<span class="badge-intensity" style="background-color:${getIntensityColor(item.intensity)};">${'★'.repeat(item.intensity)}</span>` : '';
+                        let intBadge = item.intensity ? `<span class="badge-intensity intensity-${item.intensity}">${item.intensity}</span>` : '';
                         const _hEx = state.exercises.find(e => e.name === item.exerciseName);
                         const _hEmoji = (_hEx && _hEx.emoji) ? _hEx.emoji : getCategoryEmoji(_hEx?.category);
 
@@ -941,8 +808,6 @@ function renderStats() {
             </div>
         `;
     }).join("");
-
-    renderIntensityChart();
 }
 
 // --- APP EVENT LISTENER ATTACHMENTS ---
@@ -962,8 +827,7 @@ function setupEventListeners() {
         const exerciseName = document.getElementById("exercise-select").value;
         const exercise = state.exercises.find(e => e.name === exerciseName);
         const selectedDate = document.getElementById("log-date").value;
-        const intensityRaw = parseInt(document.getElementById("log-intensity").value, 10) || 0;
-        const intensity = intensityRaw > 0 ? intensityRaw : null;
+        const intensity = document.getElementById("log-intensity").value;
         
         const formData = new FormData(e.target);
         let logData = {};
@@ -993,6 +857,7 @@ function setupEventListeners() {
 
         state.history.sort((a,b) => new Date(b.date) - new Date(a.date));
         saveState();
+        vibrateSuccess();
         cancelFormEdit();
         initApp();
     });
@@ -1014,6 +879,7 @@ function setupEventListeners() {
 
         state.plans.push(newPlan);
         saveState();
+        vibrateSuccess();
         initApp();
     });
 
@@ -1026,6 +892,7 @@ function setupEventListeners() {
         let selectedMetrics = Array.from(checkedBoxes).map(cb => cb.value);
 
         if (selectedMetrics.length === 0) {
+            vibrateError();
             alert("Please check at least one tracking field metric.");
             return;
         }
@@ -1038,6 +905,7 @@ function setupEventListeners() {
             let oldName = state.exercises[idx].name;
 
             if (oldName.toLowerCase() !== name.toLowerCase() && state.exercises.some(ex => ex.name.toLowerCase() === name.toLowerCase())) {
+                vibrateError();
                 alert("This exercise name already exists.");
                 return;
             }
@@ -1054,6 +922,7 @@ function setupEventListeners() {
             state.exercises[idx] = { name, category, emoji: emoji !== null ? emoji : existingEmoji, metrics: selectedMetrics };
         } else {
             if (state.exercises.some(ex => ex.name.toLowerCase() === name.toLowerCase())) {
+                vibrateError();
                 alert("This exercise name already exists.");
                 return;
             }
@@ -1061,6 +930,7 @@ function setupEventListeners() {
         }
 
         saveState();
+        vibrateSuccess();
         cancelExerciseEdit();
         initApp();
     });
@@ -1131,6 +1001,7 @@ function exportData() {
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
+    vibrateSuccess();
 }
 
 function importData(event) {
@@ -1144,10 +1015,12 @@ function importData(event) {
             if (importedState.history && importedState.exercises) {
                 state = importedState;
                 saveState();
+                vibrateSuccess();
                 initApp();
                 alert("Data configuration imported successfully!");
             }
         } catch (err) {
+            vibrateError();
             alert("Error parsing configuration json backup file structure templates.");
         }
     };
@@ -1156,6 +1029,7 @@ function importData(event) {
 
 function exportCSV() {
     if (state.history.length === 0) {
+        vibrateError();
         alert("No historical workout log entries found to export.");
         return;
     }
@@ -1202,4 +1076,5 @@ function exportCSV() {
     
     downloadAnchor.click();
     downloadAnchor.remove();
+    vibrateSuccess();
 }
