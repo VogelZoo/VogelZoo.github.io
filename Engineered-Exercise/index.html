@@ -4,6 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Engineered Exercise</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#121214">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="EngExercise">
+    <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/assets/icon-512.png">
+    <link rel="apple-touch-icon" href="/assets/icon-192.png">
+
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -51,15 +62,12 @@
                         <input type="date" id="log-date" required>
                     </div>
                     <div class="form-group">
-                        <label>Intensity</label>
-                        <div class="star-rating" id="log-intensity-stars">
-                            <span class="star" data-val="1">★</span>
-                            <span class="star" data-val="2">★</span>
-                            <span class="star" data-val="3">★</span>
-                            <span class="star" data-val="4">★</span>
-                            <span class="star" data-val="5">★</span>
-                        </div>
-                        <input type="hidden" id="log-intensity" value="0">
+                        <label for="log-intensity">Intensity</label>
+                        <select id="log-intensity">
+                            <option value="Low">Low</option>
+                            <option value="Medium" selected>Medium</option>
+                            <option value="High">High</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="exercise-select">Exercise</label>
@@ -135,20 +143,13 @@
                     <select id="chart-exercise-select" onchange="renderStats()"></select>
                 </div>
                 <div id="graph-container"></div>
-                <div class="legend-container" id="chart-legend" style="display:none; margin-top:0.5rem; justify-content:center; gap:0.75rem; font-size:0.65rem; flex-wrap:wrap;">
-                    <span><span class="legend-dot" style="background-color:#4b5563;"></span> 1★</span>
-                    <span><span class="legend-dot" style="background-color:#65a30d;"></span> 2★</span>
-                    <span><span class="legend-dot" style="background-color:#d97706;"></span> 3★</span>
-                    <span><span class="legend-dot" style="background-color:#ea580c;"></span> 4★</span>
-                    <span><span class="legend-dot" style="background-color:#dc2626;"></span> 5★</span>
+                <div class="legend-container" id="chart-legend" style="display:none; margin-top:0.5rem; justify-content:center; gap:1rem; font-size:0.7rem;">
+                    <span><span class="legend-dot" style="background-color:#4b5563;"></span> Low</span>
+                    <span><span class="legend-dot" style="background-color:#d97706;"></span> Medium</span>
+                    <span><span class="legend-dot" style="background-color:#dc2626;"></span> High</span>
                     <span><span class="legend-dot" style="background-color:#2563eb;"></span> None</span>
                 </div>
                 <div id="stats-summary" style="margin-top: 1rem;"></div>
-            </div>
-            <div class="card">
-                <h3>Average Intensity by Day</h3>
-                <p class="text-muted" style="margin-bottom:0.75rem;">Days with no intensity logged are excluded from the average.</p>
-                <div id="intensity-graph-container"></div>
             </div>
             <div class="card">
                 <h3>History Logs By Day</h3>
@@ -168,7 +169,7 @@
                     </div>
                     <div class="form-group">
                         <label for="new-ex-emoji">Emoji (optional)</label>
-                        <input type="text" id="new-ex-emoji" placeholder="e.g. 🏋️" maxlength="8">
+                        <input type="text" id="new-ex-emoji" placeholder="e.g. 🏋️" maxlength="4">
                     </div>
                     <div class="form-group">
                         <label for="new-ex-category">Category</label>
@@ -226,6 +227,15 @@
             const exGroup = document.getElementById("plan-exercise-group");
             exGroup.style.opacity = isRest ? "0.35" : "1";
             exGroup.style.pointerEvents = isRest ? "none" : "auto";
+        }
+
+        // Register service worker for offline support / installability
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("/sw.js").catch((err) => {
+                    console.warn("Service worker registration failed:", err);
+                });
+            });
         }
     </script>
 </body>
