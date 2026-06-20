@@ -21,7 +21,7 @@ const BackupSync = (() => {
     // (type: Web application). Add your GitHub Pages origin to "Authorized
     // JavaScript origins" and oauth-callback.html's full URL to "Authorized
     // redirect URIs".
-    const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com";
+    const GOOGLE_CLIENT_ID = "36630807511-gt7hamltvic0l9lslrov9q998r56f4c0.apps.googleusercontent.com";
 
     // Dropbox App Console > Create App > Scoped access > App folder.
     // Add oauth-callback.html's full URL under "Redirect URIs".
