@@ -429,7 +429,7 @@ select:focus, input:focus {
     position: fixed;
     inset: 0;
     z-index: 3000;
-    background-color: var(--bg-primary);
+    background-color: #000000;
     display: flex;
     align-items: center;
     justify-content: center;
