@@ -254,8 +254,35 @@ function evaluateTodayPlans() {
         suggestionBox.innerHTML = `<h3>No routine explicitly scheduled for ${formattedDisplayDate}</h3>`;
     }
 
-    renderExerciseSelectors(targetExercises);
+    // The dropdown's "Scheduled" star group only shows exercises that still
+    // have unlogged instances remaining for this date — once you've logged
+    // as many reps of an exercise as the plan calls for, it drops out of the
+    // star group (it's still in its normal category group) so the dropdown
+    // narrows down to what's actually left to do.
+    let remainingScheduled = getRemainingScheduledExercises(targetExercises, selectedDateStr);
+
+    renderExerciseSelectors(remainingScheduled);
     render7DayHorizon(new Date());
+}
+
+// Counts how many times each exercise is scheduled for the date vs. how many
+// times it's already been logged on that exact date, and returns only the
+// names that still have scheduled instances remaining.
+function getRemainingScheduledExercises(targetExercises, dateStr) {
+    let plannedCounts = {};
+    targetExercises.forEach(name => {
+        if (name === "__rest__") return;
+        plannedCounts[name] = (plannedCounts[name] || 0) + 1;
+    });
+
+    let loggedCounts = {};
+    state.history.forEach(entry => {
+        if (entry.date === dateStr) {
+            loggedCounts[entry.exerciseName] = (loggedCounts[entry.exerciseName] || 0) + 1;
+        }
+    });
+
+    return Object.keys(plannedCounts).filter(name => (loggedCounts[name] || 0) < plannedCounts[name]);
 }
 
 function getPlannedExercisesForDate(targetDate) {
