@@ -111,6 +111,11 @@
                         <input type="date" id="log-date" required>
                     </div>
                     <div class="form-group">
+                        <label for="exercise-select">Exercise</label>
+                        <select id="exercise-select" required></select>
+                    </div>
+                    <div id="dynamic-fields-container"></div>
+                     <div class="form-group">
                         <label>Intensity</label>
                         <div class="star-rating" id="log-intensity-stars">
                             <span class="star" data-val="1">★</span>
@@ -120,12 +125,7 @@
                             <span class="star" data-val="5">★</span>
                         </div>
                         <input type="hidden" id="log-intensity" value="0">
-                    </div>
-                    <div class="form-group">
-                        <label for="exercise-select">Exercise</label>
-                        <select id="exercise-select" required></select>
-                    </div>
-                    <div id="dynamic-fields-container"></div>
+                     </div>
                     <div id="form-action-buttons" class="form-action-row">
                         <button type="submit" class="btn btn-primary" id="submit-log-btn">Save Entry</button>
                     </div>
