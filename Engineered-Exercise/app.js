@@ -415,6 +415,7 @@ function renderExerciseSelectors(priorityList = []) {
     const editingId = document.getElementById("edit-entry-id").value;
     if (!editingId && organizedExercises.length > 0) {
         buildDynamicFormFields(selectLog.value);
+        updateIntensityPreview();
     }
 }
 
@@ -451,8 +452,29 @@ function buildDynamicFormFields(exerciseName, existingData = null) {
     });
 }
 
+// Finds the entry for a given exercise whose `date` is chronologically most
+// recent — comparing actual date values, not array/insertion order (history
+// is normally kept sorted, but backfilled or imported entries can break that
+// assumption, so this never relies on it).
+function getMostRecentEntryForExercise(exerciseName, requireIntensity = false) {
+    let best = null;
+    state.history.forEach(entry => {
+        if (entry.exerciseName !== exerciseName) return;
+        if (requireIntensity && (!entry.intensity || entry.intensity <= 0)) return;
+        if (!best || new Date(entry.date) > new Date(best.date)) {
+            best = entry;
+        }
+    });
+    return best;
+}
+
 function getPreviousEntry(exerciseName) {
-    return state.history.find(entry => entry.exerciseName === exerciseName);
+    return getMostRecentEntryForExercise(exerciseName, false);
+}
+
+function getMostRecentIntensityForExercise(exerciseName) {
+    const entry = getMostRecentEntryForExercise(exerciseName, true);
+    return entry ? entry.intensity : null;
 }
 
 // --- CUSTOM INTERACTIVE DIALOG MODAL CONTROLLER ---
@@ -480,6 +502,29 @@ function setStarRatingValue(value) {
     document.querySelectorAll("#log-intensity-stars .star").forEach(star => {
         const starVal = parseInt(star.dataset.val, 10);
         star.classList.toggle("active", starVal <= val);
+    });
+
+    updateIntensityPreview();
+}
+
+// When no stars are actively selected, ghost-highlight the stars in light
+// grey up to the most recent intensity logged for the currently selected
+// exercise — a quick "last time you rated this X" hint. Disappears the
+// moment a real selection (active, gold) exists.
+function updateIntensityPreview() {
+    const exerciseSelect = document.getElementById("exercise-select");
+    const hiddenInput = document.getElementById("log-intensity");
+    if (!exerciseSelect || !hiddenInput) return;
+
+    const currentVal = parseInt(hiddenInput.value, 10) || 0;
+    let previewVal = 0;
+    if (currentVal === 0 && exerciseSelect.value) {
+        previewVal = getMostRecentIntensityForExercise(exerciseSelect.value) || 0;
+    }
+
+    document.querySelectorAll("#log-intensity-stars .star").forEach(star => {
+        const starVal = parseInt(star.dataset.val, 10);
+        star.classList.toggle("preview", currentVal === 0 && starVal <= previewVal);
     });
 }
 
@@ -976,6 +1021,7 @@ function setupEventListeners() {
 
     document.getElementById("exercise-select").addEventListener("change", (e) => {
         buildDynamicFormFields(e.target.value);
+        updateIntensityPreview();
     });
 
     document.getElementById("log-form").addEventListener("submit", (e) => {
