@@ -48,11 +48,11 @@
             }
 
             // Full reboot: this script only runs once per actual page load.
-            showSplash(2000);
+            showSplash(3000);
 
             // Reentered: tab/app regains visibility without a reload.
             document.addEventListener("visibilitychange", function() {
-                if (!document.hidden) showSplash(500);
+                if (!document.hidden) showSplash(1500);
             });
         })();
     </script>
