@@ -585,7 +585,7 @@ const BackupSync = (() => {
                 <h2 class="modal-title">Back Up Your Data</h2>
                 <p class="text-muted" style="margin-bottom:1.25rem; font-size:0.9rem; line-height:1.5;">
                     Choose where Engineered Exercise should automatically keep a backup of your
-                    exercises, history, and schedule. You can change this later in Settings.
+                    exercises, history, and schedule. You can change this later in the Data Tab.
                 </p>
                 <div id="backup-provider-choices" class="form-action-row" style="gap:0.6rem;"></div>
                 <button id="backup-setup-skip" class="btn btn-secondary" style="margin-top:1rem;">Not Now</button>
