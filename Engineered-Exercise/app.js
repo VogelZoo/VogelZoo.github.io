@@ -177,13 +177,8 @@ function renderStreakWidget() {
         </div>
         <div class="streak-count">🔥 ${currentStreak} <span style="font-size:0.85rem; font-weight:normal; color:var(--text-muted);">Days</span></div>
     `;
-    // Insert after suggestion box (first child), not before it
-    const suggestionBox = document.getElementById('today-suggestion');
-    if (suggestionBox && suggestionBox.nextSibling) {
-        trackSection.insertBefore(widgetHtml, suggestionBox.nextSibling);
-    } else {
-        trackSection.appendChild(widgetHtml);
-    }
+    // Insert as the very first card in the Track view
+    trackSection.insertBefore(widgetHtml, trackSection.firstChild);
 }
 
 function calculateStreak() {
