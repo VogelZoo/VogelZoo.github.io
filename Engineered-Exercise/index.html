@@ -23,6 +23,40 @@
 </head>
 <body>
 
+    <!-- Splash screen: a fresh page load (full reboot — cold start, force-quit
+         and reopen, hard refresh) always shows it for 2s. Returning to an
+         already-running session after the app was backgrounded (switched apps,
+         locked the screen, etc.) shows it again for just 0.5s, detected via
+         the Page Visibility API since that doesn't trigger a script reload. -->
+    <div id="splash-screen">
+        <img src="icon-512.png" alt="Engineered Exercise" class="splash-logo">
+    </div>
+    <script>
+        (function() {
+            var splash = document.getElementById("splash-screen");
+            var hideTimer = null;
+
+            function showSplash(duration) {
+                if (!splash) return;
+                if (hideTimer) clearTimeout(hideTimer);
+                splash.style.display = "flex";
+                splash.classList.remove("fade-out");
+                hideTimer = setTimeout(function() {
+                    splash.classList.add("fade-out");
+                    setTimeout(function() { splash.style.display = "none"; }, 400);
+                }, duration);
+            }
+
+            // Full reboot: this script only runs once per actual page load.
+            showSplash(2000);
+
+            // Reentered: tab/app regains visibility without a reload.
+            document.addEventListener("visibilitychange", function() {
+                if (!document.hidden) showSplash(500);
+            });
+        })();
+    </script>
+
     <!-- Shown only when the device is rotated to landscape — the layout is
          designed for portrait, so we block interaction and ask for a rotate
          back rather than letting the UI break. Doubles as the fallback for
