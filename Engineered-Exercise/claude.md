@@ -2,7 +2,8 @@
 
 A personal fitness-tracking PWA. Vanilla JS, HTML, CSS — no build step, no
 framework, no dependencies. Everything runs directly in the browser; data
-lives entirely in `localStorage` on-device (no backend, no sync).
+lives entirely in `localStorage` on-device (no backend, no sync), with an
+optional automatic backup layer (see "Backup & Sync" below).
 
 Deployed as a static site to GitHub Pages at
 `vogelzoo.github.io/Engineered-Exercise/`. All files sit flat in the repo
@@ -13,6 +14,8 @@ root — no subfolders.
 ```
 index.html              Markup + view containers + inline bootstrap scripts
 app.js                  All application logic (~1300 lines, single file)
+backup.js               Backup/sync module (On Device, Google Drive, Dropbox)
+oauth-callback.html     OAuth redirect landing page for Drive/Dropbox
 styles.css              All styling (dark theme, single file)
 manifest.json           PWA manifest (icons, standalone display, portrait lock)
 sw.js                   Service worker — offline caching of the app shell
@@ -40,8 +43,8 @@ dev loop.
 - **`view-stats`** — per-exercise progression chart (SVG, hand-rolled, no
   charting library), average-intensity-by-day chart, and the full history log
   grouped by date.
-- **`view-settings`** ("Data" tab) — custom exercise CRUD, and JSON
-  backup/restore + CSV export.
+- **`view-settings`** ("Data" tab) — custom exercise CRUD, backup/sync status
+  + provider switcher, and JSON backup/restore + CSV export.
 
 ## Data model
 
@@ -87,6 +90,67 @@ vs. logged entries for that date, not booleans.
 `timeSeconds`, `timeMinutes`, `distance` — drives which input fields render
 dynamically in the log form (`buildDynamicFormFields`).
 
+## Backup & Sync
+
+`backup.js` is a self-contained module (global `BackupSync` object) that
+optionally mirrors `ee_exercises`/`ee_history`/`ee_plans` to one of three
+providers, chosen by the user:
+
+- **On Device** — File System Access API (`showSaveFilePicker`/
+  `showOpenFilePicker`). The `FileSystemFileHandle` is stored in IndexedDB
+  (`ee_backup_db`), since handles aren't JSON-serializable and can't live in
+  `localStorage`. **Not offered on iOS Safari** — it has no File System
+  Access API at all, even installed as a PWA — feature-detected via
+  `supportsFileSystemAccess()` and simply omitted from the picker.
+- **Google Drive** — OAuth via Google Identity Services (popup-based token
+  client, no page redirect needed), scope `drive.appdata`. The backup file
+  lives in the hidden `appDataFolder`, invisible in the user's normal Drive
+  UI. Requires `GOOGLE_CLIENT_ID` to be set at the top of `backup.js`.
+- **Dropbox** — PKCE OAuth (`token_access_type: offline` for refresh
+  tokens), app-folder scope (`Apps/Engineered Exercise/backup.json`).
+  Requires a real page redirect, handled by `oauth-callback.html`, which
+  just forwards `?code=&state=` back to `index.html` for `backup.js` to
+  finish the token exchange. Requires `DROPBOX_APP_KEY` to be set at the top
+  of `backup.js`.
+
+**Both cloud providers need their redirect URI registered exactly** (Google
+Cloud Console / Dropbox App Console) to match `OAUTH_REDIRECT_URI` in
+`backup.js`, which is built from `oauth-callback.html`'s deployed URL.
+
+**Integration point**: `saveState()` in `app.js` calls
+`BackupSync.notifyStateChanged()` on every call — this is the single funnel
+all mutations pass through (log CRUD, plan CRUD, exercise CRUD, import), so
+hooking it once covers every mutation path. `notifyStateChanged()` debounces
+(1.2s) and no-ops entirely if no provider is configured, so the feature is
+fully inert until a user opts in.
+
+**First-load flow**: if no provider is configured and setup hasn't been
+explicitly skipped (`ee_backup_setup_complete` unset), a modal offers the
+three choices. If the chosen provider already has a backup file at that
+location, the user is always asked (via the existing confirmation modal,
+relabeled) whether to load it or keep local data and overwrite. This same
+modal is reachable any time via Settings → "Change Backup Location."
+
+**Reconnection check**: on every load, if a provider *is* configured,
+`BackupSync.init()` does a lightweight existence check (file handle present,
+Dropbox token present) before attempting a sync. If the save location is
+gone — handle permission revoked, token cleared, site data wiped on one
+provider but not the browser as a whole — it clears the provider and
+reopens the setup modal rather than failing silently forever.
+
+**Conflict resolution**: on reconnect with an existing remote backup that
+differs from local, and implicitly on every write, the merge strategy is
+union-based: history entries merged by `id` (collisions take the
+newer-considered snapshot), exercises merged by name (case-insensitive,
+newer wins on conflict), plans merged by `id` (newer wins on conflict). See
+`mergeSnapshots()` in `backup.js`.
+
+**Offline behavior**: if a sync attempt fails (offline, API error, expired
+token refresh failure), a small red "Not synced" badge appears
+bottom-right, tappable to retry. It clears automatically on the next
+successful sync, including the automatic retry that fires on the browser's
+`online` event.
+
 ## Conventions / gotchas (learned the hard way — don't regress these)
 
 - **Never use `.toISOString().split('T')[0]` for "today's date."** It's
@@ -118,12 +182,18 @@ dynamically in the log form (`buildDynamicFormFields`).
   padding on `header`/`body`, content renders behind the iPhone
   notch/Dynamic Island.
 - Service worker cache is versioned via `CACHE_VERSION` in `sw.js` — **bump
-  it on every deploy** that touches `index.html`/`app.js`/`styles.css`, or
-  returning visitors can get served stale cached files.
+  it on every deploy** that touches `index.html`/`app.js`/`styles.css`/
+  `backup.js`/`oauth-callback.html`, or returning visitors can get served
+  stale cached files.
 - The splash screen's reboot-vs-reentry distinction is timer-based, not
   flag-based: a fresh page load always gets 2s, `visibilitychange` returning
   from background gets 0.5s. There's no real way to detect "was the OS
   process actually killed" from JS — this is the best available proxy.
+- **Backup credentials are placeholders.** `GOOGLE_CLIENT_ID` and
+  `DROPBOX_APP_KEY` at the top of `backup.js` are unset by default — Drive
+  and Dropbox setup will fail until real values from each provider's
+  developer console are filled in. On Device works immediately with no
+  configuration (where supported).
 
 ## Known intentional design choices (not bugs)
 
@@ -136,3 +206,7 @@ dynamically in the log form (`buildDynamicFormFields`).
   planned list for the date, unfiltered — only the dropdown's star group and
   the horizon's individual tags reflect per-instance completion
   (strikethrough/removal).
+- **Backup setup is opt-in and skippable.** Dismissing the first-load modal
+  ("Not Now") sets `ee_backup_setup_complete` and the modal won't reappear
+  unless the save location later becomes invalid or the user explicitly
+  opens it from Settings — there's no recurring nag.

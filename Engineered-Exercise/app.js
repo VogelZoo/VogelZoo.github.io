@@ -135,6 +135,7 @@ function saveState() {
     localStorage.setItem("ee_exercises", JSON.stringify(state.exercises));
     localStorage.setItem("ee_history", JSON.stringify(state.history));
     localStorage.setItem("ee_plans", JSON.stringify(state.plans));
+    if (typeof BackupSync !== "undefined") BackupSync.notifyStateChanged();
 }
 
 function getCategoryEmoji(category) {
@@ -156,7 +157,7 @@ function switchView(viewId) {
     if (viewId === 'track') { evaluateTodayPlans(); renderStreakWidget(); }
     if (viewId === 'plan') renderPlanList();
     if (viewId === 'stats') { populateChartFilter(); renderStats(); }
-    if (viewId === 'settings') renderManageExercises();
+    if (viewId === 'settings') { renderManageExercises(); if (typeof refreshBackupStatusDisplay === "function") refreshBackupStatusDisplay(); }
 }
 
 // --- CORE STREAK TRACKING ENGINE ---
