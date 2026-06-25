@@ -656,6 +656,15 @@ select:focus, input:focus {
     color: var(--text-main);
 }
 
+.timer-lap-display {
+    font-size: 1.15rem;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+    margin-bottom: 0.35rem;
+    color: var(--text-muted);
+}
+
 .timer-state-label {
     font-size: 0.85rem;
     color: var(--text-muted);
@@ -751,4 +760,39 @@ select:focus, input:focus {
 .tracking-measurement-option .tm-unit {
     font-size: 0.75rem;
     color: var(--text-muted);
+}
+
+/* ===== CHART GRANULARITY RADIO GROUP ===== */
+.radio-group {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.radio-pill {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 0.5rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.radio-pill input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.radio-pill:has(input:checked) {
+    color: #fff;
+    background-color: var(--accent);
+    border-color: var(--accent);
 }

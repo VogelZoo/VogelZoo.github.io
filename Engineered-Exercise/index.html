@@ -89,6 +89,7 @@
             </div>
 
             <div class="timer-display" id="timer-display">00:00.0</div>
+            <div class="timer-lap-display hidden" id="timer-lap-display">Lap 00:00.0</div>
             <div class="timer-state-label" id="timer-state-label">Ready</div>
 
             <div class="timer-controls" id="timer-controls-idle">
@@ -296,7 +297,24 @@
                 <div id="stats-summary" style="margin-top: 1rem;"></div>
             </div>
             <div class="card">
-                <h3>Average Intensity by Day</h3>
+                <h3>Chart Aggregation</h3>
+                <div class="radio-group" id="chart-granularity-group">
+                    <label class="radio-pill">
+                        <input type="radio" name="chart-granularity" value="daily" checked onchange="setChartGranularity('daily')">
+                        <span>Daily</span>
+                    </label>
+                    <label class="radio-pill">
+                        <input type="radio" name="chart-granularity" value="weekly" onchange="setChartGranularity('weekly')">
+                        <span>Weekly</span>
+                    </label>
+                    <label class="radio-pill">
+                        <input type="radio" name="chart-granularity" value="monthly" onchange="setChartGranularity('monthly')">
+                        <span>Monthly</span>
+                    </label>
+                </div>
+            </div>
+            <div class="card">
+                <h3 id="intensity-chart-heading">Average Intensity by Day</h3>
                 <p class="text-muted" style="margin-bottom:0.75rem;">Days with no intensity logged are excluded from the average.</p>
                 <div id="intensity-graph-container"></div>
             </div>

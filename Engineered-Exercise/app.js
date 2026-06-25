@@ -80,6 +80,120 @@ function getLocalDateString(date) {
     return `${year}-${month}-${day}`;
 }
 
+// --- CHART AGGREGATION (daily / weekly / monthly) ---
+// Shared by the Progress Insight chart and the Average Intensity chart so
+// both respond to the same granularity toggle. Caps output to the most
+// recent MAX_CHART_POINTS buckets — older points are simply not displayed,
+// per spec, rather than being dropped before aggregation.
+let chartGranularity = "daily";
+const MAX_CHART_POINTS = 50;
+
+function setChartGranularity(granularity) {
+    chartGranularity = granularity;
+    renderStats();
+}
+
+// Returns a stable bucket key + a representative "anchor" date (used for
+// chart x-axis labels and chronological sorting) for a given YYYY-MM-DD
+// date string and granularity.
+function getPeriodBucket(dateStr, granularity) {
+    if (granularity === "daily") {
+        return { key: dateStr, anchorDate: dateStr };
+    }
+
+    const d = new Date(dateStr + "T00:00:00");
+
+    if (granularity === "weekly") {
+        // ISO-style week: Monday as the start of the week.
+        const dayOfWeek = d.getDay(); // 0=Sun..6=Sat
+        const diffToMonday = (dayOfWeek === 0) ? -6 : (1 - dayOfWeek);
+        const monday = new Date(d);
+        monday.setDate(d.getDate() + diffToMonday);
+        const key = getLocalDateString(monday);
+        return { key, anchorDate: key };
+    }
+
+    if (granularity === "monthly") {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const key = `${year}-${month}`;
+        const anchorDate = `${year}-${month}-01`;
+        return { key, anchorDate };
+    }
+
+    return { key: dateStr, anchorDate: dateStr };
+}
+
+// Generic aggregator: groups `entries` into period buckets by `dateField`,
+// averages every key returned by `numericFieldsFn` (called once per entry),
+// and returns buckets sorted chronologically, capped to the most recent
+// MAX_CHART_POINTS (oldest buckets are dropped after aggregation).
+//
+// numericFieldsFn(entry) => { fieldName: number, ... } — every field present
+// is averaged across all entries that land in the same bucket. Non-numeric
+// metadata can be carried through via extraFieldsFn(entries) => {...}, which
+// receives the full array of raw entries in that bucket (e.g. to compute a
+// rounded average intensity for dot coloring).
+function aggregateByPeriod(entries, granularity, dateField, numericFieldsFn, extraFieldsFn) {
+    const buckets = new Map(); // key -> { anchorDate, items: [...] }
+
+    entries.forEach(entry => {
+        const { key, anchorDate } = getPeriodBucket(entry[dateField], granularity);
+        if (!buckets.has(key)) buckets.set(key, { anchorDate, items: [] });
+        buckets.get(key).items.push(entry);
+    });
+
+    let result = Array.from(buckets.entries()).map(([key, bucket]) => {
+        const fieldSums = {};
+        const fieldCounts = {};
+
+        bucket.items.forEach(entry => {
+            const fields = numericFieldsFn(entry);
+            Object.entries(fields).forEach(([fieldName, val]) => {
+                if (!Number.isFinite(val)) return;
+                fieldSums[fieldName] = (fieldSums[fieldName] || 0) + val;
+                fieldCounts[fieldName] = (fieldCounts[fieldName] || 0) + 1;
+            });
+        });
+
+        const averaged = {};
+        Object.keys(fieldSums).forEach(fieldName => {
+            averaged[fieldName] = fieldSums[fieldName] / fieldCounts[fieldName];
+        });
+
+        const extra = extraFieldsFn ? extraFieldsFn(bucket.items) : {};
+
+        return {
+            periodKey: key,
+            date: bucket.anchorDate,
+            count: bucket.items.length,
+            ...averaged,
+            ...extra
+        };
+    });
+
+    result.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // Most recent N buckets — older points are not displayed.
+    if (result.length > MAX_CHART_POINTS) {
+        result = result.slice(result.length - MAX_CHART_POINTS);
+    }
+
+    return result;
+}
+
+// Human-friendly x-axis label for a bucket anchor date, tuned per granularity.
+function formatPeriodLabel(anchorDate, granularity) {
+    const d = new Date(anchorDate + "T00:00:00");
+    if (granularity === "monthly") {
+        return d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+    }
+    if (granularity === "weekly") {
+        return `${d.getMonth() + 1}/${d.getDate()}`;
+    }
+    return anchorDate.substring(5);
+}
+
 const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAYS_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -884,29 +998,30 @@ function deletePlan(id) {
 // --- COMPREHENSIVE PROGRESS MATRIX INTERACTIVE GRAPH Engine ---
 function renderIntensityChart() {
     const container = document.getElementById("intensity-graph-container");
+    const heading = document.getElementById("intensity-chart-heading");
     if (!container) return;
 
-    // Average intensity per date, ignoring entries with no intensity logged (0/null)
-    let dailyIntensity = {};
-    state.history.forEach(entry => {
-        if (entry.intensity && entry.intensity > 0) {
-            if (!dailyIntensity[entry.date]) dailyIntensity[entry.date] = [];
-            dailyIntensity[entry.date].push(entry.intensity);
-        }
-    });
+    if (heading) {
+        const labelByGranularity = { daily: "Average Intensity by Day", weekly: "Average Intensity by Week", monthly: "Average Intensity by Month" };
+        heading.innerText = labelByGranularity[chartGranularity] || "Average Intensity by Day";
+    }
 
-    let dateKeys = Object.keys(dailyIntensity).sort((a, b) => new Date(a) - new Date(b));
+    // Only entries with an actual intensity rating contribute to the average.
+    const ratedEntries = state.history.filter(entry => entry.intensity && entry.intensity > 0);
 
-    if (dateKeys.length < 2) {
-        container.innerHTML = `<p class="text-muted" style="text-align:center; padding:1rem; border:1px dashed var(--border); border-radius:8px;">Log a star rating on 2+ days to see this trend.</p>`;
+    const buckets = aggregateByPeriod(
+        ratedEntries,
+        chartGranularity,
+        "date",
+        (entry) => ({ intensity: entry.intensity })
+    );
+
+    if (buckets.length < 2) {
+        container.innerHTML = `<p class="text-muted" style="text-align:center; padding:1rem; border:1px dashed var(--border); border-radius:8px;">Log a star rating on 2+ ${chartGranularity === 'daily' ? 'days' : chartGranularity === 'weekly' ? 'weeks' : 'months'} to see this trend.</p>`;
         return;
     }
 
-    let avgData = dateKeys.map(date => {
-        let vals = dailyIntensity[date];
-        let avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-        return { date, avg };
-    });
+    let avgData = buckets.map(b => ({ date: b.date, avg: b.intensity }));
 
     const width = 440;
     const height = 180;
@@ -939,8 +1054,8 @@ function renderIntensityChart() {
                 <text x="${paddingLeft - 4}" y="${height - paddingBottom}" font-size="7" fill="#9ca3af" text-anchor="end">0</text>
                 <text x="${paddingLeft - 4}" y="${paddingTop + 4}" font-size="7" fill="#9ca3af" text-anchor="end">5</text>
                 ${bars}
-                <text x="${paddingLeft}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="start">${avgData[0].date.substring(5)}</text>
-                <text x="${width - paddingRight}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="end">${avgData[avgData.length - 1].date.substring(5)}</text>
+                <text x="${paddingLeft}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="start">${formatPeriodLabel(avgData[0].date, chartGranularity)}</text>
+                <text x="${width - paddingRight}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="end">${formatPeriodLabel(avgData[avgData.length - 1].date, chartGranularity)}</text>
             </svg>
         </div>
     `;
@@ -1004,11 +1119,16 @@ function populateChartFilter() {
 
 // Simple single-line trend chart for a measurement (no dual-axis volume calc,
 // no intensity coloring — measurements don't carry an intensity rating).
-function renderMeasurementChart(measurementKey, sortedLogs, graphContainer, legendBlock) {
+// Simple single-line trend chart for a measurement (no dual-axis volume calc,
+// no intensity coloring — measurements don't carry an intensity rating).
+// `sortedBuckets` are pre-aggregated by the caller via aggregateByPeriod —
+// each item has { date (anchor), value } after averaging.
+function renderMeasurementChart(measurementKey, sortedBuckets, graphContainer, legendBlock) {
     if (legendBlock) legendBlock.style.display = "none";
 
-    if (sortedLogs.length < 2) {
-        graphContainer.innerHTML = `<p class="text-muted" style="text-align:center; padding:1rem; border:1px dashed var(--border); border-radius:8px;">Log this measurement on 2+ days to view progression.</p>`;
+    if (sortedBuckets.length < 2) {
+        const unitWord = chartGranularity === 'daily' ? 'days' : chartGranularity === 'weekly' ? 'weeks' : 'months';
+        graphContainer.innerHTML = `<p class="text-muted" style="text-align:center; padding:1rem; border:1px dashed var(--border); border-radius:8px;">Log this measurement on 2+ ${unitWord} to view progression.</p>`;
         return;
     }
 
@@ -1023,14 +1143,14 @@ function renderMeasurementChart(measurementKey, sortedLogs, graphContainer, lege
     const paddingTop = 30;
     const paddingBottom = 30;
 
-    let vals = sortedLogs.map(l => l.value);
+    let vals = sortedBuckets.map(l => l.value);
     let minVal = Math.min(...vals) * 0.95;
     let maxVal = Math.max(...vals) * 1.05;
     if (maxVal === minVal) { minVal -= 5; maxVal += 5; }
     let range = maxVal - minVal;
 
-    const xDenom = Math.max(sortedLogs.length - 1, 1);
-    let points = sortedLogs.map((entry, idx) => {
+    const xDenom = Math.max(sortedBuckets.length - 1, 1);
+    let points = sortedBuckets.map((entry, idx) => {
         let x = paddingLeft + (idx / xDenom) * (width - paddingLeft - paddingRight);
         let y = (height - paddingBottom) - ((entry.value - minVal) / range) * (height - paddingTop - paddingBottom);
         return { x, y, value: entry.value, date: entry.date };
@@ -1040,7 +1160,7 @@ function renderMeasurementChart(measurementKey, sortedLogs, graphContainer, lege
 
     let dots = points.map(p => `
         <circle cx="${p.x}" cy="${p.y}" r="4" fill="#2563eb" stroke="#1e1e24" stroke-width="1"/>
-        <text x="${p.x}" y="${p.y - 8}" font-size="7" font-weight="bold" fill="#f3f4f6" text-anchor="middle">${p.value}</text>
+        <text x="${p.x}" y="${p.y - 8}" font-size="7" font-weight="bold" fill="#f3f4f6" text-anchor="middle">${Number(p.value.toFixed(2))}</text>
     `).join("");
 
     graphContainer.innerHTML = `
@@ -1055,8 +1175,8 @@ function renderMeasurementChart(measurementKey, sortedLogs, graphContainer, lege
                 <path d="${linePath}" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                 ${dots}
 
-                <text x="${points[0].x}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="start">${points[0].date.substring(5)}</text>
-                <text x="${points[points.length - 1].x}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="end">${points[points.length - 1].date.substring(5)}</text>
+                <text x="${points[0].x}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="start">${formatPeriodLabel(points[0].date, chartGranularity)}</text>
+                <text x="${points[points.length - 1].x}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="end">${formatPeriodLabel(points[points.length - 1].date, chartGranularity)}</text>
             </svg>
         </div>
     `;
@@ -1093,9 +1213,12 @@ function renderStats() {
 
     let measurementHistory = [];
     if (targetMeasurementKey) {
-        measurementHistory = state.measurementLogs
-            .filter(entry => entry.measurementKey === targetMeasurementKey)
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
+        measurementHistory = aggregateByPeriod(
+            state.measurementLogs.filter(entry => entry.measurementKey === targetMeasurementKey),
+            chartGranularity,
+            "date",
+            (entry) => ({ value: entry.value })
+        );
     }
 
     if (targetMeasurementKey) {
@@ -1155,6 +1278,29 @@ function renderStats() {
             };
         });
 
+        // Aggregate per-entry data into daily/weekly/monthly buckets. Primary
+        // and secondary values are averaged across entries in the same
+        // bucket; intensity is averaged too (rounded only at render time,
+        // for dot coloring), per spec.
+        let aggregatedData = aggregateByPeriod(
+            calculatedData,
+            chartGranularity,
+            "date",
+            (entry) => {
+                const fields = { primary: entry.primary };
+                if (hasSecondaryAxis) fields.secondary = entry.secondary;
+                if (entry.intensity && entry.intensity > 0) fields.intensity = entry.intensity;
+                return fields;
+            }
+        );
+
+        if (aggregatedData.length < 2) {
+            graphContainer.innerHTML = `<p class="text-muted" style="text-align:center; padding:1rem; border:1px dashed var(--border); border-radius:8px;">Select or complete an exercise or measurement with 2+ entries to view progression.</p>`;
+            if (legendBlock) legendBlock.style.display = "none";
+        } else {
+
+        calculatedData = aggregatedData;
+
         // Compute Boundary Limits
         let primaryVals = calculatedData.map(d => d.primary);
         let minPri = Math.min(...primaryVals) * 0.9;
@@ -1195,13 +1341,13 @@ function renderStats() {
             let color = getIntensityColor(p.intensity);
             return `
                 <circle cx="${p.x}" cy="${p.yPri}" r="4" fill="${color}" stroke="#1e1e24" stroke-width="1"/>
-                <text x="${p.x}" y="${p.yPri - 6}" font-size="7" font-weight="bold" fill="#f3f4f6" text-anchor="middle">${p.primary}</text>
+                <text x="${p.x}" y="${p.yPri - 6}" font-size="7" font-weight="bold" fill="#f3f4f6" text-anchor="middle">${Number(p.primary.toFixed(1))}</text>
             `;
         }).join("");
 
         let secondaryDots = hasSecondaryAxis ? points.map(p => `
             <circle cx="${p.x}" cy="${p.ySec}" r="3.5" fill="#10b981" stroke="#1e1e24" stroke-width="1"/>
-            <text x="${p.x}" y="${p.ySec + 11}" font-size="7" font-weight="bold" fill="#10b981" text-anchor="middle">${p.secondary}</text>
+            <text x="${p.x}" y="${p.ySec + 11}" font-size="7" font-weight="bold" fill="#10b981" text-anchor="middle">${Number(p.secondary.toFixed(1))}</text>
         `).join("") : "";
 
         let secondaryAxisHtml = hasSecondaryAxis ? `
@@ -1226,11 +1372,12 @@ function renderStats() {
                     ${primaryDots}
                     ${secondaryDots}
 
-                    <text x="${points[0].x}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="start">${points[0].date.substring(5)}</text>
-                    <text x="${points[points.length - 1].x}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="end">${points[points.length - 1].date.substring(5)}</text>
+                    <text x="${points[0].x}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="start">${formatPeriodLabel(points[0].date, chartGranularity)}</text>
+                    <text x="${points[points.length - 1].x}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="end">${formatPeriodLabel(points[points.length - 1].date, chartGranularity)}</text>
                 </svg>
             </div>
         `;
+        }
     }
 
     const totalMeasurementLogs = state.measurementLogs ? state.measurementLogs.length : 0;
@@ -1521,6 +1668,7 @@ const TimerModal = {
     state: "idle",       // "idle" | "running" | "paused"
     startedAt: 0,         // timestamp when current running segment began
     elapsedMs: 0,         // accumulated elapsed time across pauses
+    currentLapStartMs: 0, // total-elapsed offset at which the current (live) lap began
     laps: [],             // array of { label, elapsedMs, splitMs }
     intervalId: null,
 
@@ -1565,7 +1713,9 @@ const TimerModal = {
             elapsedMs: totalElapsed,
             splitMs: totalElapsed - prevTotal
         });
+        this.currentLapStartMs = totalElapsed;
         this.renderLaps();
+        this.updateDisplay();
     },
 
     stop() {
@@ -1577,6 +1727,7 @@ const TimerModal = {
         this.state = "idle";
         this.elapsedMs = 0;
         this.startedAt = 0;
+        this.currentLapStartMs = 0;
         this.laps = [];
         this.refreshUI();
         this.renderLaps();
@@ -1587,6 +1738,11 @@ const TimerModal = {
             return this.elapsedMs + (Date.now() - this.startedAt);
         }
         return this.elapsedMs;
+    },
+
+    // Time elapsed since the most recent lap (or since start, if no laps yet).
+    getCurrentLapMs() {
+        return Math.max(0, this.getElapsedMs() - this.currentLapStartMs);
     },
 
     formatMs(ms) {
@@ -1600,7 +1756,19 @@ const TimerModal = {
 
     updateDisplay() {
         const display = document.getElementById("timer-display");
+        const lapDisplay = document.getElementById("timer-lap-display");
         if (display) display.innerText = this.formatMs(this.getElapsedMs());
+        if (lapDisplay) {
+            // Only meaningful while a session is actually active (running or
+            // paused mid-session) — idle has no lap to show.
+            const showLap = this.state === "running" || (this.state === "paused" && this.elapsedMs > 0);
+            if (showLap) {
+                lapDisplay.innerText = `Lap ${this.formatMs(this.getCurrentLapMs())}`;
+                lapDisplay.classList.remove("hidden");
+            } else {
+                lapDisplay.classList.add("hidden");
+            }
+        }
     },
 
     // Updates header icon color, modal control set (idle/running/paused), and state label
