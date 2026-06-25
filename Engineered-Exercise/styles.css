@@ -42,6 +42,62 @@ header h1 {
     margin-bottom: 0.5rem;
 }
 
+.header-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.header-title-row h1 {
+    margin-bottom: 0;
+    flex: 1;
+}
+
+.icon-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.icon-btn svg {
+    width: 19px;
+    height: 19px;
+}
+
+.icon-btn:active {
+    transform: scale(0.94);
+}
+
+#tape-measure-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+/* Timer icon state coloring */
+#timer-btn.timer-icon-running {
+    color: #fff;
+    background-color: #16a34a;
+    border-color: #16a34a;
+}
+
+#timer-btn.timer-icon-paused {
+    color: #fff;
+    background-color: #c2410c;
+    border-color: #c2410c;
+}
+
 nav {
     display: flex;
     justify-content: space-around;
@@ -558,4 +614,141 @@ select:focus, input:focus {
 .backup-status-row .backup-status-value {
     color: var(--text-main);
     font-weight: 600;
+}
+
+/* ===== MODAL HEADER (shared by timer/tracking) ===== */
+.timer-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.timer-modal-header h2 {
+    margin-bottom: 0;
+}
+
+.modal-close-x {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 0.25rem;
+}
+
+.modal-close-x:hover {
+    color: var(--text-main);
+}
+
+/* ===== TIMER MODAL ===== */
+.timer-modal-box {
+    text-align: center;
+}
+
+.timer-display {
+    font-size: 2.75rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    margin: 0.5rem 0 0.15rem;
+    color: var(--text-main);
+}
+
+.timer-state-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.timer-controls {
+    display: flex;
+    justify-content: center;
+    gap: 1.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.timer-btn-round {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #fff;
+}
+
+.timer-btn-round svg {
+    width: 26px;
+    height: 26px;
+}
+
+.timer-btn-round:active {
+    transform: scale(0.94);
+}
+
+.timer-btn-play { background-color: #16a34a; }
+.timer-btn-pause { background-color: #c2410c; }
+.timer-btn-stop { background-color: #dc2626; }
+.timer-btn-secondary { background-color: #4b5563; }
+
+.timer-laps-wrapper {
+    margin-top: 1.25rem;
+    text-align: left;
+    max-height: 180px;
+    overflow-y: auto;
+    border-top: 1px solid var(--border);
+    padding-top: 0.75rem;
+}
+
+.timer-laps-title {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 0.35rem;
+}
+
+.timer-laps-list .list-group-item {
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    padding: 0.45rem 0;
+}
+
+/* ===== TRACKING MODAL ===== */
+.tracking-measurement-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.tracking-measurement-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    cursor: pointer;
+    text-align: left;
+}
+
+.tracking-measurement-option:hover {
+    border-color: var(--accent);
+}
+
+.tracking-measurement-option .tm-name {
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.tracking-measurement-option .tm-unit {
+    font-size: 0.75rem;
+    color: var(--text-muted);
 }

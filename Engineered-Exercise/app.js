@@ -17,6 +17,12 @@ const DEFAULT_EXERCISES = [
     { name: "Yoga", category: "Mobility/Yoga", metrics: ["timeMinutes"] }
 ];
 
+const DEFAULT_MEASUREMENTS = [
+    { key: "weight", name: "Weight", unit: "lbs" },
+    { key: "waist", name: "Waist Size", unit: "in" }
+];
+
+
 const FIELD_LABELS = {
     sets: { label: "Sets", type: "number", placeholder: "0", step: "1" },
     reps: { label: "Reps", type: "number", placeholder: "0", step: "1" },
@@ -88,7 +94,9 @@ const categoryEmojis = {
 let state = {
     exercises: JSON.parse(localStorage.getItem("ee_exercises")) || DEFAULT_EXERCISES,
     history: JSON.parse(localStorage.getItem("ee_history")) || [],
-    plans: JSON.parse(localStorage.getItem("ee_plans")) || []
+    plans: JSON.parse(localStorage.getItem("ee_plans")) || [],
+    measurements: JSON.parse(localStorage.getItem("ee_measurements")) || DEFAULT_MEASUREMENTS,
+    measurementLogs: JSON.parse(localStorage.getItem("ee_measurement_logs")) || []
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -99,6 +107,8 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function initApp() {
+    if (!Array.isArray(state.measurements)) state.measurements = DEFAULT_MEASUREMENTS;
+    if (!Array.isArray(state.measurementLogs)) state.measurementLogs = [];
     migrateIntensityData();
     saveState();
     evaluateTodayPlans();
@@ -106,6 +116,7 @@ function initApp() {
     populateChartFilter();
     renderStats();
     renderManageExercises();
+    renderManageMeasurements();
     renderStreakWidget();
 }
 
@@ -135,6 +146,8 @@ function saveState() {
     localStorage.setItem("ee_exercises", JSON.stringify(state.exercises));
     localStorage.setItem("ee_history", JSON.stringify(state.history));
     localStorage.setItem("ee_plans", JSON.stringify(state.plans));
+    localStorage.setItem("ee_measurements", JSON.stringify(state.measurements));
+    localStorage.setItem("ee_measurement_logs", JSON.stringify(state.measurementLogs));
     if (typeof BackupSync !== "undefined") BackupSync.notifyStateChanged();
 }
 
@@ -157,7 +170,7 @@ function switchView(viewId) {
     if (viewId === 'track') { evaluateTodayPlans(); renderStreakWidget(); }
     if (viewId === 'plan') renderPlanList();
     if (viewId === 'stats') { populateChartFilter(); renderStats(); }
-    if (viewId === 'settings') { renderManageExercises(); if (typeof refreshBackupStatusDisplay === "function") refreshBackupStatusDisplay(); }
+    if (viewId === 'settings') { renderManageExercises(); renderManageMeasurements(); if (typeof refreshBackupStatusDisplay === "function") refreshBackupStatusDisplay(); }
 }
 
 // --- CORE STREAK TRACKING ENGINE ---
@@ -696,6 +709,114 @@ function executeExerciseDeletion(exName) {
     cancelExerciseEdit();
 }
 
+// --- MEASUREMENT MANAGEMENT MODAL PANEL PIPELINES (mirrors exercise management) ---
+function renderManageMeasurements() {
+    const container = document.getElementById("manage-measurements-container");
+    if (!container) return;
+    container.innerHTML = "";
+
+    if (!state.measurements || state.measurements.length === 0) {
+        container.innerHTML = `<p class="text-muted">No measurements configured.</p>`;
+        return;
+    }
+
+    let sortedList = [...state.measurements].sort((a, b) => a.name.localeCompare(b.name));
+
+    sortedList.forEach(m => {
+        const item = document.createElement("div");
+        item.className = "exercise-manage-item";
+
+        let logCount = state.measurementLogs.filter(l => l.measurementKey === m.key).length;
+        let countBadge = logCount > 0 ? `<span class="badge" style="background:#1e293b; color:#9ca3af; margin-left:0.5rem;">${logCount} logged</span>` : '';
+
+        item.innerHTML = `
+            <div>
+                <strong>📏 ${m.name}</strong> ${countBadge}
+                <div class="text-muted" style="font-size:0.75rem; margin-top:0.15rem;">Unit: ${m.unit}</div>
+            </div>
+            <div class="history-item-actions">
+                <span class="action-link" onclick="initMeasurementEdit('${m.key}')">Edit</span>
+                <span class="action-link delete" onclick="initMeasurementDelete('${m.key}')">Del</span>
+            </div>
+        `;
+        container.appendChild(item);
+    });
+}
+
+function initMeasurementEdit(key) {
+    const idx = state.measurements.findIndex(m => m.key === key);
+    if (idx === -1) return;
+    const m = state.measurements[idx];
+
+    document.getElementById("measurement-form-title").innerText = "Edit Measurement";
+    document.getElementById("edit-measurement-key").value = m.key;
+    document.getElementById("new-meas-name").value = m.name;
+    document.getElementById("new-meas-unit").value = m.unit;
+
+    if (!document.getElementById("cancel-meas-edit-btn")) {
+        const btnContainer = document.getElementById("measurement-action-buttons");
+        btnContainer.style.gridTemplateColumns = "1fr 1fr";
+
+        const cancelBtn = document.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.id = "cancel-meas-edit-btn";
+        cancelBtn.className = "btn btn-secondary";
+        cancelBtn.innerText = "Cancel";
+        cancelBtn.onclick = cancelMeasurementEdit;
+        btnContainer.appendChild(cancelBtn);
+    }
+    document.getElementById("submit-measurement-btn").innerText = "Update Measurement";
+}
+
+function cancelMeasurementEdit() {
+    document.getElementById("measurement-form-title").innerText = "Add a Custom Measurement";
+    document.getElementById("edit-measurement-key").value = "";
+    document.getElementById("custom-measurement-form").reset();
+    document.getElementById("submit-measurement-btn").innerText = "Create Measurement";
+
+    const cancelBtn = document.getElementById("cancel-meas-edit-btn");
+    if (cancelBtn) cancelBtn.remove();
+    document.getElementById("measurement-action-buttons").style.gridTemplateColumns = "1fr";
+}
+
+function initMeasurementDelete(key) {
+    const m = state.measurements.find(x => x.key === key);
+    if (!m) return;
+    let logCount = state.measurementLogs.filter(l => l.measurementKey === key).length;
+
+    if (logCount > 0) {
+        triggerConfirmationModal(
+            "Cascade Dangerous Deletion",
+            `Warning: "${m.name}" contains ${logCount} logged entries. Deleting this measurement will permanently wipe all associated historic logs.`,
+            () => executeMeasurementDeletion(key)
+        );
+    } else {
+        executeMeasurementDeletion(key);
+    }
+}
+
+function executeMeasurementDeletion(key) {
+    state.measurements = state.measurements.filter(m => m.key !== key);
+    state.measurementLogs = state.measurementLogs.filter(l => l.measurementKey !== key);
+
+    saveState();
+    initApp();
+    cancelMeasurementEdit();
+}
+
+// Slug-ify a display name into a stable storage key, ensuring uniqueness
+// against existing measurement keys (appends -2, -3, ... on collision).
+function slugifyMeasurementName(name, excludeKey = null) {
+    let base = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "measurement";
+    let candidate = base;
+    let n = 2;
+    while (state.measurements.some(m => m.key === candidate && m.key !== excludeKey)) {
+        candidate = `${base}-${n}`;
+        n++;
+    }
+    return candidate;
+}
+
 // --- HISTORICAL TRACK LOG EDIT PIPELINES ---
 function initEditEntry(id) {
     const entry = state.history.find(h => h.id === id);
@@ -830,24 +951,115 @@ function populateChartFilter() {
     const filterSelect = document.getElementById("chart-exercise-select");
     const wrapper = document.getElementById("chart-filter-wrapper");
     if (!filterSelect || !wrapper) return;
-    
+
     let chartableExercises = state.exercises.filter(ex => {
         let count = state.history.filter(h => h.exerciseName === ex.name).length;
         return count >= 2;
     });
 
-    if (chartableExercises.length === 0) {
+    let chartableMeasurements = (state.measurements || []).filter(m => {
+        let count = state.measurementLogs.filter(l => l.measurementKey === m.key).length;
+        return count >= 2;
+    });
+
+    if (chartableExercises.length === 0 && chartableMeasurements.length === 0) {
         wrapper.classList.add("hidden");
         return;
     }
     wrapper.classList.remove("hidden");
 
     let currentSelection = filterSelect.value;
-    filterSelect.innerHTML = chartableExercises.map(e => `<option value="${e.name}">${e.name}</option>`).join("");
-    
-    if (currentSelection && chartableExercises.some(e => e.name === currentSelection)) {
+
+    // Group exercises by category, same ordering convention as the log/plan dropdowns
+    let byCategory = {};
+    chartableExercises.forEach(ex => {
+        let cat = ex.category || "Uncategorized";
+        if (!byCategory[cat]) byCategory[cat] = [];
+        byCategory[cat].push(ex);
+    });
+
+    let html = "";
+    Object.keys(byCategory).sort().forEach(cat => {
+        let opts = byCategory[cat]
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map(ex => `<option value="ex:${ex.name}">${ex.name}</option>`)
+            .join("");
+        html += `<optgroup label="${cat}">${opts}</optgroup>`;
+    });
+
+    if (chartableMeasurements.length > 0) {
+        let opts = [...chartableMeasurements]
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map(m => `<option value="meas:${m.key}">${m.name}</option>`)
+            .join("");
+        html += `<optgroup label="Measurements">${opts}</optgroup>`;
+    }
+
+    filterSelect.innerHTML = html;
+
+    if (currentSelection && Array.from(filterSelect.options).some(o => o.value === currentSelection)) {
         filterSelect.value = currentSelection;
     }
+}
+
+// Simple single-line trend chart for a measurement (no dual-axis volume calc,
+// no intensity coloring — measurements don't carry an intensity rating).
+function renderMeasurementChart(measurementKey, sortedLogs, graphContainer, legendBlock) {
+    if (legendBlock) legendBlock.style.display = "none";
+
+    if (sortedLogs.length < 2) {
+        graphContainer.innerHTML = `<p class="text-muted" style="text-align:center; padding:1rem; border:1px dashed var(--border); border-radius:8px;">Log this measurement on 2+ days to view progression.</p>`;
+        return;
+    }
+
+    const m = state.measurements.find(x => x.key === measurementKey);
+    const unitLabel = m ? m.unit : "";
+    const nameLabel = m ? m.name : measurementKey;
+
+    const width = 440;
+    const height = 200;
+    const paddingLeft = 40;
+    const paddingRight = 20;
+    const paddingTop = 30;
+    const paddingBottom = 30;
+
+    let vals = sortedLogs.map(l => l.value);
+    let minVal = Math.min(...vals) * 0.95;
+    let maxVal = Math.max(...vals) * 1.05;
+    if (maxVal === minVal) { minVal -= 5; maxVal += 5; }
+    let range = maxVal - minVal;
+
+    const xDenom = Math.max(sortedLogs.length - 1, 1);
+    let points = sortedLogs.map((entry, idx) => {
+        let x = paddingLeft + (idx / xDenom) * (width - paddingLeft - paddingRight);
+        let y = (height - paddingBottom) - ((entry.value - minVal) / range) * (height - paddingTop - paddingBottom);
+        return { x, y, value: entry.value, date: entry.date };
+    });
+
+    let linePath = `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(" ");
+
+    let dots = points.map(p => `
+        <circle cx="${p.x}" cy="${p.y}" r="4" fill="#2563eb" stroke="#1e1e24" stroke-width="1"/>
+        <text x="${p.x}" y="${p.y - 8}" font-size="7" font-weight="bold" fill="#f3f4f6" text-anchor="middle">${p.value}</text>
+    `).join("");
+
+    graphContainer.innerHTML = `
+        <div class="svg-chart-container">
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.5rem; text-align:center;">
+                ${nameLabel}${unitLabel ? ` (${unitLabel})` : ""}
+            </div>
+            <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%">
+                <line x1="${paddingLeft}" y1="${paddingTop}" x2="${paddingLeft}" y2="${height - paddingBottom}" stroke="#374151" stroke-width="1"/>
+                <line x1="${paddingLeft}" y1="${height - paddingBottom}" x2="${width - paddingRight}" y2="${height - paddingBottom}" stroke="#374151" stroke-width="1"/>
+
+                <path d="${linePath}" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                ${dots}
+
+                <text x="${points[0].x}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="start">${points[0].date.substring(5)}</text>
+                <text x="${points[points.length - 1].x}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="end">${points[points.length - 1].date.substring(5)}</text>
+            </svg>
+        </div>
+    `;
 }
 
 function renderStats() {
@@ -857,7 +1069,9 @@ function renderStats() {
     const legendBlock = document.getElementById("chart-legend");
     const filterSelect = document.getElementById("chart-exercise-select");
 
-    if (state.history.length === 0) {
+    const totalLogCount = state.history.length + (state.measurementLogs ? state.measurementLogs.length : 0);
+
+    if (totalLogCount === 0) {
         summary.innerHTML = `<p class="text-muted">Complete your first log to start tracking metrics.</p>`;
         groupedContainer.innerHTML = `<p class="text-muted">No historic timeline data logs detected.</p>`;
         graphContainer.innerHTML = "";
@@ -865,17 +1079,29 @@ function renderStats() {
         return;
     }
 
-    const targetExercise = filterSelect.value;
-    let exerciseHistory = [];
+    const rawSelection = filterSelect.value;
+    const isMeasurementSelected = rawSelection.startsWith("meas:");
+    const targetExercise = isMeasurementSelected ? null : rawSelection.replace(/^ex:/, "");
+    const targetMeasurementKey = isMeasurementSelected ? rawSelection.replace(/^meas:/, "") : null;
 
+    let exerciseHistory = [];
     if (targetExercise) {
         exerciseHistory = state.history
             .filter(entry => entry.exerciseName === targetExercise)
             .sort((a, b) => new Date(a.date) - new Date(b.date));
     }
 
-    if (!targetExercise || exerciseHistory.length < 2) {
-        graphContainer.innerHTML = `<p class="text-muted" style="text-align:center; padding:1rem; border:1px dashed var(--border); border-radius:8px;">Select or complete an exercise with 2+ entries to view progression.</p>`;
+    let measurementHistory = [];
+    if (targetMeasurementKey) {
+        measurementHistory = state.measurementLogs
+            .filter(entry => entry.measurementKey === targetMeasurementKey)
+            .sort((a, b) => new Date(a.date) - new Date(b.date));
+    }
+
+    if (targetMeasurementKey) {
+        renderMeasurementChart(targetMeasurementKey, measurementHistory, graphContainer, legendBlock);
+    } else if (!targetExercise || exerciseHistory.length < 2) {
+        graphContainer.innerHTML = `<p class="text-muted" style="text-align:center; padding:1rem; border:1px dashed var(--border); border-radius:8px;">Select or complete an exercise or measurement with 2+ entries to view progression.</p>`;
         if (legendBlock) legendBlock.style.display = "none";
     } else {
         if (legendBlock) legendBlock.style.display = "flex";
@@ -1007,13 +1233,18 @@ function renderStats() {
         `;
     }
 
-    summary.innerHTML = `<p><strong>Total Lifetime Logs:</strong> ${state.history.length} sessions</p>`;
+    const totalMeasurementLogs = state.measurementLogs ? state.measurementLogs.length : 0;
+    summary.innerHTML = `<p><strong>Total Lifetime Logs:</strong> ${state.history.length} exercise sessions, ${totalMeasurementLogs} measurements</p>`;
 
-    // --- COMPACT GROUP BY DAY TIMELINE COMPILATION ---
+    // --- COMPACT GROUP BY DAY TIMELINE COMPILATION (exercises + measurements merged) ---
     let dailyGroups = {};
     state.history.forEach(entry => {
         if (!dailyGroups[entry.date]) dailyGroups[entry.date] = [];
-        dailyGroups[entry.date].push(entry);
+        dailyGroups[entry.date].push({ _kind: "exercise", ...entry });
+    });
+    (state.measurementLogs || []).forEach(entry => {
+        if (!dailyGroups[entry.date]) dailyGroups[entry.date] = [];
+        dailyGroups[entry.date].push({ _kind: "measurement", ...entry });
     });
 
     let sortedDaysKeys = Object.keys(dailyGroups).sort((a,b) => new Date(b) - new Date(a));
@@ -1028,6 +1259,21 @@ function renderStats() {
                 <div class="history-day-block-title">${dayHeaderLabel}</div>
                 <ul class="list-group">
                     ${dayItems.map(item => {
+                        if (item._kind === "measurement") {
+                            const m = state.measurements.find(x => x.key === item.measurementKey);
+                            const mName = m ? m.name : item.measurementKey;
+                            const mUnit = m ? m.unit : "";
+                            return `
+                                <li class="list-group-item">
+                                    <div><strong>📏 ${mName}</strong><br><span class="text-muted" style="font-size:0.8rem;">${item.value}${mUnit ? ' ' + mUnit : ''}</span></div>
+                                    <div class="history-item-actions">
+                                        <span class="action-link" onclick="TrackingModal.editLog(${item.id})">Edit</span>
+                                        <span class="action-link delete" onclick="TrackingModal.deleteLog(${item.id})">Del</span>
+                                    </div>
+                                </li>
+                            `;
+                        }
+
                         let metricStr = Object.entries(item.data).map(([k, v]) => {
                             let unit = k === 'timeSeconds' ? 's' : k === 'timeMinutes' ? 'm' : k === 'distance' ? 'mi' : k === 'weight' ? 'lbs' : ` ${k}`;
                             return `${v}${unit}`;
@@ -1178,6 +1424,40 @@ function setupEventListeners() {
         cancelExerciseEdit();
         initApp();
     });
+
+    document.getElementById("custom-measurement-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const editKey = document.getElementById("edit-measurement-key").value;
+        const name = document.getElementById("new-meas-name").value.trim();
+        const unit = document.getElementById("new-meas-unit").value.trim();
+
+        if (!name || !unit) return;
+
+        if (editKey) {
+            let idx = state.measurements.findIndex(m => m.key === editKey);
+            if (idx === -1) return;
+            // Name-collision check against other measurements (case-insensitive)
+            if (state.measurements.some(m => m.key !== editKey && m.name.toLowerCase() === name.toLowerCase())) {
+                alert("This measurement name already exists.");
+                return;
+            }
+            state.measurements[idx] = { ...state.measurements[idx], name, unit };
+        } else {
+            if (state.measurements.some(m => m.name.toLowerCase() === name.toLowerCase())) {
+                alert("This measurement name already exists.");
+                return;
+            }
+            const key = slugifyMeasurementName(name);
+            state.measurements.push({ key, name, unit });
+        }
+
+        saveState();
+        haptic('success');
+        cancelMeasurementEdit();
+        initApp();
+    });
+
+    document.getElementById("tracking-log-form").addEventListener("submit", (e) => TrackingModal.submit(e));
 }
 
 function toggleScheduleInputs() {
@@ -1236,7 +1516,265 @@ function renderPlanList() {
     container.innerHTML = html;
 }
 
-// --- PORTING IO CONTEXTS ---
+// --- TIMER MODAL (idle / running(green) / paused(orange) state machine) ---
+const TimerModal = {
+    state: "idle",       // "idle" | "running" | "paused"
+    startedAt: 0,         // timestamp when current running segment began
+    elapsedMs: 0,         // accumulated elapsed time across pauses
+    laps: [],             // array of { label, elapsedMs, splitMs }
+    intervalId: null,
+
+    open() {
+        haptic('light');
+        document.getElementById("timer-modal").classList.remove("hidden");
+        this.renderLaps();
+        this.updateDisplay();
+    },
+
+    close() {
+        document.getElementById("timer-modal").classList.add("hidden");
+    },
+
+    start() {
+        haptic('light');
+        this.state = "running";
+        this.startedAt = Date.now();
+        if (!this.intervalId) {
+            this.intervalId = setInterval(() => this.updateDisplay(), 100);
+        }
+        this.refreshUI();
+    },
+
+    pause() {
+        haptic('light');
+        this.elapsedMs += Date.now() - this.startedAt;
+        this.state = "paused";
+        if (this.intervalId) {
+            clearInterval(this.intervalId);
+            this.intervalId = null;
+        }
+        this.refreshUI();
+    },
+
+    lap() {
+        haptic('light');
+        const totalElapsed = this.getElapsedMs();
+        const prevTotal = this.laps.length > 0 ? this.laps[this.laps.length - 1].elapsedMs : 0;
+        this.laps.push({
+            label: `Lap ${this.laps.length + 1}`,
+            elapsedMs: totalElapsed,
+            splitMs: totalElapsed - prevTotal
+        });
+        this.renderLaps();
+    },
+
+    stop() {
+        haptic('warning');
+        if (this.intervalId) {
+            clearInterval(this.intervalId);
+            this.intervalId = null;
+        }
+        this.state = "idle";
+        this.elapsedMs = 0;
+        this.startedAt = 0;
+        this.laps = [];
+        this.refreshUI();
+        this.renderLaps();
+    },
+
+    getElapsedMs() {
+        if (this.state === "running") {
+            return this.elapsedMs + (Date.now() - this.startedAt);
+        }
+        return this.elapsedMs;
+    },
+
+    formatMs(ms) {
+        const totalTenths = Math.floor(ms / 100);
+        const tenths = totalTenths % 10;
+        const totalSeconds = Math.floor(ms / 1000);
+        const seconds = totalSeconds % 60;
+        const minutes = Math.floor(totalSeconds / 60);
+        return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${tenths}`;
+    },
+
+    updateDisplay() {
+        const display = document.getElementById("timer-display");
+        if (display) display.innerText = this.formatMs(this.getElapsedMs());
+    },
+
+    // Updates header icon color, modal control set (idle/running/paused), and state label
+    refreshUI() {
+        this.updateDisplay();
+
+        const timerBtn = document.getElementById("timer-btn");
+        const stateLabel = document.getElementById("timer-state-label");
+        const idleControls = document.getElementById("timer-controls-idle");
+        const runningControls = document.getElementById("timer-controls-running");
+        const pausedControls = document.getElementById("timer-controls-paused");
+        const lapsWrapper = document.getElementById("timer-laps-wrapper");
+
+        if (timerBtn) timerBtn.classList.remove("timer-icon-running", "timer-icon-paused");
+        idleControls.classList.add("hidden");
+        runningControls.classList.add("hidden");
+        pausedControls.classList.add("hidden");
+
+        if (this.state === "running") {
+            if (timerBtn) timerBtn.classList.add("timer-icon-running");
+            stateLabel.innerText = "Running";
+            runningControls.classList.remove("hidden");
+            lapsWrapper.classList.remove("hidden");
+        } else if (this.state === "paused") {
+            if (timerBtn) timerBtn.classList.add("timer-icon-paused");
+            stateLabel.innerText = "Paused";
+            pausedControls.classList.remove("hidden");
+            lapsWrapper.classList.toggle("hidden", this.laps.length === 0);
+        } else {
+            stateLabel.innerText = "Ready";
+            idleControls.classList.remove("hidden");
+            lapsWrapper.classList.add("hidden");
+        }
+    },
+
+    renderLaps() {
+        const list = document.getElementById("timer-laps-list");
+        if (!list) return;
+        if (this.laps.length === 0) {
+            list.innerHTML = `<li class="list-group-item text-muted" style="justify-content:center;">No laps yet</li>`;
+            return;
+        }
+        // Most recent lap first
+        list.innerHTML = this.laps.slice().reverse().map(lap => `
+            <li class="list-group-item">
+                <span>${lap.label}</span>
+                <span>${this.formatMs(lap.splitMs)} <span class="text-muted">(${this.formatMs(lap.elapsedMs)})</span></span>
+            </li>
+        `).join("");
+    }
+};
+
+
+const TrackingModal = {
+    open() {
+        haptic('light');
+        this.renderPicker();
+        this.backToPicker();
+        document.getElementById("tracking-modal").classList.remove("hidden");
+    },
+
+    close() {
+        document.getElementById("tracking-modal").classList.add("hidden");
+    },
+
+    renderPicker() {
+        const list = document.getElementById("tracking-measurement-list");
+        if (!list) return;
+        list.innerHTML = "";
+
+        let sorted = [...state.measurements].sort((a, b) => a.name.localeCompare(b.name));
+        sorted.forEach(m => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "tracking-measurement-option";
+            btn.onclick = () => TrackingModal.openLogForm(m.key);
+            btn.innerHTML = `
+                <span class="tm-name">📏 ${m.name}</span>
+                <span class="tm-unit">${m.unit}</span>
+            `;
+            list.appendChild(btn);
+        });
+    },
+
+    backToPicker() {
+        document.getElementById("tracking-picker-step").classList.remove("hidden");
+        document.getElementById("tracking-log-form").classList.add("hidden");
+        document.getElementById("tracking-log-edit-id").value = "";
+        document.getElementById("tracking-modal-title").innerText = "Tracking";
+    },
+
+    openLogForm(measurementKey, existingLog = null) {
+        const m = state.measurements.find(x => x.key === measurementKey);
+        if (!m) return;
+
+        document.getElementById("tracking-picker-step").classList.add("hidden");
+        const form = document.getElementById("tracking-log-form");
+        form.classList.remove("hidden");
+
+        document.getElementById("tracking-log-measurement-key").value = measurementKey;
+        document.getElementById("tracking-log-field-label").innerText = `${m.name} (${m.unit})`;
+        document.getElementById("tracking-modal-title").innerText = `Log ${m.name}`;
+
+        const valueInput = document.getElementById("tracking-log-value");
+        const dateInput = document.getElementById("tracking-log-date");
+        const submitBtn = document.getElementById("tracking-log-submit-btn");
+
+        if (existingLog) {
+            document.getElementById("tracking-log-edit-id").value = existingLog.id;
+            valueInput.value = existingLog.value;
+            dateInput.value = existingLog.date;
+            submitBtn.innerText = "Update";
+        } else {
+            document.getElementById("tracking-log-edit-id").value = "";
+            valueInput.value = "";
+            const mostRecent = [...state.measurementLogs]
+                .filter(l => l.measurementKey === measurementKey)
+                .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+            valueInput.placeholder = mostRecent ? `Prev: ${mostRecent.value}` : "0.0";
+            dateInput.value = getLocalDateString(new Date());
+            submitBtn.innerText = "Save";
+        }
+        valueInput.focus();
+    },
+
+    submit(e) {
+        e.preventDefault();
+        const measurementKey = document.getElementById("tracking-log-measurement-key").value;
+        const editId = document.getElementById("tracking-log-edit-id").value;
+        const value = parseFloat(document.getElementById("tracking-log-value").value);
+        const date = document.getElementById("tracking-log-date").value;
+
+        if (!measurementKey || !date || !Number.isFinite(value)) return;
+
+        if (editId) {
+            let idx = state.measurementLogs.findIndex(l => l.id === parseInt(editId));
+            if (idx !== -1) {
+                state.measurementLogs[idx].value = value;
+                state.measurementLogs[idx].date = date;
+            }
+        } else {
+            state.measurementLogs.unshift({
+                id: Date.now(),
+                date: date,
+                measurementKey: measurementKey,
+                value: value
+            });
+        }
+
+        saveState();
+        haptic('success');
+        this.close();
+        initApp();
+    },
+
+    // Opens the log form pre-filled for editing, used from the History Logs By Day list
+    editLog(id) {
+        const log = state.measurementLogs.find(l => l.id === id);
+        if (!log) return;
+        this.renderPicker();
+        document.getElementById("tracking-modal").classList.remove("hidden");
+        this.openLogForm(log.measurementKey, log);
+    },
+
+    deleteLog(id) {
+        if (confirm("Are you sure you want to delete this historical measurement entry?")) {
+            state.measurementLogs = state.measurementLogs.filter(l => l.id !== id);
+            saveState();
+            initApp();
+        }
+    }
+};
+
+
 function exportData() {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
     const downloadAnchor = document.createElement('a');

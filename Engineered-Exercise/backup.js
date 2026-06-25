@@ -1,9 +1,10 @@
 // =============================================================================
 // Engineered Exercise — Backup & Sync Module
 // =============================================================================
-// Handles automatic backup of state (ee_exercises, ee_history, ee_plans) to
-// one of three providers: On Device (File System Access API), Google Drive
-// (appDataFolder), or Dropbox (app-folder scope).
+// Handles automatic backup of state (ee_exercises, ee_history, ee_plans,
+// ee_measurements, ee_measurement_logs) to one of three providers: On Device
+// (File System Access API), Google Drive (appDataFolder), or Dropbox
+// (app-folder scope).
 //
 // Public surface used by app.js / index.html:
 //   - BackupSync.init()                 call once on DOMContentLoaded
@@ -117,7 +118,9 @@ const BackupSync = (() => {
         return {
             exercises: JSON.parse(localStorage.getItem("ee_exercises")) || [],
             history: JSON.parse(localStorage.getItem("ee_history")) || [],
-            plans: JSON.parse(localStorage.getItem("ee_plans")) || []
+            plans: JSON.parse(localStorage.getItem("ee_plans")) || [],
+            measurements: JSON.parse(localStorage.getItem("ee_measurements")) || [],
+            measurementLogs: JSON.parse(localStorage.getItem("ee_measurement_logs")) || []
         };
     }
 
@@ -126,11 +129,15 @@ const BackupSync = (() => {
         localStorage.setItem("ee_exercises", JSON.stringify(snapshot.exercises));
         localStorage.setItem("ee_history", JSON.stringify(snapshot.history));
         localStorage.setItem("ee_plans", JSON.stringify(snapshot.plans || []));
+        localStorage.setItem("ee_measurements", JSON.stringify(snapshot.measurements || []));
+        localStorage.setItem("ee_measurement_logs", JSON.stringify(snapshot.measurementLogs || []));
         // Reload in-memory state + re-render everything, if app.js's globals exist.
         if (typeof state !== "undefined") {
             state.exercises = snapshot.exercises;
             state.history = snapshot.history;
             state.plans = snapshot.plans || [];
+            state.measurements = snapshot.measurements || [];
+            state.measurementLogs = snapshot.measurementLogs || [];
         }
         if (typeof initApp === "function") initApp();
         return true;
@@ -173,7 +180,34 @@ const BackupSync = (() => {
         (newerPlans || []).forEach(p => plansById.set(p.id, p));
         const mergedPlans = Array.from(plansById.values());
 
-        return { exercises: mergedExercises, history: mergedHistory, plans: mergedPlans };
+        // Measurements: union by key, newer snapshot wins on conflict — same
+        // pattern as exercises, but keyed by `key` (the stable slug) rather
+        // than `name`, since name is editable without changing the key.
+        const measByKey = new Map();
+        const olderMeas = remoteIsNewer ? local.measurements : remote.measurements;
+        const newerMeas = remoteIsNewer ? remote.measurements : local.measurements;
+        (olderMeas || []).forEach(m => measByKey.set(m.key, m));
+        (newerMeas || []).forEach(m => measByKey.set(m.key, m));
+        const mergedMeasurements = Array.from(measByKey.values());
+
+        // Measurement logs: union by id, same approach as history.
+        const measLogsById = new Map();
+        const olderMeasLogs = remoteIsNewer ? local.measurementLogs : remote.measurementLogs;
+        const newerMeasLogs = remoteIsNewer ? remote.measurementLogs : local.measurementLogs;
+        (olderMeasLogs || []).forEach(l => measLogsById.set(l.id, l));
+        (newerMeasLogs || []).forEach(l => measLogsById.set(l.id, l));
+        const mergedMeasurementLogs = Array.from(measLogsById.values()).sort((a, b) => {
+            if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+            return (a.id || 0) - (b.id || 0);
+        });
+
+        return {
+            exercises: mergedExercises,
+            history: mergedHistory,
+            plans: mergedPlans,
+            measurements: mergedMeasurements,
+            measurementLogs: mergedMeasurementLogs
+        };
     }
 
     // -------------------------------------------------------------------------
