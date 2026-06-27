@@ -174,11 +174,6 @@ select:focus, input:focus {
 .hidden { display: none !important; }
 .text-muted { color: var(--text-muted); font-size: 0.85rem; }
 
-.suggestion-box {
-    background: linear-gradient(135deg, #1e293b, #0f172a);
-    border-left: 4px solid var(--accent);
-}
-
 .list-group { list-style: none; }
 
 .list-group-item {

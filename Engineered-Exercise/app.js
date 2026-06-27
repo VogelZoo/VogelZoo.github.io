@@ -210,14 +210,16 @@ let state = {
     history: JSON.parse(localStorage.getItem("ee_history")) || [],
     plans: JSON.parse(localStorage.getItem("ee_plans")) || [],
     measurements: JSON.parse(localStorage.getItem("ee_measurements")) || DEFAULT_MEASUREMENTS,
-    measurementLogs: JSON.parse(localStorage.getItem("ee_measurement_logs")) || []
+    measurementLogs: JSON.parse(localStorage.getItem("ee_measurement_logs")) || [],
+    // In-memory only (never persisted) — which 7-Day Horizon card is
+    // highlighted. Purely visual now that the inline log form (and its
+    // log-date field) is gone; tapping a card just moves this highlight.
+    selectedHorizonDate: getLocalDateString(new Date())
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("log-date").value = getLocalDateString(new Date());
     initApp();
     setupEventListeners();
-    setupStarRating();
     setupLog2StarRating();
 });
 
@@ -227,6 +229,7 @@ function initApp() {
     migrateIntensityData();
     saveState();
     evaluateTodayPlans();
+    renderPlanExerciseSelector();
     renderPlanList();
     populateChartFilter();
     renderStats();
@@ -285,8 +288,6 @@ function switchView(viewId) {
     document.getElementById(`view-${viewId}`).classList.remove('hidden');
     const navBtn = document.getElementById(`nav-${viewId}`);
     if (navBtn) navBtn.classList.add('active');
-
-    if (viewId !== 'track') cancelFormEdit();
 
     if (viewId === 'track') {
         evaluateTodayPlans();
@@ -371,53 +372,13 @@ function isRestDayExplicitlyScheduled(targetDate) {
 }
 
 // --- INTERPOLATED ACTIVITY ENGINE & ADVANCED SCHEDULING ---
+// Now purely a "recompute everything that depends on plans/history" entry
+// point — the old inline-form date suggestion box is gone, and exercise
+// selection now happens via LogModal, which doesn't need a priority list.
 function evaluateTodayPlans() {
-    const selectedDateStr = document.getElementById("log-date").value;
-    const selectedDate = selectedDateStr ? new Date(selectedDateStr + "T00:00:00") : new Date();
-    
-    let targetExercises = getPlannedExercisesForDate(selectedDate);
-
-    /*const suggestionBox = document.getElementById("today-suggestion");*/
-    const formattedDisplayDate = selectedDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    
-    if (targetExercises.length > 0) {
-        suggestionBox.innerHTML = `<h3>Plan for ${formattedDisplayDate}</h3><p>🎯 ${targetExercises.join(", ")}</p>`;
-        suggestionBox.classList.remove("hidden");
-    } else {
-        suggestionBox.innerHTML = `<h3>No routine explicitly scheduled for ${formattedDisplayDate}</h3>`;
-    }
-
-    // The dropdown's "Scheduled" star group only shows exercises that still
-    // have unlogged instances remaining for this date — once you've logged
-    // as many reps of an exercise as the plan calls for, it drops out of the
-    // star group (it's still in its normal category group) so the dropdown
-    // narrows down to what's actually left to do.
-    let remainingScheduled = getRemainingScheduledExercises(targetExercises, selectedDateStr);
-
-    renderExerciseSelectors(remainingScheduled);
     render7DayHorizon(new Date());
     renderTodayExercisesCard();
     renderTrackKpis();
-}
-
-// Counts how many times each exercise is scheduled for the date vs. how many
-// times it's already been logged on that exact date, and returns only the
-// names that still have scheduled instances remaining.
-function getRemainingScheduledExercises(targetExercises, dateStr) {
-    let plannedCounts = {};
-    targetExercises.forEach(name => {
-        if (name === "__rest__") return;
-        plannedCounts[name] = (plannedCounts[name] || 0) + 1;
-    });
-
-    let loggedCounts = {};
-    state.history.forEach(entry => {
-        if (entry.date === dateStr) {
-            loggedCounts[entry.exerciseName] = (loggedCounts[entry.exerciseName] || 0) + 1;
-        }
-    });
-
-    return Object.keys(plannedCounts).filter(name => (loggedCounts[name] || 0) < plannedCounts[name]);
 }
 
 function getPlannedExercisesForDate(targetDate) {
@@ -707,7 +668,7 @@ function renderProgressOverview() {
 function render7DayHorizon(baseDate) {
     const container = document.getElementById("calendar-horizon-view");
     container.innerHTML = "";
-    const activeLogDate = document.getElementById("log-date").value;
+    const activeLogDate = state.selectedHorizonDate;
 
     // First pass: gather each day's data and find the max item count so all
     // 7 cards can share a tall-enough events area (prevents clipped text).
@@ -741,10 +702,12 @@ function render7DayHorizon(baseDate) {
         dayCard.style.height = "auto";
         dayCard.style.padding = "0.5rem";
 
+        // Purely visual now — selecting a day just moves the highlight ring.
+        // There's no inline form/date field left for this to feed into.
         dayCard.onclick = () => {
-            cancelFormEdit();
-            document.getElementById("log-date").value = dateString;
-            evaluateTodayPlans();
+            haptic('light');
+            state.selectedHorizonDate = dateString;
+            render7DayHorizon(new Date());
         };
 
         let loggedCountsForDay = {};
@@ -784,11 +747,13 @@ function render7DayHorizon(baseDate) {
 }
 
 // --- DROPDOWN ELEMENT SELECTOR INJECTIONS ---
-function renderExerciseSelectors(priorityList = []) {
-    const selectLog = document.getElementById("exercise-select");
+// Used to populate both the inline log form's dropdown and the Plan
+// drawer's dropdown. The inline log form is gone (logging now goes through
+// LogModal, which builds its own picker), so this only feeds plan-exercise.
+function renderPlanExerciseSelector() {
     const selectPlan = document.getElementById("plan-exercise");
-    if (!selectLog || !selectPlan) return;
-    
+    if (!selectPlan) return;
+
     let organizedExercises = [...state.exercises].sort((a, b) => {
         let catA = a.category || "Uncategorized";
         let catB = b.category || "Uncategorized";
@@ -796,71 +761,18 @@ function renderExerciseSelectors(priorityList = []) {
         return a.name.localeCompare(b.name);
     });
 
-    let priorityOptions = [];
     let regularOptionsByGroup = {};
-
     organizedExercises.forEach(ex => {
         let cat = ex.category || "Uncategorized";
-        if (priorityList.includes(ex.name)) {
-            priorityOptions.push(`<option value="${ex.name}">⭐ [${cat}] ${ex.name}</option>`);
-        }
         if (!regularOptionsByGroup[cat]) regularOptionsByGroup[cat] = [];
         regularOptionsByGroup[cat].push(`<option value="${ex.name}">${ex.name}</option>`);
     });
 
-    let finalLogHtml = "";
-    if (priorityOptions.length > 0) {
-        finalLogHtml += `<optgroup label="⭐ Scheduled For Selected Date">` + priorityOptions.join("") + `</optgroup>`;
-    }
-    Object.entries(regularOptionsByGroup).forEach(([category, options]) => {
-        finalLogHtml += `<optgroup label="${category}">` + options.join("") + `</optgroup>`;
-    });
-
-    selectLog.innerHTML = finalLogHtml;
     let planHtml = "";
     Object.entries(regularOptionsByGroup).forEach(([category, options]) => {
         planHtml += `<optgroup label="${category}">` + options.join("") + `</optgroup>`;
     });
     selectPlan.innerHTML = planHtml;
-    
-    const editingId = document.getElementById("edit-entry-id").value;
-    if (!editingId && organizedExercises.length > 0) {
-        buildDynamicFormFields(selectLog.value);
-        updateIntensityPreview();
-    }
-}
-
-function buildDynamicFormFields(exerciseName, existingData = null) {
-    const container = document.getElementById("dynamic-fields-container");
-    container.innerHTML = "";
-    
-    const exercise = state.exercises.find(e => e.name === exerciseName);
-    if (!exercise || !exercise.metrics) return;
-
-    const previousEntry = getPreviousEntry(exerciseName);
-
-    exercise.metrics.forEach(fieldKey => {
-        const fieldMeta = FIELD_LABELS[fieldKey];
-        if (!fieldMeta) return;
-
-        const div = document.createElement("div");
-        div.className = "form-group";
-        
-        let valAttr = "";
-        let placeholderVal = fieldMeta.placeholder;
-
-        if (existingData && existingData[fieldKey] !== undefined) {
-            valAttr = `value="${existingData[fieldKey]}"`;
-        } else if (previousEntry && previousEntry.exerciseName === exerciseName && previousEntry.data[fieldKey] !== undefined) {
-            placeholderVal = `Prev: ${previousEntry.data[fieldKey]}`;
-        }
-
-        div.innerHTML = `
-            <label for="field-${fieldKey}">${fieldMeta.label}</label>
-            <input type="${fieldMeta.type}" id="field-${fieldKey}" name="${fieldKey}" ${valAttr} placeholder="${placeholderVal}" step="${fieldMeta.step}" inputmode="decimal" required>
-        `;
-        container.appendChild(div);
-    });
 }
 
 // Finds the entry for a given exercise whose `date` is chronologically most
@@ -886,57 +798,6 @@ function getPreviousEntry(exerciseName) {
 function getMostRecentIntensityForExercise(exerciseName) {
     const entry = getMostRecentEntryForExercise(exerciseName, true);
     return entry ? entry.intensity : null;
-}
-
-// --- CUSTOM INTERACTIVE DIALOG MODAL CONTROLLER ---
-function setupStarRating() {
-    const stars = document.querySelectorAll("#log-intensity-stars .star");
-    const hiddenInput = document.getElementById("log-intensity");
-
-    stars.forEach(star => {
-        star.addEventListener("click", () => {
-            haptic('light');
-            const clickedVal = parseInt(star.dataset.val, 10);
-            const currentVal = parseInt(hiddenInput.value, 10) || 0;
-            // Tapping the currently-highest active star clears the rating back to 0
-            const newVal = (clickedVal === currentVal) ? 0 : clickedVal;
-            setStarRatingValue(newVal);
-        });
-    });
-}
-
-function setStarRatingValue(value) {
-    const val = parseInt(value, 10) || 0;
-    const hiddenInput = document.getElementById("log-intensity");
-    if (hiddenInput) hiddenInput.value = val;
-
-    document.querySelectorAll("#log-intensity-stars .star").forEach(star => {
-        const starVal = parseInt(star.dataset.val, 10);
-        star.classList.toggle("active", starVal <= val);
-    });
-
-    updateIntensityPreview();
-}
-
-// When no stars are actively selected, ghost-highlight the stars in light
-// grey up to the most recent intensity logged for the currently selected
-// exercise — a quick "last time you rated this X" hint. Disappears the
-// moment a real selection (active, gold) exists.
-function updateIntensityPreview() {
-    const exerciseSelect = document.getElementById("exercise-select");
-    const hiddenInput = document.getElementById("log-intensity");
-    if (!exerciseSelect || !hiddenInput) return;
-
-    const currentVal = parseInt(hiddenInput.value, 10) || 0;
-    let previewVal = 0;
-    if (currentVal === 0 && exerciseSelect.value) {
-        previewVal = getMostRecentIntensityForExercise(exerciseSelect.value) || 0;
-    }
-
-    document.querySelectorAll("#log-intensity-stars .star").forEach(star => {
-        const starVal = parseInt(star.dataset.val, 10);
-        star.classList.toggle("preview", currentVal === 0 && starVal <= previewVal);
-    });
 }
 
 // --- LOG MODAL: parallel field-builder + star-rating helpers ---
@@ -1257,51 +1118,15 @@ function slugifyMeasurementName(name, excludeKey = null) {
 }
 
 // --- HISTORICAL TRACK LOG EDIT PIPELINES ---
+// Editing a logged entry from History now opens the Log Modal directly into
+// its exercise-entry step (pre-filled), rather than the old inline form.
 function initEditEntry(id) {
     const entry = state.history.find(h => h.id === id);
     if (!entry) return;
 
-    switchView('track');
-
-    document.getElementById("form-title").innerText = "Edit Historical Log";
-    document.getElementById("edit-entry-id").value = entry.id;
-    document.getElementById("log-date").value = entry.date;
-    setStarRatingValue(entry.intensity || 0);
-    
-    evaluateTodayPlans();
-    document.getElementById("exercise-select").value = entry.exerciseName;
-    
-    buildDynamicFormFields(entry.exerciseName, entry.data);
-
-    if (!document.getElementById("cancel-edit-btn")) {
-        const btnContainer = document.getElementById("form-action-buttons");
-        btnContainer.style.gridTemplateColumns = "1fr 1fr";
-        
-        const cancelBtn = document.createElement("button");
-        cancelBtn.type = "button";
-        cancelBtn.id = "cancel-edit-btn";
-        cancelBtn.className = "btn btn-secondary";
-        cancelBtn.innerText = "Cancel";
-        cancelBtn.onclick = cancelFormEdit;
-        btnContainer.appendChild(cancelBtn);
-    }
-    document.getElementById("submit-log-btn").innerText = "Update Entry";
-}
-
-function cancelFormEdit() {
-    document.getElementById("form-title").innerText = "Log Exercise";
-    document.getElementById("edit-entry-id").value = "";
-    document.getElementById("log-form").reset();
-    document.getElementById("log-date").value = getLocalDateString(new Date());
-    setStarRatingValue(0);
-    document.getElementById("submit-log-btn").innerText = "Save Entry";
-    
-    const cancelBtn = document.getElementById("cancel-edit-btn");
-    if (cancelBtn) {
-        cancelBtn.remove();
-        document.getElementById("form-action-buttons").style.gridTemplateColumns = "1fr";
-    }
-    evaluateTodayPlans();
+    haptic('light');
+    document.getElementById("log-modal").classList.remove("hidden");
+    LogModal.openExerciseForm(entry.exerciseName, entry);
 }
 
 function deleteEntry(id) {
@@ -1775,58 +1600,6 @@ function renderStats() {
 
 // --- APP EVENT LISTENER ATTACHMENTS ---
 function setupEventListeners() {
-    document.getElementById("log-date").addEventListener("change", () => {
-        const editingId = document.getElementById("edit-entry-id").value;
-        if (!editingId) evaluateTodayPlans();
-    });
-
-    document.getElementById("exercise-select").addEventListener("change", (e) => {
-        buildDynamicFormFields(e.target.value);
-        updateIntensityPreview();
-    });
-
-    document.getElementById("log-form").addEventListener("submit", (e) => {
-        e.preventDefault();
-        const editingId = document.getElementById("edit-entry-id").value;
-        const exerciseName = document.getElementById("exercise-select").value;
-        const exercise = state.exercises.find(e => e.name === exerciseName);
-        const selectedDate = document.getElementById("log-date").value;
-        const intensityRaw = parseInt(document.getElementById("log-intensity").value, 10) || 0;
-        const intensity = intensityRaw > 0 ? intensityRaw : null;
-        
-        const formData = new FormData(e.target);
-        let logData = {};
-        
-        exercise.metrics.forEach(fieldKey => {
-            logData[fieldKey] = parseFloat(formData.get(fieldKey)) || 0;
-        });
-
-        if (editingId) {
-            let index = state.history.findIndex(h => h.id === parseInt(editingId));
-            if (index !== -1) {
-                state.history[index].date = selectedDate;
-                state.history[index].exerciseName = exerciseName;
-                state.history[index].intensity = intensity || null;
-                state.history[index].data = logData;
-            }
-        } else {
-            const newEntry = {
-                id: Date.now(),
-                date: selectedDate,
-                exerciseName: exerciseName,
-                intensity: intensity || null,
-                data: logData
-            };
-            state.history.unshift(newEntry);
-        }
-
-        state.history.sort((a,b) => new Date(b.date) - new Date(a.date));
-        saveState();
-        haptic('success');
-        cancelFormEdit();
-        initApp();
-    });
-
     document.getElementById("plan-form").addEventListener("submit", (e) => {
         e.preventDefault();
         const type = document.getElementById("schedule-type").value;
