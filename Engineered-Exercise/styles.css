@@ -18,16 +18,26 @@
     -webkit-tap-highlight-color: transparent;
 }
 
+html {
+    height: 100vh;
+    height: 100dvh; /* dynamic viewport height: excludes mobile browser chrome
+                       that shows/hides as the page scrolls, so this never
+                       changes mid-interaction the way 100vh can. */
+    overflow: hidden; /* the page itself never scrolls or grows — see main */
+}
+
 body {
+    height: 100%;
+    overflow: hidden;
     background-color: var(--bg-primary);
     color: var(--text-main);
-    padding-bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
 }
 
 header {
     background-color: var(--bg-surface);
-    position: sticky;
-    top: 0;
+    flex-shrink: 0;
     z-index: 100;
     border-bottom: 1px solid var(--border);
     padding: 0.75rem 1rem;
@@ -89,6 +99,13 @@ header h1 {
     width: 2.25rem;
     height: 2.25rem;
     flex-shrink: 0;
+}
+
+main {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    min-height: 0; /* required for flex children to actually scroll instead of overflowing */
 }
 
 .container {
@@ -766,10 +783,7 @@ select:focus, input:focus {
 
 /* ===== BOTTOM NAVIGATION ===== */
 .bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    flex-shrink: 0;
     z-index: 200;
     background-color: var(--bg-surface);
     border-top: 1px solid var(--border);
