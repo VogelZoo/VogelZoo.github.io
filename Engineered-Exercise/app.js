@@ -218,6 +218,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initApp();
     setupEventListeners();
     setupStarRating();
+    setupLog2StarRating();
 });
 
 function initApp() {
@@ -232,6 +233,9 @@ function initApp() {
     renderManageExercises();
     renderManageMeasurements();
     renderStreakWidget();
+    renderTodayExercisesCard();
+    renderTrackKpis();
+    renderStatsKpis();
 }
 
 function migrateIntensityData() {
@@ -270,43 +274,44 @@ function getCategoryEmoji(category) {
 }
 
 // --- SYSTEM NAVIGATION ---
+// Bottom nav now covers exactly 4 tabs: track, stats, timer, history.
+// Plan / Custom Exercise / Custom Measurement / Backup&Data moved into the
+// hamburger SettingsDrawer, and are no longer top-level views.
 function switchView(viewId) {
     haptic('light');
     document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    
-    document.getElementById(`view-${viewId}`).classList.remove('hidden');
-    document.getElementById(`nav-${viewId}`).classList.add('active');
-    
-    if (viewId !== 'track') cancelFormEdit();
-    if (viewId !== 'settings') cancelExerciseEdit();
+    document.querySelectorAll('.bottom-nav-btn').forEach(b => b.classList.remove('active'));
 
-    if (viewId === 'track') { evaluateTodayPlans(); renderStreakWidget(); }
-    if (viewId === 'plan') renderPlanList();
-    if (viewId === 'stats') { populateChartFilter(); renderStats(); }
-    if (viewId === 'settings') { renderManageExercises(); renderManageMeasurements(); if (typeof refreshBackupStatusDisplay === "function") refreshBackupStatusDisplay(); }
+    document.getElementById(`view-${viewId}`).classList.remove('hidden');
+    const navBtn = document.getElementById(`nav-${viewId}`);
+    if (navBtn) navBtn.classList.add('active');
+
+    if (viewId !== 'track') cancelFormEdit();
+
+    if (viewId === 'track') {
+        evaluateTodayPlans();
+        renderStreakWidget();
+        renderTodayExercisesCard();
+        renderTrackKpis();
+    }
+    if (viewId === 'stats') { populateChartFilter(); renderStats(); renderStatsKpis(); }
+    if (viewId === 'history') { renderStats(); /* keeps history-grouped-container fresh */ }
+    if (viewId === 'timer') { TimerModal.refreshUI(); }
 }
 
 // --- CORE STREAK TRACKING ENGINE ---
+// The standalone floating streak card is gone — its value now feeds the
+// Track tab's top KPI row (see renderTrackKpis) and the Stats tab's streak
+// KPI card (see renderStatsKpis). This function is kept as the canonical
+// "recompute and push the streak number wherever it's displayed" entry
+// point, since several call sites already invoke it by name.
 function renderStreakWidget() {
-    let trackSection = document.getElementById("view-track");
-    let existingWidget = document.getElementById("streak-tracking-widget");
-    if (existingWidget) existingWidget.remove();
-
     let currentStreak = calculateStreak();
-
-    let widgetHtml = document.createElement("div");
-    widgetHtml.id = "streak-tracking-widget";
-    widgetHtml.className = "card streak-container";
-    widgetHtml.innerHTML = `
-        <div>
-            <h3 style="margin-bottom: 0.15rem; color: #fff;">Consistency Streak</h3>
-            <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 0;">Logging active schedules & rest days</p>
-        </div>
-        <div class="streak-count">🔥 ${currentStreak} <span style="font-size:0.85rem; font-weight:normal; color:var(--text-muted);">Days</span></div>
-    `;
-    // Insert as the very first card in the Track view
-    trackSection.insertBefore(widgetHtml, trackSection.firstChild);
+    const trackEl = document.getElementById("kpi-streak-value");
+    if (trackEl) trackEl.textContent = currentStreak;
+    const statsEl = document.getElementById("kpi2-streak-value");
+    if (statsEl) statsEl.innerHTML = `${currentStreak} <span class="kpi-card-unit">days</span>`;
+    return currentStreak;
 }
 
 function calculateStreak() {
@@ -391,6 +396,8 @@ function evaluateTodayPlans() {
 
     renderExerciseSelectors(remainingScheduled);
     render7DayHorizon(new Date());
+    renderTodayExercisesCard();
+    renderTrackKpis();
 }
 
 // Counts how many times each exercise is scheduled for the date vs. how many
@@ -461,6 +468,240 @@ function getPlannedExercisesForDate(targetDate) {
     });
 
     return matches;
+}
+
+// --- TODAY'S EXERCISES CARD (Track tab) ---
+// Always reflects the actual calendar "today", independent of whatever date
+// is selected in the inline log form above it. Each row gets its own Log
+// button which opens the new Log Modal pre-filled for that exercise + today.
+function renderTodayExercisesCard() {
+    const container = document.getElementById("today-exercises-list");
+    const card = document.getElementById("today-exercises-card");
+    if (!container || !card) return;
+
+    const today = new Date();
+    const todayStr = getLocalDateString(today);
+    const scheduledToday = getPlannedExercisesForDate(today).filter(name => name !== "__rest__");
+
+    if (scheduledToday.length === 0) {
+        card.classList.add("hidden");
+        container.innerHTML = "";
+        return;
+    }
+    card.classList.remove("hidden");
+
+    let loggedCountsToday = {};
+    state.history.forEach(entry => {
+        if (entry.date === todayStr) {
+            loggedCountsToday[entry.exerciseName] = (loggedCountsToday[entry.exerciseName] || 0) + 1;
+        }
+    });
+
+    let seenSoFar = {};
+    container.innerHTML = scheduledToday.map(name => {
+        seenSoFar[name] = (seenSoFar[name] || 0) + 1;
+        const isDone = seenSoFar[name] <= (loggedCountsToday[name] || 0);
+        const ex = state.exercises.find(e => e.name === name);
+        const emoji = (ex && ex.emoji) ? ex.emoji : getCategoryEmoji(ex && ex.category);
+        const safeName = name.replace(/'/g, "\\'");
+        return `
+            <div class="today-exercise-row${isDone ? ' te-done' : ''}">
+                <span class="te-name">${emoji} ${name}</span>
+                <button type="button" class="te-log-btn${isDone ? ' te-log-done' : ''}" onclick="LogModal.quickLogExercise('${safeName}')">${isDone ? 'Logged' : 'Log'}</button>
+            </div>
+        `;
+    }).join("");
+}
+
+// --- TRACK TAB: top 4-up KPI row ---
+function renderTrackKpis() {
+    renderStreakWidget(); // pushes streak into kpi-streak-value
+
+    const today = new Date();
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    // Workouts this week (last 7 rolling days)
+    const recentEntries = state.history.filter(h => new Date(h.date + "T00:00:00") >= sevenDaysAgo);
+    const weekCountEl = document.getElementById("kpi-week-count-value");
+    if (weekCountEl) weekCountEl.textContent = recentEntries.length;
+
+    // 7-day average intensity (entries with a rating only)
+    const ratedRecent = recentEntries.filter(h => h.intensity && h.intensity > 0);
+    const avgIntensity = ratedRecent.length > 0
+        ? (ratedRecent.reduce((sum, h) => sum + h.intensity, 0) / ratedRecent.length)
+        : null;
+    const intensityEl = document.getElementById("kpi-week-intensity-value");
+    if (intensityEl) intensityEl.textContent = avgIntensity !== null ? avgIntensity.toFixed(1) : "—";
+
+    // Current weight (most recent "weight" measurement log, default measurement key "weight")
+    const weightLogs = state.measurementLogs.filter(l => l.measurementKey === "weight");
+    const latestWeight = weightLogs.length > 0
+        ? [...weightLogs].sort((a, b) => new Date(b.date) - new Date(a.date))[0]
+        : null;
+    const weightEl = document.getElementById("kpi-weight-value");
+    if (weightEl) {
+        if (latestWeight) {
+            const m = state.measurements.find(x => x.key === "weight");
+            weightEl.textContent = `${latestWeight.value}${m ? m.unit : ''}`;
+        } else {
+            weightEl.textContent = "—";
+        }
+    }
+}
+
+// --- STATS TAB: 2x2 KPI grid ---
+function renderStatsKpis() {
+    renderStreakWidget(); // pushes streak into kpi2-streak-value
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // --- Avg Intensity (7d) + mini bar graph (per-day avg intensity, last 7 days) ---
+    const dayBuckets = [];
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        dayBuckets.push(getLocalDateString(d));
+    }
+    const intensityByDay = dayBuckets.map(dateStr => {
+        const entries = state.history.filter(h => h.date === dateStr && h.intensity && h.intensity > 0);
+        if (entries.length === 0) return 0;
+        return entries.reduce((sum, h) => sum + h.intensity, 0) / entries.length;
+    });
+    const ratedDayValues = intensityByDay.filter(v => v > 0);
+    const avgIntensity7d = ratedDayValues.length > 0
+        ? (ratedDayValues.reduce((a, b) => a + b, 0) / ratedDayValues.length)
+        : null;
+
+    const intensityValueEl = document.getElementById("kpi2-intensity-value");
+    if (intensityValueEl) intensityValueEl.textContent = avgIntensity7d !== null ? avgIntensity7d.toFixed(1) : "—";
+
+    const intensityBarsEl = document.getElementById("kpi2-intensity-bars");
+    if (intensityBarsEl) {
+        intensityBarsEl.innerHTML = intensityByDay.map(v => {
+            const heightPct = Math.max(8, (v / 5) * 100);
+            const color = v > 0 ? getIntensityColor(Math.round(v)) : "#374151";
+            return `<div class="kmb-bar" style="height:${heightPct}%; background-color:${color};"></div>`;
+        }).join("");
+    }
+
+    // --- Streak dots: last 7 days, orange if a workout was completed that day ---
+    const streakDotsEl = document.getElementById("kpi2-streak-dots");
+    if (streakDotsEl) {
+        const loggedDateSet = new Set(state.history.map(h => h.date));
+        streakDotsEl.innerHTML = dayBuckets.map(dateStr => {
+            const active = loggedDateSet.has(dateStr);
+            return `<span class="ksd-dot${active ? ' ksd-active' : ''}"></span>`;
+        }).join("");
+    }
+
+    // --- Weight + 2-week mini line graph ---
+    const weightLogsSorted = [...state.measurementLogs]
+        .filter(l => l.measurementKey === "weight")
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+    const weightValueEl = document.getElementById("kpi2-weight-value");
+    const weightMeas = state.measurements.find(m => m.key === "weight");
+    if (weightValueEl) {
+        const latest = weightLogsSorted[weightLogsSorted.length - 1];
+        weightValueEl.textContent = latest ? `${latest.value}${weightMeas ? weightMeas.unit : ''}` : "—";
+    }
+    const weightGraphEl = document.getElementById("kpi2-weight-graph");
+    if (weightGraphEl) {
+        const twoWeeksAgo = new Date(today);
+        twoWeeksAgo.setDate(today.getDate() - 14);
+        const recentWeights = weightLogsSorted.filter(l => new Date(l.date + "T00:00:00") >= twoWeeksAgo);
+        weightGraphEl.innerHTML = renderMiniLineSvg(recentWeights.map(l => l.value));
+    }
+
+    // --- Workouts by day (last 7 days) bar graph + this-week count ---
+    const workoutCountByDay = dayBuckets.map(dateStr => state.history.filter(h => h.date === dateStr).length);
+    const workoutsThisWeek = workoutCountByDay.reduce((a, b) => a + b, 0);
+    const workoutsValueEl = document.getElementById("kpi2-workouts-value");
+    if (workoutsValueEl) workoutsValueEl.textContent = workoutsThisWeek;
+    const workoutsBarsEl = document.getElementById("kpi2-workouts-bars");
+    if (workoutsBarsEl) {
+        const maxCount = Math.max(1, ...workoutCountByDay);
+        workoutsBarsEl.innerHTML = workoutCountByDay.map(c => {
+            const heightPct = c > 0 ? Math.max(12, (c / maxCount) * 100) : 4;
+            return `<div class="kmb-bar" style="height:${heightPct}%; background-color:${c > 0 ? '#2563eb' : '#374151'};"></div>`;
+        }).join("");
+    }
+
+    renderProgressOverview();
+}
+
+// Tiny inline sparkline used by the Stats KPI cards. Returns "" (blank) if
+// there isn't enough data to draw a meaningful trend.
+function renderMiniLineSvg(values) {
+    if (!values || values.length < 2) return `<span class="text-muted" style="font-size:0.65rem;">Not enough data</span>`;
+    const width = 100;
+    const height = 32;
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = (max - min) || 1;
+    const denom = Math.max(values.length - 1, 1);
+    const points = values.map((v, i) => {
+        const x = (i / denom) * width;
+        const y = height - ((v - min) / range) * (height - 4) - 2;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+    const path = "M " + points.join(" L ");
+    return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><path d="${path}" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+// --- Full-width Progress Overview summary (Stats tab) ---
+function renderProgressOverview() {
+    const body = document.getElementById("progress-overview-body");
+    if (!body) return;
+
+    const rows = [];
+
+    // Total lifetime sessions
+    rows.push({ label: "Total Workouts Logged", value: state.history.length });
+
+    // Most logged exercise
+    if (state.history.length > 0) {
+        const counts = {};
+        state.history.forEach(h => { counts[h.exerciseName] = (counts[h.exerciseName] || 0) + 1; });
+        const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+        rows.push({ label: "Most Logged Exercise", value: `${top[0]} (${top[1]}x)` });
+    }
+
+    // Weight change over last 30 days
+    const weightLogsSorted = [...state.measurementLogs]
+        .filter(l => l.measurementKey === "weight")
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+    if (weightLogsSorted.length >= 2) {
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+        const inWindow = weightLogsSorted.filter(l => new Date(l.date + "T00:00:00") >= thirtyDaysAgo);
+        const baseline = inWindow.length >= 2 ? inWindow[0] : weightLogsSorted[0];
+        const latest = weightLogsSorted[weightLogsSorted.length - 1];
+        const delta = latest.value - baseline.value;
+        const meas = state.measurements.find(m => m.key === "weight");
+        const unit = meas ? meas.unit : "";
+        const sign = delta > 0 ? "+" : "";
+        const trendClass = delta > 0 ? "po-up" : (delta < 0 ? "po-down" : "");
+        rows.push({ label: "Weight Change (30d)", value: `${sign}${delta.toFixed(1)}${unit}`, cls: trendClass });
+    }
+
+    // Current streak (reuse calculation)
+    rows.push({ label: "Current Streak", value: `${calculateStreak()} days` });
+
+    if (rows.length === 0) {
+        body.innerHTML = `<p class="text-muted">Log a few workouts to see your progress summary.</p>`;
+        return;
+    }
+
+    body.innerHTML = rows.map(r => `
+        <div class="progress-overview-row">
+            <span class="po-label">${r.label}</span>
+            <span class="po-value${r.cls ? ' ' + r.cls : ''}">${r.value}</span>
+        </div>
+    `).join("");
 }
 
 function render7DayHorizon(baseDate) {
@@ -695,6 +936,90 @@ function updateIntensityPreview() {
     document.querySelectorAll("#log-intensity-stars .star").forEach(star => {
         const starVal = parseInt(star.dataset.val, 10);
         star.classList.toggle("preview", currentVal === 0 && starVal <= previewVal);
+    });
+}
+
+// --- LOG MODAL: parallel field-builder + star-rating helpers ---
+// Mirrors buildDynamicFormFields / setStarRatingValue exactly, but scoped to
+// the Log Modal's own element IDs (log2-*) so the inline Track-tab form and
+// the modal never fight over the same DOM nodes.
+function buildLog2DynamicFormFields(exerciseName, existingData = null) {
+    const container = document.getElementById("log2-dynamic-fields-container");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const exercise = state.exercises.find(e => e.name === exerciseName);
+    if (!exercise || !exercise.metrics) return;
+
+    const previousEntry = getPreviousEntry(exerciseName);
+
+    exercise.metrics.forEach(fieldKey => {
+        const fieldMeta = FIELD_LABELS[fieldKey];
+        if (!fieldMeta) return;
+
+        const div = document.createElement("div");
+        div.className = "form-group";
+
+        let valAttr = "";
+        let placeholderVal = fieldMeta.placeholder;
+
+        if (existingData && existingData[fieldKey] !== undefined) {
+            valAttr = `value="${existingData[fieldKey]}"`;
+        } else if (previousEntry && previousEntry.exerciseName === exerciseName && previousEntry.data[fieldKey] !== undefined) {
+            placeholderVal = `Prev: ${previousEntry.data[fieldKey]}`;
+        }
+
+        div.innerHTML = `
+            <label for="log2-field-${fieldKey}">${fieldMeta.label}</label>
+            <input type="${fieldMeta.type}" id="log2-field-${fieldKey}" name="${fieldKey}" ${valAttr} placeholder="${placeholderVal}" step="${fieldMeta.step}" inputmode="decimal" required>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function setLog2StarRatingValue(value) {
+    const val = parseInt(value, 10) || 0;
+    const hiddenInput = document.getElementById("log2-intensity");
+    if (hiddenInput) hiddenInput.value = val;
+
+    document.querySelectorAll("#log2-intensity-stars .star").forEach(star => {
+        const starVal = parseInt(star.dataset.val, 10);
+        star.classList.toggle("active", starVal <= val);
+    });
+
+    updateLog2IntensityPreview();
+}
+
+function updateLog2IntensityPreview() {
+    const exerciseName = document.getElementById("log2-exercise-name");
+    const hiddenInput = document.getElementById("log2-intensity");
+    if (!exerciseName || !hiddenInput) return;
+
+    const currentVal = parseInt(hiddenInput.value, 10) || 0;
+    let previewVal = 0;
+    if (currentVal === 0 && exerciseName.value) {
+        previewVal = getMostRecentIntensityForExercise(exerciseName.value) || 0;
+    }
+
+    document.querySelectorAll("#log2-intensity-stars .star").forEach(star => {
+        const starVal = parseInt(star.dataset.val, 10);
+        star.classList.toggle("preview", currentVal === 0 && starVal <= previewVal);
+    });
+}
+
+function setupLog2StarRating() {
+    const stars = document.querySelectorAll("#log2-intensity-stars .star");
+    const hiddenInput = document.getElementById("log2-intensity");
+    if (!hiddenInput) return;
+
+    stars.forEach(star => {
+        star.addEventListener("click", () => {
+            haptic('light');
+            const clickedVal = parseInt(star.dataset.val, 10);
+            const currentVal = parseInt(hiddenInput.value, 10) || 0;
+            const newVal = (clickedVal === currentVal) ? 0 : clickedVal;
+            setLog2StarRatingValue(newVal);
+        });
     });
 }
 
@@ -1605,6 +1930,8 @@ function setupEventListeners() {
     });
 
     document.getElementById("tracking-log-form").addEventListener("submit", (e) => TrackingModal.submit(e));
+    document.getElementById("log-exercise-form").addEventListener("submit", (e) => LogModal.submitExercise(e));
+    document.getElementById("log-measurement-form").addEventListener("submit", (e) => LogModal.submitMeasurement(e));
 }
 
 function toggleScheduleInputs() {
@@ -1674,14 +2001,15 @@ const TimerModal = {
 
     open() {
         haptic('light');
-        document.getElementById("timer-modal").classList.remove("hidden");
+        switchView('timer');
         this.renderLaps();
         this.updateDisplay();
     },
 
-    close() {
-        document.getElementById("timer-modal").classList.add("hidden");
-    },
+    // The timer lives in its own bottom-nav tab now rather than a modal, so
+    // there's nothing to dismiss — kept as a no-op since it may still be
+    // referenced from older call sites.
+    close() {},
 
     start() {
         haptic('light');
@@ -1775,7 +2103,7 @@ const TimerModal = {
     refreshUI() {
         this.updateDisplay();
 
-        const timerBtn = document.getElementById("timer-btn");
+        const timerBtn = document.getElementById("nav-timer");
         const stateLabel = document.getElementById("timer-state-label");
         const idleControls = document.getElementById("timer-controls-idle");
         const runningControls = document.getElementById("timer-controls-running");
@@ -1939,6 +2267,276 @@ const TrackingModal = {
             saveState();
             initApp();
         }
+    }
+};
+
+// --- LOG MODAL (global "+" entry point) ---
+// 3-step flow: Exercise vs Measurement -> pick which one -> entry fields.
+// Saving goes through the exact same state mutations as the inline
+// Track-tab form (for exercises) and the Tracking modal (for measurements),
+// so there's one source of truth for what a "save" actually does.
+const LogModal = {
+    step: "kind", // "kind" | "exercise-pick" | "measurement-pick" | "exercise-form" | "measurement-form"
+
+    open() {
+        haptic('light');
+        this.goToKind();
+        document.getElementById("log-modal").classList.remove("hidden");
+    },
+
+    close() {
+        document.getElementById("log-modal").classList.add("hidden");
+    },
+
+    _setStep(step, title, showBack) {
+        this.step = step;
+        document.getElementById("log-step-kind").classList.toggle("hidden", step !== "kind");
+        document.getElementById("log-step-exercise-pick").classList.toggle("hidden", step !== "exercise-pick");
+        document.getElementById("log-step-measurement-pick").classList.toggle("hidden", step !== "measurement-pick");
+        document.getElementById("log-exercise-form").classList.toggle("hidden", step !== "exercise-form");
+        document.getElementById("log-measurement-form").classList.toggle("hidden", step !== "measurement-form");
+        document.getElementById("log-modal-title").innerText = title;
+        document.getElementById("log-modal-back-btn").style.visibility = showBack ? "visible" : "hidden";
+    },
+
+    goToKind() {
+        this._setStep("kind", "Log", false);
+    },
+
+    // Back navigation mirrors the forward path: form -> pick -> kind.
+    back() {
+        if (this.step === "exercise-form" || this.step === "exercise-pick") {
+            this.goToKind();
+        } else if (this.step === "measurement-form" || this.step === "measurement-pick") {
+            this.goToKind();
+        } else {
+            this.goToKind();
+        }
+    },
+
+    chooseKind(kind) {
+        haptic('light');
+        if (kind === "exercise") {
+            this.renderExercisePicker();
+            this._setStep("exercise-pick", "Choose Exercise", true);
+        } else {
+            this.renderMeasurementPicker();
+            this._setStep("measurement-pick", "Choose Measurement", true);
+        }
+    },
+
+    renderExercisePicker() {
+        const list = document.getElementById("log-exercise-pick-list");
+        if (!list) return;
+        list.innerHTML = "";
+
+        let sorted = [...state.exercises].sort((a, b) => {
+            const catA = a.category || "Uncategorized";
+            const catB = b.category || "Uncategorized";
+            if (catA !== catB) return catA.localeCompare(catB);
+            return a.name.localeCompare(b.name);
+        });
+
+        sorted.forEach(ex => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "tracking-measurement-option";
+            btn.onclick = () => LogModal.openExerciseForm(ex.name);
+            const emoji = ex.emoji || getCategoryEmoji(ex.category);
+            btn.innerHTML = `
+                <span class="tm-name">${emoji} ${ex.name}</span>
+                <span class="tm-unit">${ex.category || ''}</span>
+            `;
+            list.appendChild(btn);
+        });
+    },
+
+    renderMeasurementPicker() {
+        const list = document.getElementById("log-measurement-pick-list");
+        if (!list) return;
+        list.innerHTML = "";
+
+        let sorted = [...state.measurements].sort((a, b) => a.name.localeCompare(b.name));
+        sorted.forEach(m => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "tracking-measurement-option";
+            btn.onclick = () => LogModal.openMeasurementForm(m.key);
+            btn.innerHTML = `
+                <span class="tm-name">📏 ${m.name}</span>
+                <span class="tm-unit">${m.unit}</span>
+            `;
+            list.appendChild(btn);
+        });
+    },
+
+    openExerciseForm(exerciseName, existingEntry = null, defaultDate = null) {
+        document.getElementById("log2-exercise-name").value = exerciseName;
+        document.getElementById("log2-edit-entry-id").value = existingEntry ? existingEntry.id : "";
+        document.getElementById("log2-date").value = existingEntry ? existingEntry.date : (defaultDate || getLocalDateString(new Date()));
+        setLog2StarRatingValue(existingEntry ? (existingEntry.intensity || 0) : 0);
+        buildLog2DynamicFormFields(exerciseName, existingEntry ? existingEntry.data : null);
+        document.getElementById("log2-exercise-submit-btn").innerText = existingEntry ? "Update Entry" : "Save Entry";
+        this._setStep("exercise-form", existingEntry ? "Edit Exercise Log" : `Log ${exerciseName}`, true);
+    },
+
+    openMeasurementForm(measurementKey, existingLog = null) {
+        const m = state.measurements.find(x => x.key === measurementKey);
+        if (!m) return;
+
+        document.getElementById("log2-meas-key").value = measurementKey;
+        document.getElementById("log2-meas-edit-id").value = existingLog ? existingLog.id : "";
+        document.getElementById("log2-meas-field-label").innerText = `${m.name} (${m.unit})`;
+
+        const valueInput = document.getElementById("log2-meas-value");
+        const dateInput = document.getElementById("log2-meas-date");
+        const submitBtn = document.getElementById("log2-meas-submit-btn");
+
+        if (existingLog) {
+            valueInput.value = existingLog.value;
+            dateInput.value = existingLog.date;
+            submitBtn.innerText = "Update";
+        } else {
+            valueInput.value = "";
+            const mostRecent = [...state.measurementLogs]
+                .filter(l => l.measurementKey === measurementKey)
+                .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+            valueInput.placeholder = mostRecent ? `Prev: ${mostRecent.value}` : "0.0";
+            dateInput.value = getLocalDateString(new Date());
+            submitBtn.innerText = "Save";
+        }
+
+        this._setStep("measurement-form", existingLog ? `Edit ${m.name}` : `Log ${m.name}`, true);
+        valueInput.focus();
+    },
+
+    // Shortcut used by the Track tab's "Today's Exercises" card — opens
+    // straight to the entry form for a given exercise, pre-filled with
+    // today's date, skipping the kind/pick steps entirely.
+    quickLogExercise(exerciseName) {
+        haptic('light');
+        document.getElementById("log-modal").classList.remove("hidden");
+        this.openExerciseForm(exerciseName, null, getLocalDateString(new Date()));
+    },
+
+    submitExercise(e) {
+        e.preventDefault();
+        const editingId = document.getElementById("log2-edit-entry-id").value;
+        const exerciseName = document.getElementById("log2-exercise-name").value;
+        const exercise = state.exercises.find(e => e.name === exerciseName);
+        if (!exercise) return;
+        const selectedDate = document.getElementById("log2-date").value;
+        const intensityRaw = parseInt(document.getElementById("log2-intensity").value, 10) || 0;
+        const intensity = intensityRaw > 0 ? intensityRaw : null;
+
+        let logData = {};
+        exercise.metrics.forEach(fieldKey => {
+            const input = document.getElementById(`log2-field-${fieldKey}`);
+            logData[fieldKey] = parseFloat(input ? input.value : 0) || 0;
+        });
+
+        if (editingId) {
+            let index = state.history.findIndex(h => h.id === parseInt(editingId));
+            if (index !== -1) {
+                state.history[index].date = selectedDate;
+                state.history[index].exerciseName = exerciseName;
+                state.history[index].intensity = intensity || null;
+                state.history[index].data = logData;
+            }
+        } else {
+            state.history.unshift({
+                id: Date.now(),
+                date: selectedDate,
+                exerciseName: exerciseName,
+                intensity: intensity || null,
+                data: logData
+            });
+        }
+
+        state.history.sort((a, b) => new Date(b.date) - new Date(a.date));
+        saveState();
+        haptic('success');
+        this.close();
+        initApp();
+    },
+
+    submitMeasurement(e) {
+        e.preventDefault();
+        const measurementKey = document.getElementById("log2-meas-key").value;
+        const editId = document.getElementById("log2-meas-edit-id").value;
+        const value = parseFloat(document.getElementById("log2-meas-value").value);
+        const date = document.getElementById("log2-meas-date").value;
+
+        if (!measurementKey || !date || !Number.isFinite(value)) return;
+
+        if (editId) {
+            let idx = state.measurementLogs.findIndex(l => l.id === parseInt(editId));
+            if (idx !== -1) {
+                state.measurementLogs[idx].value = value;
+                state.measurementLogs[idx].date = date;
+            }
+        } else {
+            state.measurementLogs.unshift({
+                id: Date.now(),
+                date: date,
+                measurementKey: measurementKey,
+                value: value
+            });
+        }
+
+        saveState();
+        haptic('success');
+        this.close();
+        initApp();
+    }
+};
+
+// --- SETTINGS DRAWER (hamburger menu) ---
+// Top-level menu swaps to one of 4 sections; each section reuses the same
+// markup/IDs the old Plan/Data tabs used, so all existing form-submit and
+// management logic keeps working unchanged.
+const SettingsDrawer = {
+    currentSection: null,
+
+    open() {
+        haptic('light');
+        document.getElementById("drawer-overlay").classList.remove("hidden");
+        document.getElementById("settings-drawer").classList.add("open");
+        this.backToMenu();
+    },
+
+    close() {
+        document.getElementById("drawer-overlay").classList.add("hidden");
+        document.getElementById("settings-drawer").classList.remove("open");
+    },
+
+    backToMenu() {
+        this.currentSection = null;
+        document.getElementById("drawer-menu-list").classList.remove("hidden");
+        document.querySelectorAll(".drawer-section").forEach(s => s.classList.add("hidden"));
+        document.getElementById("drawer-title").innerText = "Menu";
+        document.getElementById("drawer-back-btn").style.visibility = "hidden";
+        cancelExerciseEdit();
+        cancelMeasurementEdit();
+    },
+
+    openSection(section) {
+        haptic('light');
+        this.currentSection = section;
+        document.getElementById("drawer-menu-list").classList.add("hidden");
+        document.querySelectorAll(".drawer-section").forEach(s => s.classList.add("hidden"));
+
+        const titles = { plan: "Plan", exercises: "Custom Exercises", measurements: "Custom Measurements", data: "Backup & Data" };
+        document.getElementById("drawer-title").innerText = titles[section] || "Menu";
+        document.getElementById("drawer-back-btn").style.visibility = "visible";
+
+        const sectionEl = document.getElementById(`drawer-section-${section}`);
+        if (sectionEl) sectionEl.classList.remove("hidden");
+
+        if (section === "plan") renderPlanList();
+        if (section === "exercises") renderManageExercises();
+        if (section === "measurements") renderManageMeasurements();
+        if (section === "data" && typeof refreshBackupStatusDisplay === "function") refreshBackupStatusDisplay();
     }
 };
 
