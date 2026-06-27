@@ -377,15 +377,15 @@ function evaluateTodayPlans() {
     
     let targetExercises = getPlannedExercisesForDate(selectedDate);
 
-    const suggestionBox = document.getElementById("today-suggestion");
+    /*const suggestionBox = document.getElementById("today-suggestion");*/
     const formattedDisplayDate = selectedDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     
-    if (targetExercises.length > 0) {
+    /*if (targetExercises.length > 0) {
         suggestionBox.innerHTML = `<h3>Plan for ${formattedDisplayDate}</h3><p>🎯 ${targetExercises.join(", ")}</p>`;
         suggestionBox.classList.remove("hidden");
     } else {
         suggestionBox.innerHTML = `<h3>No routine explicitly scheduled for ${formattedDisplayDate}</h3>`;
-    }
+    }*/
 
     // The dropdown's "Scheduled" star group only shows exercises that still
     // have unlogged instances remaining for this date — once you've logged
