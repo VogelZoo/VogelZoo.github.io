@@ -544,7 +544,11 @@
                     <button class="timer-btn-round timer-btn-play" onclick="TimerModal.start()" aria-label="Resume">
                         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>
                     </button>
+                    <button class="timer-btn-round timer-btn-secondary" onclick="TimerModal.logTotalTime()" aria-label="Log Total Time">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    </button>
                 </div>
+                <div class="text-muted" id="timer-log-hint" style="font-size:0.7rem; margin-top:0.5rem;"></div>
 
                 <div id="timer-laps-wrapper" class="timer-laps-wrapper hidden">
                     <div class="timer-laps-title">Laps</div>

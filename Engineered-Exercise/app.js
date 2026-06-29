@@ -22,6 +22,23 @@ const DEFAULT_MEASUREMENTS = [
     { key: "waist", name: "Waist Size", unit: "in" }
 ];
 
+// A virtual, non-deletable pseudo-exercise used solely by the Timer's
+// "Log Total Time" action (see TimerModal.logTotalTime). It is deliberately
+// NOT part of DEFAULT_EXERCISES / state.exercises — it never appears in the
+// exercise picker, Manage Exercises, or the Plan dropdown — but its history
+// entries flow through the exact same edit/save/History pipeline as any
+// other exercise by name-matching against this constant wherever
+// state.exercises.find(...) is used for log-entry rendering.
+const TOTAL_TIME_EXERCISE_NAME = "Total Exercise Time";
+const TOTAL_TIME_EXERCISE_DEF = { name: TOTAL_TIME_EXERCISE_NAME, category: null, emoji: "⏱️", metrics: ["timeMinutes"] };
+
+// Resolves an exercise definition by name, including the virtual
+// Total Exercise Time entry — use this instead of state.exercises.find(...)
+// anywhere a history entry's exerciseName might be the virtual one.
+function findExerciseDef(name) {
+    if (name === TOTAL_TIME_EXERCISE_NAME) return TOTAL_TIME_EXERCISE_DEF;
+    return state.exercises.find(e => e.name === name);
+}
 
 const FIELD_LABELS = {
     sets: { label: "Sets", type: "number", placeholder: "0", step: "1" },
@@ -431,10 +448,36 @@ function getPlannedExercisesForDate(targetDate) {
     return matches;
 }
 
+// Compact "prev setpoint" string for an exercise, e.g. "3 sets × 10 reps × @135lbs"
+// built from whichever metrics that exercise tracks, using its most recent
+// logged entry. Returns "" if there's no prior entry to show.
+const SETPOINT_FORMAT_ORDER = ["sets", "reps", "weight", "distance", "timeMinutes", "timeSeconds"];
+
+function formatPrevSetpoint(exerciseName) {
+    const entry = getPreviousEntry(exerciseName);
+    if (!entry || !entry.data) return "";
+
+    const parts = [];
+    SETPOINT_FORMAT_ORDER.forEach(key => {
+        const val = entry.data[key];
+        if (val === undefined || val === null) return;
+        if (key === "sets") parts.push(`${val} sets`);
+        else if (key === "reps") parts.push(`${val} reps`);
+        else if (key === "weight") parts.push(`@${val}lbs`);
+        else if (key === "distance") parts.push(`${val}mi`);
+        else if (key === "timeMinutes") parts.push(`${val}min`);
+        else if (key === "timeSeconds") parts.push(`${val}s`);
+    });
+
+    return parts.join(" × ");
+}
+
 // --- TODAY'S EXERCISES CARD (Track tab) ---
 // Always reflects the actual calendar "today", independent of whatever date
-// is selected in the inline log form above it. Each row gets its own Log
-// button which opens the new Log Modal pre-filled for that exercise + today.
+// is selected in the inline log form above it. Each instance of a scheduled
+// exercise gets its own row — if scheduled 2x today, two rows render, and
+// each flips to "Edit" independently as soon as its own instance is logged
+// (matched oldest-logged-first against scheduled order).
 function renderTodayExercisesCard() {
     const container = document.getElementById("today-exercises-list");
     const card = document.getElementById("today-exercises-card");
@@ -451,24 +494,40 @@ function renderTodayExercisesCard() {
     }
     card.classList.remove("hidden");
 
-    let loggedCountsToday = {};
+    // Today's logged entries per exercise name, oldest-first, so the Nth
+    // scheduled instance of an exercise maps to the Nth entry logged today.
+    let loggedTodayByName = {};
     state.history.forEach(entry => {
         if (entry.date === todayStr) {
-            loggedCountsToday[entry.exerciseName] = (loggedCountsToday[entry.exerciseName] || 0) + 1;
+            if (!loggedTodayByName[entry.exerciseName]) loggedTodayByName[entry.exerciseName] = [];
+            loggedTodayByName[entry.exerciseName].push(entry);
         }
     });
+    Object.values(loggedTodayByName).forEach(list => list.sort((a, b) => a.id - b.id));
 
     let seenSoFar = {};
     container.innerHTML = scheduledToday.map(name => {
-        seenSoFar[name] = (seenSoFar[name] || 0) + 1;
-        const isDone = seenSoFar[name] <= (loggedCountsToday[name] || 0);
+        const instanceIdx = (seenSoFar[name] = (seenSoFar[name] || 0) + 1);
+        const todaysLogs = loggedTodayByName[name] || [];
+        const matchedEntry = todaysLogs[instanceIdx - 1] || null;
+        const isDone = !!matchedEntry;
+
         const ex = state.exercises.find(e => e.name === name);
         const emoji = (ex && ex.emoji) ? ex.emoji : getCategoryEmoji(ex && ex.category);
         const safeName = name.replace(/'/g, "\\'");
+        const prevSetpoint = formatPrevSetpoint(name);
+
+        const actionBtn = isDone
+            ? `<button type="button" class="te-log-btn te-log-done" onclick="initEditEntry(${matchedEntry.id})">Edit</button>`
+            : `<button type="button" class="te-log-btn" onclick="LogModal.quickLogExercise('${safeName}')">Log</button>`;
+
         return `
             <div class="today-exercise-row${isDone ? ' te-done' : ''}">
-                <span class="te-name">${emoji} ${name}</span>
-                <button type="button" class="te-log-btn${isDone ? ' te-log-done' : ''}" onclick="LogModal.quickLogExercise('${safeName}')">${isDone ? 'Logged' : 'Log'}</button>
+                <span class="te-name-group">
+                    <span class="te-name">${emoji} ${name}</span>
+                    ${prevSetpoint ? `<span class="te-prev-setpoint">${prevSetpoint}</span>` : ""}
+                </span>
+                ${actionBtn}
             </div>
         `;
     }).join("");
@@ -809,7 +868,7 @@ function buildLog2DynamicFormFields(exerciseName, existingData = null) {
     if (!container) return;
     container.innerHTML = "";
 
-    const exercise = state.exercises.find(e => e.name === exerciseName);
+    const exercise = findExerciseDef(exerciseName);
     if (!exercise || !exercise.metrics) return;
 
     const previousEntry = getPreviousEntry(exerciseName);
@@ -1235,6 +1294,23 @@ function populateChartFilter() {
 
     let currentSelection = filterSelect.value;
 
+    // Pinned "Today's Exercises" group — only the subset of today's scheduled
+    // exercises that already qualify for charting (2+ entries), starred and
+    // listed first, in addition to their normal spot further down.
+    const scheduledTodayNames = new Set(
+        getPlannedExercisesForDate(new Date()).filter(name => name !== "__rest__")
+    );
+    const chartableToday = chartableExercises.filter(ex => scheduledTodayNames.has(ex.name));
+
+    let html = "";
+    if (chartableToday.length > 0) {
+        let opts = [...chartableToday]
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map(ex => `<option value="ex:${ex.name}">⭐ ${ex.name}</option>`)
+            .join("");
+        html += `<optgroup label="Today's Exercises">${opts}</optgroup>`;
+    }
+
     // Group exercises by category, same ordering convention as the log/plan dropdowns
     let byCategory = {};
     chartableExercises.forEach(ex => {
@@ -1243,7 +1319,6 @@ function populateChartFilter() {
         byCategory[cat].push(ex);
     });
 
-    let html = "";
     Object.keys(byCategory).sort().forEach(cat => {
         let opts = byCategory[cat]
             .sort((a, b) => a.name.localeCompare(b.name))
@@ -1577,7 +1652,7 @@ function renderStats() {
                         }).join(" | ");
 
                         let intBadge = item.intensity ? `<span class="badge-intensity" style="background-color:${getIntensityColor(item.intensity)};">${'★'.repeat(item.intensity)}</span>` : '';
-                        const _hEx = state.exercises.find(e => e.name === item.exerciseName);
+                        const _hEx = findExerciseDef(item.exerciseName);
                         const _hEmoji = (_hEx && _hEx.emoji) ? _hEx.emoji : getCategoryEmoji(_hEx?.category);
 
                         return `
@@ -1832,6 +1907,40 @@ const TimerModal = {
         this.laps = [];
         this.refreshUI();
         this.renderLaps();
+    },
+
+    // Logs the current elapsed time (while paused) to the workout history as
+    // a "Total Exercise Time" entry — a standalone time record not tied to
+    // any specific exercise. Does not stop or reset the timer, so the user
+    // can keep going and log again later if needed.
+    logTotalTime() {
+        const elapsedMs = this.getElapsedMs();
+        if (elapsedMs < 1000) return; // nothing meaningful to log yet
+
+        const minutes = Math.round((elapsedMs / 60000) * 100) / 100; // 2 decimal places
+        haptic('success');
+
+        state.history.unshift({
+            id: Date.now(),
+            date: getLocalDateString(new Date()),
+            exerciseName: TOTAL_TIME_EXERCISE_NAME,
+            intensity: null,
+            data: { timeMinutes: minutes }
+        });
+        state.history.sort((a, b) => new Date(b.date) - new Date(a.date));
+        saveState();
+
+        const hint = document.getElementById("timer-log-hint");
+        if (hint) {
+            hint.textContent = `Logged ${this.formatMs(elapsedMs)} to workout log ✓`;
+            clearTimeout(this._logHintTimer);
+            this._logHintTimer = setTimeout(() => { hint.textContent = ""; }, 2500);
+        }
+
+        // Refresh anything on Track/Stats that depends on history, without
+        // tearing down the running timer UI itself.
+        renderTodayExercisesCard();
+        renderTrackKpis();
     },
 
     getElapsedMs() {
@@ -2110,7 +2219,17 @@ const LogModal = {
             return a.name.localeCompare(b.name);
         });
 
+        let lastCategory = null;
         sorted.forEach(ex => {
+            const cat = ex.category || "Uncategorized";
+            if (cat !== lastCategory) {
+                const header = document.createElement("div");
+                header.className = "schedule-section-title log-pick-category-title";
+                header.textContent = cat;
+                list.appendChild(header);
+                lastCategory = cat;
+            }
+
             const btn = document.createElement("button");
             btn.type = "button";
             btn.className = "tracking-measurement-option";
@@ -2196,7 +2315,7 @@ const LogModal = {
         e.preventDefault();
         const editingId = document.getElementById("log2-edit-entry-id").value;
         const exerciseName = document.getElementById("log2-exercise-name").value;
-        const exercise = state.exercises.find(e => e.name === exerciseName);
+        const exercise = findExerciseDef(exerciseName);
         if (!exercise) return;
         const selectedDate = document.getElementById("log2-date").value;
         const intensityRaw = parseInt(document.getElementById("log2-intensity").value, 10) || 0;

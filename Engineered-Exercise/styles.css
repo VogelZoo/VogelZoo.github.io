@@ -746,6 +746,14 @@ select:focus, input:focus {
     color: var(--text-muted);
 }
 
+.tracking-measurement-list .log-pick-category-title {
+    margin: 1rem 0 0.35rem 0;
+}
+
+.tracking-measurement-list .log-pick-category-title:first-child {
+    margin-top: 0;
+}
+
 /* ===== CHART GRANULARITY RADIO GROUP ===== */
 .radio-group {
     display: flex;
@@ -793,6 +801,18 @@ select:focus, input:focus {
     padding: 0.4rem 0.5rem calc(0.4rem + env(safe-area-inset-bottom, 0px));
     padding-left: calc(0.5rem + env(safe-area-inset-left, 0px));
     padding-right: calc(0.5rem + env(safe-area-inset-right, 0px));
+}
+
+/* Installed/standalone PWA: the OS already reserves the home-indicator
+   strip outside the app's own viewport, so adding safe-area-inset-bottom
+   padding on top of that leaves a gap of bare background below the nav.
+   Web/Safari-tab mode still needs the padding (kept as the default above)
+   to clear the indicator that overlaps the page there — this only zeroes
+   it out for the installed case. */
+@media (display-mode: standalone) {
+    .bottom-nav {
+        padding-bottom: 0.4rem;
+    }
 }
 
 .bottom-nav-btn {
@@ -1037,10 +1057,23 @@ select:focus, input:focus {
     border-bottom: none;
 }
 
+.today-exercise-row .te-name-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+}
+
 .today-exercise-row .te-name {
     font-weight: 600;
     color: var(--text-main);
     font-size: 0.9rem;
+}
+
+.today-exercise-row .te-prev-setpoint {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
 }
 
 .today-exercise-row.te-done .te-name {
