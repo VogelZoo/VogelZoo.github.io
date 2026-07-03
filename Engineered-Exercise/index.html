@@ -100,6 +100,10 @@
                     <label id="tracking-log-field-label" for="tracking-log-value">Value</label>
                     <input type="number" id="tracking-log-value" step="0.1" inputmode="decimal" required placeholder="0.0">
                 </div>
+                <div class="form-group hidden" id="tracking-log-diastolic-group">
+                    <label for="tracking-log-diastolic">Diastolic (mmHg)</label>
+                    <input type="number" id="tracking-log-diastolic" step="1" inputmode="decimal" placeholder="0">
+                </div>
                 <div class="form-group">
                     <label for="tracking-log-date">Date</label>
                     <input type="date" id="tracking-log-date" required>
@@ -125,16 +129,20 @@
                 <button class="modal-close-x" aria-label="Close" onclick="LogModal.close()">&times;</button>
             </div>
 
-            <!-- Step 1: Exercise vs Measurement -->
+            <!-- Step 1: Exercise vs Measurement vs Total Time -->
             <div id="log-step-kind">
                 <div class="log-kind-grid">
                     <button type="button" class="log-kind-option" onclick="LogModal.chooseKind('exercise')">
-                        <span class="lk-emoji">🏋️</span>
+                        <span class="lk-emoji"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="9" width="3" height="6" rx="1" fill="currentColor"/><rect x="19" y="9" width="3" height="6" rx="1" fill="currentColor"/><rect x="5" y="7" width="2.4" height="10" rx="1" fill="currentColor"/><rect x="16.6" y="7" width="2.4" height="10" rx="1" fill="currentColor"/><rect x="7.4" y="11" width="9.2" height="2" fill="currentColor"/></svg></span>
                         <span class="lk-label">Exercise</span>
                     </button>
                     <button type="button" class="log-kind-option" onclick="LogModal.chooseKind('measurement')">
-                        <span class="lk-emoji">📏</span>
+                        <span class="lk-emoji"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2.5" y="9" width="19" height="6" rx="1" stroke="currentColor" stroke-width="1.6"/><path d="M6 9v2.4M9.5 9v3.4M13 9v2.4M16.5 9v3.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span>
                         <span class="lk-label">Measurement</span>
+                    </button>
+                    <button type="button" class="log-kind-option" onclick="LogModal.chooseKind('totaltime')">
+                        <span class="lk-emoji"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="13" r="8" stroke="currentColor" stroke-width="1.6"/><path d="M12 9v4l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 2h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+                        <span class="lk-label">Total Time</span>
                     </button>
                 </div>
             </div>
@@ -184,12 +192,32 @@
                     <label id="log2-meas-field-label" for="log2-meas-value">Value</label>
                     <input type="number" id="log2-meas-value" step="0.1" inputmode="decimal" required placeholder="0.0">
                 </div>
+                <div class="form-group hidden" id="log2-meas-diastolic-group">
+                    <label for="log2-meas-diastolic">Diastolic (mmHg)</label>
+                    <input type="number" id="log2-meas-diastolic" step="1" inputmode="decimal" placeholder="0">
+                </div>
                 <div class="form-group">
                     <label for="log2-meas-date">Date</label>
                     <input type="date" id="log2-meas-date" required>
                 </div>
                 <div class="form-action-row">
                     <button type="submit" class="btn btn-primary" id="log2-meas-submit-btn">Save</button>
+                </div>
+            </form>
+
+            <!-- Step 3c: total time entry fields -->
+            <form id="log-totaltime-form" class="hidden">
+                <input type="hidden" id="log2-tt-edit-id" value="">
+                <div class="form-group">
+                    <label for="log2-tt-minutes">Time (Minutes)</label>
+                    <input type="number" id="log2-tt-minutes" step="1" inputmode="decimal" required placeholder="30">
+                </div>
+                <div class="form-group">
+                    <label for="log2-tt-date">Date</label>
+                    <input type="date" id="log2-tt-date" required>
+                </div>
+                <div class="form-action-row">
+                    <button type="submit" class="btn btn-primary" id="log2-tt-submit-btn">Save</button>
                 </div>
             </form>
         </div>
@@ -210,22 +238,22 @@
             <!-- Top-level menu -->
             <div id="drawer-menu-list" class="drawer-menu-list">
                 <button class="drawer-menu-item" onclick="SettingsDrawer.openSection('plan')">
-                    <span class="dm-emoji">🗓️</span>
+                    <span class="dm-emoji"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3.5" y="5" width="17" height="15" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M3.5 9.5h17" stroke="currentColor" stroke-width="1.6"/><path d="M8 3v3M16 3v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
                     <span class="dm-label">Plan</span>
                     <span class="dm-chevron">&rsaquo;</span>
                 </button>
                 <button class="drawer-menu-item" onclick="SettingsDrawer.openSection('exercises')">
-                    <span class="dm-emoji">🏋️</span>
+                    <span class="dm-emoji"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="9" width="3" height="6" rx="1" fill="currentColor"/><rect x="19" y="9" width="3" height="6" rx="1" fill="currentColor"/><rect x="5" y="7" width="2.4" height="10" rx="1" fill="currentColor"/><rect x="16.6" y="7" width="2.4" height="10" rx="1" fill="currentColor"/><rect x="7.4" y="11" width="9.2" height="2" fill="currentColor"/></svg></span>
                     <span class="dm-label">Custom Exercises</span>
                     <span class="dm-chevron">&rsaquo;</span>
                 </button>
                 <button class="drawer-menu-item" onclick="SettingsDrawer.openSection('measurements')">
-                    <span class="dm-emoji">📏</span>
+                    <span class="dm-emoji"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2.5" y="9" width="19" height="6" rx="1" stroke="currentColor" stroke-width="1.6"/><path d="M6 9v2.4M9.5 9v3.4M13 9v2.4M16.5 9v3.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span>
                     <span class="dm-label">Custom Measurements</span>
                     <span class="dm-chevron">&rsaquo;</span>
                 </button>
                 <button class="drawer-menu-item" onclick="SettingsDrawer.openSection('data')">
-                    <span class="dm-emoji">💾</span>
+                    <span class="dm-emoji"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 4h11l3 3v13H5V4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><rect x="8" y="4" width="7" height="5" stroke="currentColor" stroke-width="1.6"/><rect x="7.5" y="13" width="9" height="6" stroke="currentColor" stroke-width="1.6"/></svg></span>
                     <span class="dm-label">Backup &amp; Data</span>
                     <span class="dm-chevron">&rsaquo;</span>
                 </button>

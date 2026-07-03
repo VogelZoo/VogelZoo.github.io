@@ -367,6 +367,43 @@ select:focus, input:focus {
     margin-bottom: 0.5rem;
 }
 
+.plan-order-item {
+    touch-action: none;
+}
+
+.plan-order-item.dragging {
+    background-color: rgba(37, 99, 235, 0.12);
+    border-radius: 6px;
+}
+
+.plan-order-item-main {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    cursor: grab;
+    flex-shrink: 0;
+    padding: 0.2rem;
+    touch-action: none;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+    color: var(--accent);
+}
+
+.drag-handle-icon {
+    width: 18px;
+    height: 18px;
+}
+
 .history-item-actions {
     display: flex;
     gap: 0.35rem;
@@ -961,9 +998,24 @@ select:focus, input:focus {
     border-color: var(--accent);
 }
 
-.dm-emoji {
-    font-size: 1.15rem;
+.ui-icon {
+    width: 16px;
+    height: 16px;
+    vertical-align: -3px;
     flex-shrink: 0;
+}
+
+.dm-emoji {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+
+.dm-emoji .ui-icon {
+    width: 20px;
+    height: 20px;
+    vertical-align: 0;
 }
 
 .dm-label {
@@ -982,8 +1034,8 @@ select:focus, input:focus {
 /* ===== LOG MODAL: kind picker ===== */
 .log-kind-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.6rem;
 }
 
 .log-kind-option {
@@ -994,7 +1046,7 @@ select:focus, input:focus {
     background-color: var(--bg-primary);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 1.5rem 1rem;
+    padding: 1.25rem 0.5rem;
     cursor: pointer;
     color: var(--text-main);
 }
@@ -1004,12 +1056,19 @@ select:focus, input:focus {
 }
 
 .log-kind-option .lk-emoji {
-    font-size: 2rem;
+    display: flex;
+    color: var(--accent);
+}
+
+.log-kind-option .lk-emoji .ui-icon {
+    width: 28px;
+    height: 28px;
 }
 
 .log-kind-option .lk-label {
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     font-weight: 600;
+    text-align: center;
 }
 
 /* ===== TRACK TAB: top KPI row ===== */
@@ -1079,6 +1138,14 @@ select:focus, input:focus {
 .today-exercise-row.te-done .te-name {
     color: var(--text-muted);
     text-decoration: line-through;
+}
+
+.te-prev-stars {
+    font-size: 0.78rem;
+    letter-spacing: 0.05em;
+    color: #4b5563;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .te-log-btn {

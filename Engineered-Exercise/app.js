@@ -19,8 +19,24 @@ const DEFAULT_EXERCISES = [
 
 const DEFAULT_MEASUREMENTS = [
     { key: "weight", name: "Weight", unit: "lbs" },
-    { key: "waist", name: "Waist Size", unit: "in" }
+    { key: "waist", name: "Waist Size", unit: "in" },
+    { key: "blood_pressure", name: "Blood Pressure", unit: "mmHg" }
 ];
+
+// Blood Pressure is the one built-in measurement that needs two numbers
+// (systolic/diastolic) instead of one. Rather than generalizing the whole
+// measurement schema, it's handled as a special case wherever a measurement
+// value is entered or displayed: `value` holds systolic (so existing
+// charting/back-compat code that reads `.value` still works), and a sibling
+// `diastolic` field rides alongside it on the log entry.
+const BLOOD_PRESSURE_KEY = "blood_pressure";
+function isBloodPressureKey(key) { return key === BLOOD_PRESSURE_KEY; }
+function formatMeasurementValue(log, unit) {
+    if (isBloodPressureKey(log.measurementKey) && log.diastolic !== undefined && log.diastolic !== null) {
+        return `${log.value}/${log.diastolic}${unit ? ' ' + unit : ''}`;
+    }
+    return `${log.value}${unit ? ' ' + unit : ''}`;
+}
 
 // A virtual, non-deletable pseudo-exercise used solely by the Timer's
 // "Log Total Time" action (see TimerModal.logTotalTime). It is deliberately
@@ -213,6 +229,16 @@ function formatPeriodLabel(anchorDate, granularity) {
 
 const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAYS_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+// --- INLINE SVG ICONS (replace fixed UI emoji in the drawer + Log Modal;
+// per-exercise/category emoji chosen by the user are left as-is) ---
+const ICON_RULER = `<svg class="ui-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2.5" y="9" width="19" height="6" rx="1" stroke="currentColor" stroke-width="1.6"/><path d="M6 9v2.4M9.5 9v3.4M13 9v2.4M16.5 9v3.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`;
+const ICON_DUMBBELL = `<svg class="ui-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="9" width="3" height="6" rx="1" fill="currentColor"/><rect x="19" y="9" width="3" height="6" rx="1" fill="currentColor"/><rect x="5" y="7" width="2.4" height="10" rx="1" fill="currentColor"/><rect x="16.6" y="7" width="2.4" height="10" rx="1" fill="currentColor"/><rect x="7.4" y="11" width="9.2" height="2" fill="currentColor"/></svg>`;
+const ICON_CLOCK = `<svg class="ui-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="13" r="8" stroke="currentColor" stroke-width="1.6"/><path d="M12 9v4l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 2h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+const ICON_CALENDAR = `<svg class="ui-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3.5" y="5" width="17" height="15" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M3.5 9.5h17" stroke="currentColor" stroke-width="1.6"/><path d="M8 3v3M16 3v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+const ICON_SAVE = `<svg class="ui-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 4h11l3 3v13H5V4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><rect x="8" y="4" width="7" height="5" stroke="currentColor" stroke-width="1.6"/><rect x="7.5" y="13" width="9" height="6" stroke="currentColor" stroke-width="1.6"/></svg>`;
+
+function measurementIconHtml() { return ICON_RULER; }
 
 const categoryEmojis = {
     'Strength': '💪',
@@ -516,6 +542,10 @@ function renderTodayExercisesCard() {
         const emoji = (ex && ex.emoji) ? ex.emoji : getCategoryEmoji(ex && ex.category);
         const safeName = name.replace(/'/g, "\\'");
         const prevSetpoint = formatPrevSetpoint(name);
+        const prevIntensity = getMostRecentIntensityForExercise(name);
+        const prevStarsHtml = prevIntensity
+            ? `<span class="te-prev-stars">${'★'.repeat(prevIntensity)}${'☆'.repeat(5 - prevIntensity)}</span>`
+            : "";
 
         const actionBtn = isDone
             ? `<button type="button" class="te-log-btn te-log-done" onclick="initEditEntry(${matchedEntry.id})">Edit</button>`
@@ -527,6 +557,7 @@ function renderTodayExercisesCard() {
                     <span class="te-name">${emoji} ${name}</span>
                     ${prevSetpoint ? `<span class="te-prev-setpoint">${prevSetpoint}</span>` : ""}
                 </span>
+                ${prevStarsHtml}
                 ${actionBtn}
             </div>
         `;
@@ -1090,7 +1121,7 @@ function renderManageMeasurements() {
 
         item.innerHTML = `
             <div>
-                <strong>📏 ${m.name}</strong> ${countBadge}
+                <strong>${ICON_RULER} ${m.name}</strong> ${countBadge}
                 <div class="text-muted" style="font-size:0.75rem; margin-top:0.15rem;">Unit: ${m.unit}</div>
             </div>
             <div class="history-item-actions">
@@ -1185,7 +1216,11 @@ function initEditEntry(id) {
 
     haptic('light');
     document.getElementById("log-modal").classList.remove("hidden");
-    LogModal.openExerciseForm(entry.exerciseName, entry);
+    if (entry.exerciseName === TOTAL_TIME_EXERCISE_NAME) {
+        LogModal.openTotalTimeForm(entry);
+    } else {
+        LogModal.openExerciseForm(entry.exerciseName, entry);
+    }
 }
 
 function deleteEntry(id) {
@@ -1637,7 +1672,7 @@ function renderStats() {
                             const mUnit = m ? m.unit : "";
                             return `
                                 <li class="list-group-item">
-                                    <div><strong>📏 ${mName}</strong><br><span class="text-muted" style="font-size:0.8rem;">${item.value}${mUnit ? ' ' + mUnit : ''}</span></div>
+                                    <div><strong>${measurementIconHtml()} ${mName}</strong><br><span class="text-muted" style="font-size:0.8rem;">${formatMeasurementValue(item, mUnit)}</span></div>
                                     <div class="history-item-actions">
                                         <span class="action-link" onclick="TrackingModal.editLog(${item.id})">Edit</span>
                                         <span class="action-link delete" onclick="TrackingModal.deleteLog(${item.id})">Del</span>
@@ -1681,13 +1716,19 @@ function setupEventListeners() {
         const restToggle = document.getElementById("plan-rest-toggle");
         const isRest = restToggle && restToggle.checked;
 
+        const dayVal = type === 'weekly' ? document.getElementById("plan-day").value : null;
+        const sameDayCount = (!isRest && type === 'weekly')
+            ? state.plans.filter(p => p.type === 'weekly' && p.exercise !== "__rest__" && String(p.day) === String(dayVal)).length
+            : 0;
+
         const newPlan = {
             id: Date.now(),
             exercise: isRest ? "__rest__" : document.getElementById("plan-exercise").value,
             type: type,
-            day: type === 'weekly' ? document.getElementById("plan-day").value : null,
+            day: dayVal,
             interval: type === 'interval' ? document.getElementById("plan-interval").value : null,
-            startDate: type === 'interval' ? document.getElementById("plan-start-date").value : null
+            startDate: type === 'interval' ? document.getElementById("plan-start-date").value : null,
+            order: sameDayCount
         };
 
         state.plans.push(newPlan);
@@ -1780,6 +1821,7 @@ function setupEventListeners() {
     document.getElementById("tracking-log-form").addEventListener("submit", (e) => TrackingModal.submit(e));
     document.getElementById("log-exercise-form").addEventListener("submit", (e) => LogModal.submitExercise(e));
     document.getElementById("log-measurement-form").addEventListener("submit", (e) => LogModal.submitMeasurement(e));
+    document.getElementById("log-totaltime-form").addEventListener("submit", (e) => LogModal.submitTotalTime(e));
 }
 
 function toggleScheduleInputs() {
@@ -1803,20 +1845,36 @@ function renderPlanList() {
 
     let html = `<div class="schedule-section-title">Weekly Schedule</div>`;
 
+    const dragHandleSvg = `<svg class="drag-handle-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="6" r="1.4" fill="currentColor"/><circle cx="15" cy="6" r="1.4" fill="currentColor"/><circle cx="9" cy="12" r="1.4" fill="currentColor"/><circle cx="15" cy="12" r="1.4" fill="currentColor"/><circle cx="9" cy="18" r="1.4" fill="currentColor"/><circle cx="15" cy="18" r="1.4" fill="currentColor"/></svg>`;
+
     const sortedDaysIndices = [1, 2, 3, 4, 5, 6, 0];
     sortedDaysIndices.forEach(dayIdx => {
         let dayPlans = weeklyPlans.filter(p => parseInt(p.day) === dayIdx);
         
         html += `
-            <div class="plan-day-block">
+            <div class="plan-day-block" data-day-idx="${dayIdx}">
                 <div class="plan-day-block-title">${DAYS_LONG[dayIdx]}</div>
                 ${(() => {
                     const restPlan = dayPlans.find(p => p.exercise === "__rest__");
-                    const exPlans = dayPlans.filter(p => p.exercise !== "__rest__");
+                    const exPlans = dayPlans.filter(p => p.exercise !== "__rest__")
+                        .sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id));
                     let h = "";
                     if (restPlan) h += `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.25rem 0;font-size:0.85rem;"><span>Rest Day</span><button onclick="deletePlan(${restPlan.id})" class="badge" style="background:#4b5563;border:none;color:white;cursor:pointer;">X</button></div>`;
                     if (!restPlan && exPlans.length === 0) h += '<p class="text-muted" style="font-size:0.8rem;padding:0.25rem 0;">—</p>';
-                    if (exPlans.length > 0) h += '<ul class="list-group">' + exPlans.map(plan => `<li class="list-group-item"><span>${plan.exercise}</span><button onclick="deletePlan(${plan.id})" class="badge" style="background:#dc2626;border:none;color:white;cursor:pointer;">X</button></li>`).join("") + '</ul>';
+                    if (exPlans.length > 0) {
+                        h += '<ul class="list-group plan-day-ul">' + exPlans.map(plan => `
+                            <li class="list-group-item plan-order-item" data-plan-id="${plan.id}">
+                                <span class="plan-order-item-main">
+                                    <span class="drag-handle" aria-label="Reorder">${dragHandleSvg}</span>
+                                    <span>${plan.exercise}</span>
+                                </span>
+                                <button onclick="deletePlan(${plan.id})" class="badge" style="background:#dc2626;border:none;color:white;cursor:pointer;">X</button>
+                            </li>
+                        `).join("") + '</ul>';
+                        if (exPlans.length > 1) {
+                            h += `<p class="text-muted" style="font-size:0.7rem;margin-top:0.35rem;">Drag to reorder — grouped exercises form a superset.</p>`;
+                        }
+                    }
                     return h;
                 })()}
             </div>
@@ -1836,6 +1894,87 @@ function renderPlanList() {
     }
 
     container.innerHTML = html;
+    setupPlanDragReorder();
+}
+
+// --- DRAG-AND-DROP REORDERING OF PLANNED EXERCISES WITHIN A DAY ---
+// Pointer Events (not HTML5 DnD) so the same code path works for mouse and
+// touch alike. Reordering is scoped per-day (each plan-day-ul is its own
+// drag container) — grouping exercises together within a day is how the
+// user expresses a superset.
+let planDragState = null;
+
+function setupPlanDragReorder() {
+    document.querySelectorAll('.plan-day-ul').forEach(ul => {
+        ul.querySelectorAll('.plan-order-item[data-plan-id]').forEach(li => {
+            const handle = li.querySelector('.drag-handle');
+            if (!handle) return;
+            handle.addEventListener('pointerdown', (e) => startPlanDrag(e, li, ul));
+        });
+    });
+}
+
+function startPlanDrag(e, li, ul) {
+    e.preventDefault();
+    haptic('light');
+    const items = Array.from(ul.querySelectorAll('.plan-order-item[data-plan-id]'));
+    planDragState = { li, ul, items, startY: e.clientY };
+    li.classList.add('dragging');
+    try { li.setPointerCapture(e.pointerId); } catch (err) {}
+    li.addEventListener('pointermove', onPlanDragMove);
+    li.addEventListener('pointerup', onPlanDragEnd);
+    li.addEventListener('pointercancel', onPlanDragEnd);
+}
+
+function onPlanDragMove(e) {
+    if (!planDragState) return;
+    const { li } = planDragState;
+    const deltaY = e.clientY - planDragState.startY;
+    li.style.transform = `translateY(${deltaY}px)`;
+
+    const draggedRect = li.getBoundingClientRect();
+    const draggedMidY = draggedRect.top + draggedRect.height / 2;
+    const items = Array.from(planDragState.ul.querySelectorAll('.plan-order-item[data-plan-id]'));
+    const draggedIdx = items.indexOf(li);
+
+    for (let idx = 0; idx < items.length; idx++) {
+        const item = items[idx];
+        if (item === li) continue;
+        const rect = item.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        if (idx < draggedIdx && draggedMidY < midY) {
+            item.parentNode.insertBefore(li, item);
+            planDragState.startY = e.clientY;
+            li.style.transform = '';
+            break;
+        } else if (idx > draggedIdx && draggedMidY > midY) {
+            item.parentNode.insertBefore(li, item.nextSibling);
+            planDragState.startY = e.clientY;
+            li.style.transform = '';
+            break;
+        }
+    }
+}
+
+function onPlanDragEnd(e) {
+    if (!planDragState) return;
+    const { li, ul } = planDragState;
+    li.style.transform = '';
+    li.classList.remove('dragging');
+    li.removeEventListener('pointermove', onPlanDragMove);
+    li.removeEventListener('pointerup', onPlanDragEnd);
+    li.removeEventListener('pointercancel', onPlanDragEnd);
+
+    const orderedIds = Array.from(ul.querySelectorAll('.plan-order-item[data-plan-id]'))
+        .map(item => parseInt(item.dataset.planId, 10));
+    orderedIds.forEach((id, idx) => {
+        const plan = state.plans.find(p => p.id === id);
+        if (plan) plan.order = idx;
+    });
+    saveState();
+    haptic('light');
+    planDragState = null;
+    renderPlanList();
 }
 
 // --- TIMER MODAL (idle / running(green) / paused(orange) state machine) ---
@@ -2056,7 +2195,7 @@ const TrackingModal = {
             btn.className = "tracking-measurement-option";
             btn.onclick = () => TrackingModal.openLogForm(m.key);
             btn.innerHTML = `
-                <span class="tm-name">📏 ${m.name}</span>
+                <span class="tm-name">${ICON_RULER} ${m.name}</span>
                 <span class="tm-unit">${m.unit}</span>
             `;
             list.appendChild(btn);
@@ -2079,25 +2218,31 @@ const TrackingModal = {
         form.classList.remove("hidden");
 
         document.getElementById("tracking-log-measurement-key").value = measurementKey;
-        document.getElementById("tracking-log-field-label").innerText = `${m.name} (${m.unit})`;
+        const isBp = isBloodPressureKey(measurementKey);
+        document.getElementById("tracking-log-field-label").innerText = isBp ? `Systolic (${m.unit})` : `${m.name} (${m.unit})`;
         document.getElementById("tracking-modal-title").innerText = `Log ${m.name}`;
+        document.getElementById("tracking-log-diastolic-group").classList.toggle("hidden", !isBp);
 
         const valueInput = document.getElementById("tracking-log-value");
+        const diastolicInput = document.getElementById("tracking-log-diastolic");
         const dateInput = document.getElementById("tracking-log-date");
         const submitBtn = document.getElementById("tracking-log-submit-btn");
 
         if (existingLog) {
             document.getElementById("tracking-log-edit-id").value = existingLog.id;
             valueInput.value = existingLog.value;
+            diastolicInput.value = existingLog.diastolic !== undefined ? existingLog.diastolic : "";
             dateInput.value = existingLog.date;
             submitBtn.innerText = "Update";
         } else {
             document.getElementById("tracking-log-edit-id").value = "";
             valueInput.value = "";
+            diastolicInput.value = "";
             const mostRecent = [...state.measurementLogs]
                 .filter(l => l.measurementKey === measurementKey)
                 .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
             valueInput.placeholder = mostRecent ? `Prev: ${mostRecent.value}` : "0.0";
+            diastolicInput.placeholder = mostRecent && mostRecent.diastolic !== undefined ? `Prev: ${mostRecent.diastolic}` : "0";
             dateInput.value = getLocalDateString(new Date());
             submitBtn.innerText = "Save";
         }
@@ -2110,6 +2255,9 @@ const TrackingModal = {
         const editId = document.getElementById("tracking-log-edit-id").value;
         const value = parseFloat(document.getElementById("tracking-log-value").value);
         const date = document.getElementById("tracking-log-date").value;
+        const isBp = isBloodPressureKey(measurementKey);
+        const diastolicRaw = document.getElementById("tracking-log-diastolic").value;
+        const diastolic = isBp && diastolicRaw !== "" ? parseFloat(diastolicRaw) : undefined;
 
         if (!measurementKey || !date || !Number.isFinite(value)) return;
 
@@ -2118,14 +2266,18 @@ const TrackingModal = {
             if (idx !== -1) {
                 state.measurementLogs[idx].value = value;
                 state.measurementLogs[idx].date = date;
+                if (isBp) state.measurementLogs[idx].diastolic = diastolic;
+                else delete state.measurementLogs[idx].diastolic;
             }
         } else {
-            state.measurementLogs.unshift({
+            const newLog = {
                 id: Date.now(),
                 date: date,
                 measurementKey: measurementKey,
                 value: value
-            });
+            };
+            if (isBp && diastolic !== undefined) newLog.diastolic = diastolic;
+            state.measurementLogs.unshift(newLog);
         }
 
         saveState();
@@ -2177,6 +2329,7 @@ const LogModal = {
         document.getElementById("log-step-measurement-pick").classList.toggle("hidden", step !== "measurement-pick");
         document.getElementById("log-exercise-form").classList.toggle("hidden", step !== "exercise-form");
         document.getElementById("log-measurement-form").classList.toggle("hidden", step !== "measurement-form");
+        document.getElementById("log-totaltime-form").classList.toggle("hidden", step !== "totaltime-form");
         document.getElementById("log-modal-title").innerText = title;
         document.getElementById("log-modal-back-btn").style.visibility = showBack ? "visible" : "hidden";
     },
@@ -2186,14 +2339,10 @@ const LogModal = {
     },
 
     // Back navigation mirrors the forward path: form -> pick -> kind.
+    // Total Time has no intermediate pick step, so its form goes straight
+    // back to kind, same as the others end up doing.
     back() {
-        if (this.step === "exercise-form" || this.step === "exercise-pick") {
-            this.goToKind();
-        } else if (this.step === "measurement-form" || this.step === "measurement-pick") {
-            this.goToKind();
-        } else {
-            this.goToKind();
-        }
+        this.goToKind();
     },
 
     chooseKind(kind) {
@@ -2201,10 +2350,55 @@ const LogModal = {
         if (kind === "exercise") {
             this.renderExercisePicker();
             this._setStep("exercise-pick", "Choose Exercise", true);
-        } else {
+        } else if (kind === "measurement") {
             this.renderMeasurementPicker();
             this._setStep("measurement-pick", "Choose Measurement", true);
+        } else if (kind === "totaltime") {
+            this.openTotalTimeForm();
         }
+    },
+
+    // Total Time is its own entry type (not an exercise, not a measurement)
+    // — a standalone time record, same underlying history entry shape the
+    // Timer's "Log Total Time" button has always produced, just entered
+    // manually with a date/minutes form instead of read off a running clock.
+    openTotalTimeForm(existingEntry = null) {
+        document.getElementById("log2-tt-edit-id").value = existingEntry ? existingEntry.id : "";
+        document.getElementById("log2-tt-minutes").value = existingEntry ? (existingEntry.data.timeMinutes || "") : "";
+        document.getElementById("log2-tt-date").value = existingEntry ? existingEntry.date : getLocalDateString(new Date());
+        document.getElementById("log2-tt-submit-btn").innerText = existingEntry ? "Update Entry" : "Save Entry";
+        this._setStep("totaltime-form", existingEntry ? "Edit Total Time" : "Log Total Time", true);
+        document.getElementById("log2-tt-minutes").focus();
+    },
+
+    submitTotalTime(e) {
+        e.preventDefault();
+        const editingId = document.getElementById("log2-tt-edit-id").value;
+        const date = document.getElementById("log2-tt-date").value;
+        const minutes = parseFloat(document.getElementById("log2-tt-minutes").value);
+        if (!date || !Number.isFinite(minutes)) return;
+
+        if (editingId) {
+            let index = state.history.findIndex(h => h.id === parseInt(editingId));
+            if (index !== -1) {
+                state.history[index].date = date;
+                state.history[index].data = { timeMinutes: minutes };
+            }
+        } else {
+            state.history.unshift({
+                id: Date.now(),
+                date: date,
+                exerciseName: TOTAL_TIME_EXERCISE_NAME,
+                intensity: null,
+                data: { timeMinutes: minutes }
+            });
+        }
+
+        state.history.sort((a, b) => new Date(b.date) - new Date(a.date));
+        saveState();
+        haptic('success');
+        this.close();
+        initApp();
     },
 
     renderExercisePicker() {
@@ -2255,7 +2449,7 @@ const LogModal = {
             btn.className = "tracking-measurement-option";
             btn.onclick = () => LogModal.openMeasurementForm(m.key);
             btn.innerHTML = `
-                <span class="tm-name">📏 ${m.name}</span>
+                <span class="tm-name">${ICON_RULER} ${m.name}</span>
                 <span class="tm-unit">${m.unit}</span>
             `;
             list.appendChild(btn);
@@ -2278,22 +2472,28 @@ const LogModal = {
 
         document.getElementById("log2-meas-key").value = measurementKey;
         document.getElementById("log2-meas-edit-id").value = existingLog ? existingLog.id : "";
-        document.getElementById("log2-meas-field-label").innerText = `${m.name} (${m.unit})`;
+        const isBp = isBloodPressureKey(measurementKey);
+        document.getElementById("log2-meas-field-label").innerText = isBp ? `Systolic (${m.unit})` : `${m.name} (${m.unit})`;
+        document.getElementById("log2-meas-diastolic-group").classList.toggle("hidden", !isBp);
 
         const valueInput = document.getElementById("log2-meas-value");
+        const diastolicInput = document.getElementById("log2-meas-diastolic");
         const dateInput = document.getElementById("log2-meas-date");
         const submitBtn = document.getElementById("log2-meas-submit-btn");
 
         if (existingLog) {
             valueInput.value = existingLog.value;
+            diastolicInput.value = existingLog.diastolic !== undefined ? existingLog.diastolic : "";
             dateInput.value = existingLog.date;
             submitBtn.innerText = "Update";
         } else {
             valueInput.value = "";
+            diastolicInput.value = "";
             const mostRecent = [...state.measurementLogs]
                 .filter(l => l.measurementKey === measurementKey)
                 .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
             valueInput.placeholder = mostRecent ? `Prev: ${mostRecent.value}` : "0.0";
+            diastolicInput.placeholder = mostRecent && mostRecent.diastolic !== undefined ? `Prev: ${mostRecent.diastolic}` : "0";
             dateInput.value = getLocalDateString(new Date());
             submitBtn.innerText = "Save";
         }
@@ -2358,6 +2558,9 @@ const LogModal = {
         const editId = document.getElementById("log2-meas-edit-id").value;
         const value = parseFloat(document.getElementById("log2-meas-value").value);
         const date = document.getElementById("log2-meas-date").value;
+        const isBp = isBloodPressureKey(measurementKey);
+        const diastolicRaw = document.getElementById("log2-meas-diastolic").value;
+        const diastolic = isBp && diastolicRaw !== "" ? parseFloat(diastolicRaw) : undefined;
 
         if (!measurementKey || !date || !Number.isFinite(value)) return;
 
@@ -2366,14 +2569,18 @@ const LogModal = {
             if (idx !== -1) {
                 state.measurementLogs[idx].value = value;
                 state.measurementLogs[idx].date = date;
+                if (isBp) state.measurementLogs[idx].diastolic = diastolic;
+                else delete state.measurementLogs[idx].diastolic;
             }
         } else {
-            state.measurementLogs.unshift({
+            const newLog = {
                 id: Date.now(),
                 date: date,
                 measurementKey: measurementKey,
                 value: value
-            });
+            };
+            if (isBp && diastolic !== undefined) newLog.diastolic = diastolic;
+            state.measurementLogs.unshift(newLog);
         }
 
         saveState();
