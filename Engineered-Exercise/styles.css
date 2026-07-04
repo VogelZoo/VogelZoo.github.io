@@ -103,9 +103,14 @@ header h1 {
 
 main {
     flex: 1 1 auto;
+    width: 100%;
     overflow-y: auto;
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     min-height: 0; /* required for flex children to actually scroll instead of overflowing */
+    min-width: 0; /* flex items default to min-width:auto, which lets non-shrinking
+                     descendants (e.g. the 7-Day Horizon's flex-shrink:0 day cards)
+                     stretch this element past the viewport — this overrides that. */
 }
 
 .container {
