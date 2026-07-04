@@ -1133,6 +1133,10 @@ select:focus, input:focus {
     font-size: 0.72rem;
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 .today-exercise-row.te-done .te-name {
@@ -1141,11 +1145,11 @@ select:focus, input:focus {
 }
 
 .te-prev-stars {
+    display: inline-block;
     font-size: 0.78rem;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.02em;
     color: #4b5563;
-    flex-shrink: 0;
-    white-space: nowrap;
+    margin-left: 0.35rem;
 }
 
 .te-log-btn {

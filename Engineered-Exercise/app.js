@@ -546,6 +546,9 @@ function renderTodayExercisesCard() {
         const prevStarsHtml = prevIntensity
             ? `<span class="te-prev-stars">${'★'.repeat(prevIntensity)}${'☆'.repeat(5 - prevIntensity)}</span>`
             : "";
+        const prevLineHtml = (prevSetpoint || prevStarsHtml)
+            ? `<span class="te-prev-setpoint">${prevSetpoint}${prevStarsHtml}</span>`
+            : "";
 
         const actionBtn = isDone
             ? `<button type="button" class="te-log-btn te-log-done" onclick="initEditEntry(${matchedEntry.id})">Edit</button>`
@@ -555,9 +558,8 @@ function renderTodayExercisesCard() {
             <div class="today-exercise-row${isDone ? ' te-done' : ''}">
                 <span class="te-name-group">
                     <span class="te-name">${emoji} ${name}</span>
-                    ${prevSetpoint ? `<span class="te-prev-setpoint">${prevSetpoint}</span>` : ""}
+                    ${prevLineHtml}
                 </span>
-                ${prevStarsHtml}
                 ${actionBtn}
             </div>
         `;
