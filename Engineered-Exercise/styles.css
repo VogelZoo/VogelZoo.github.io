@@ -52,6 +52,14 @@ header h1 {
     margin-bottom: 0.5rem;
 }
 
+#header-app-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    vertical-align: -3px;
+    margin-left: 0.35rem;
+}
+
 .header-title-row {
     display: flex;
     align-items: center;

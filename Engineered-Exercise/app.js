@@ -429,14 +429,15 @@ function getPlannedExercisesForDate(targetDate) {
     let queryDate = new Date(targetDate);
     queryDate.setHours(0,0,0,0);
 
-    // 1. Process weekly scheduled routines
-    state.plans.forEach(plan => {
-        if (plan.type === 'weekly' && plan.exercise !== "__rest__") {
-            if (parseInt(plan.day) === queryDate.getDay()) {
-                matches.push(plan.exercise);
-            }
-        }
-    });
+    // 1. Process weekly scheduled routines — sorted by the plan's `order`
+    // field (set via drag-reorder in the Plan tab) so downstream consumers
+    // (7-Day Horizon tags, Today's Exercises card, chart dropdown stars)
+    // all reflect the same superset ordering the user arranged.
+    let weeklyMatchesForDay = state.plans.filter(plan =>
+        plan.type === 'weekly' && plan.exercise !== "__rest__" && parseInt(plan.day) === queryDate.getDay()
+    );
+    weeklyMatchesForDay.sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id));
+    weeklyMatchesForDay.forEach(plan => matches.push(plan.exercise));
 
     // 2. Process interval-based routines with rest-day adjustments
     state.plans.forEach(plan => {
@@ -1333,16 +1334,20 @@ function populateChartFilter() {
 
     // Pinned "Today's Exercises" group — only the subset of today's scheduled
     // exercises that already qualify for charting (2+ entries), starred and
-    // listed first, in addition to their normal spot further down.
-    const scheduledTodayNames = new Set(
-        getPlannedExercisesForDate(new Date()).filter(name => name !== "__rest__")
-    );
-    const chartableToday = chartableExercises.filter(ex => scheduledTodayNames.has(ex.name));
+    // listed first, in addition to their normal spot further down. Ordered
+    // to match the Plan tab's drag-reordered sequence for today, same as
+    // the 7-Day Horizon tags and Today's Exercises card.
+    const scheduledTodayOrdered = getPlannedExercisesForDate(new Date()).filter(name => name !== "__rest__");
+    const todayOrderIndex = new Map();
+    scheduledTodayOrdered.forEach((name, idx) => {
+        if (!todayOrderIndex.has(name)) todayOrderIndex.set(name, idx);
+    });
+    const chartableToday = chartableExercises.filter(ex => todayOrderIndex.has(ex.name));
 
     let html = "";
     if (chartableToday.length > 0) {
         let opts = [...chartableToday]
-            .sort((a, b) => a.name.localeCompare(b.name))
+            .sort((a, b) => todayOrderIndex.get(a.name) - todayOrderIndex.get(b.name))
             .map(ex => `<option value="ex:${ex.name}">⭐ ${ex.name}</option>`)
             .join("");
         html += `<optgroup label="Today's Exercises">${opts}</optgroup>`;
