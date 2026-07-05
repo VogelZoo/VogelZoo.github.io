@@ -1319,12 +1319,18 @@ function populateChartFilter() {
         return count >= 2;
     });
 
+    // Total Exercise Time is a virtual pseudo-exercise (not part of
+    // state.exercises — see TOTAL_TIME_EXERCISE_DEF), so it's checked and
+    // included separately, in its own "Other" group further down.
+    const totalTimeCount = state.history.filter(h => h.exerciseName === TOTAL_TIME_EXERCISE_NAME).length;
+    const isTotalTimeChartable = totalTimeCount >= 2;
+
     let chartableMeasurements = (state.measurements || []).filter(m => {
         let count = state.measurementLogs.filter(l => l.measurementKey === m.key).length;
         return count >= 2;
     });
 
-    if (chartableExercises.length === 0 && chartableMeasurements.length === 0) {
+    if (chartableExercises.length === 0 && chartableMeasurements.length === 0 && !isTotalTimeChartable) {
         wrapper.classList.add("hidden");
         return;
     }
@@ -1368,6 +1374,10 @@ function populateChartFilter() {
             .join("");
         html += `<optgroup label="${cat}">${opts}</optgroup>`;
     });
+
+    if (isTotalTimeChartable) {
+        html += `<optgroup label="Other"><option value="ex:${TOTAL_TIME_EXERCISE_NAME}">${TOTAL_TIME_EXERCISE_NAME}</option></optgroup>`;
+    }
 
     if (chartableMeasurements.length > 0) {
         let opts = [...chartableMeasurements]
