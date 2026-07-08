@@ -2657,14 +2657,37 @@ const SettingsDrawer = {
 };
 
 
-function exportData() {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+// iOS Safari silently no-ops `<a download>` clicks when the site is running
+// as an installed standalone PWA — no error, nothing downloads, it just does
+// nothing. The Web Share API (with a File) is the one mechanism that
+// reliably works for saving a file out of an installed iOS PWA, so it's
+// tried first; the classic anchor-download approach (which works fine in a
+// regular browser tab, and on platforms/browsers without file-sharing
+// support) is kept as the fallback.
+async function shareOrDownloadFile(filename, mimeType, contentStr) {
+    try {
+        const file = new File([contentStr], filename, { type: mimeType });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file] });
+            return;
+        }
+    } catch (err) {
+        if (err && err.name === "AbortError") return; // user cancelled the share sheet
+        console.warn("Web Share failed, falling back to direct download:", err);
+    }
+
+    const dataStr = `data:${mimeType};charset=utf-8,` + encodeURIComponent(contentStr);
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `engineered_exercise_backup.json`);
+    downloadAnchor.setAttribute("download", filename);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
+}
+
+function exportData() {
+    const dataStr = JSON.stringify(state, null, 2);
+    shareOrDownloadFile("engineered_exercise_backup.json", "application/json", dataStr);
 }
 
 function importData(event) {
@@ -2728,12 +2751,6 @@ function exportCSV() {
         csvRows.push(processedRow.join(","));
     });
 
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + encodeURIComponent(csvRows.join("\n"));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", csvContent);
-    downloadAnchor.setAttribute("download", `engineered_exercise_history.csv`);
-    document.body.appendChild(downloadAnchor);
-    
-    downloadAnchor.click();
-    downloadAnchor.remove();
+    const csvContent = "\uFEFF" + csvRows.join("\n");
+    shareOrDownloadFile("engineered_exercise_history.csv", "text/csv", csvContent);
 }
