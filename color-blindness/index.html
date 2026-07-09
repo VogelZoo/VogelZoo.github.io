@@ -1,398 +1,678 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Adaptive Color Vision Assessment (35-Plate)</title>
-    <link rel="manifest" href="data:application/json,{%22name%22:%22Adaptive%20Color%20Vision%20Assessment%22,%22short_name%22:%22AdaptiveColor%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%23121212%22,%22theme_color%22:%22%231f1f1f%22}">
-    <style>
-        :root {
-            --bg: #121212;
-            --surface: #1f1f1f;
-            --text: #e0e0e0;
-            --accent: #00e676;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-        }
-        #app-container {
-            width: 100%;
-            max-width: 500px;
-            padding: 16px;
-            box-sizing: border-box;
-            text-align: center;
-        }
-        .card {
-            background: var(--surface);
-            border-radius: 20px;
-            padding: 24px;
-            box-shadow: 0 12px 32px rgba(0,0,0,0.5);
-            margin-bottom: 20px;
-        }
-        canvas {
-            max-width: 100%;
-            height: auto;
-            border-radius: 50%;
-            background: #0d0d0d;
-            box-shadow: inset 0 0 25px rgba(0,0,0,0.9);
-            margin: 15px 0;
-        }
-        .btn-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            margin-top: 15px;
-        }
-        button {
-            background: #2d2d2d;
-            color: #fff;
-            border: 2px solid #444;
-            padding: 16px;
-            font-size: 16px;
-            font-weight: 600;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-        button:hover { border-color: var(--accent); }
-        button:active { transform: scale(0.98); }
-        button.primary-action {
-            background: var(--accent);
-            color: #000;
-            border: none;
-            width: 100%;
-            font-size: 18px;
-        }
-        button.action-nothing {
-            grid-column: span 2;
-            background: #3a1c1c;
-            border-color: #612727;
-        }
-        .hidden { display: none !important; }
-        .stat-line {
-            display: flex;
-            justify-content: space-between;
-            margin: 8px 0;
-            padding-bottom: 4px;
-            border-bottom: 1px solid #2d2d2d;
-        }
-        .progress-bar-container {
-            background: #333;
-            border-radius: 10px;
-            height: 6px;
-            width: 100%;
-            margin-bottom: 15px;
-            overflow: hidden;
-        }
-        .progress-bar {
-            background: var(--accent);
-            height: 100%;
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chromatic Field Test</title>
+<style>
+  :root{
+    --bg:#f5f6f7;
+    --panel:#ffffff;
+    --panel-edge:#e0e3e6;
+    --text:#232830;
+    --muted:#68727d;
+    --cyan:#3c6e74;
+    --cyan-dim:#bfd2d2;
+    --amber:#b8860b;
+    --danger:#b3454b;
+    --font-display:'IBM Plex Sans', 'Segoe UI', sans-serif;
+    --font-body:'Inter', 'Segoe UI', sans-serif;
+    --font-mono:'IBM Plex Mono', 'Courier New', monospace;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    min-height:100dvh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px 14px calc(24px + env(safe-area-inset-bottom));
+    overflow-x:hidden;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  .rig{ width:100%; max-width:460px; display:flex; flex-direction:column; align-items:center; gap:18px; }
+
+  .header{ width:100%; text-align:center; }
+  .eyebrow{ font-family:var(--font-mono); font-size:11px; letter-spacing:.24em; color:var(--cyan); text-transform:uppercase; margin:0 0 6px; }
+  h1{ font-family:var(--font-display); font-weight:700; font-size:26px; letter-spacing:-.01em; margin:0; }
+  .subtitle{ font-size:13px; color:var(--muted); margin:6px 0 0; line-height:1.5; }
+
+  .hud{ width:100%; display:flex; justify-content:space-between; align-items:center; background:var(--panel); border:1px solid var(--panel-edge); border-radius:10px; padding:11px 16px; font-family:var(--font-mono); box-shadow:0 1px 2px rgba(16,24,32,.04); }
+  .hud-item{display:flex;flex-direction:column;gap:2px;align-items:flex-start;}
+  .hud-item.center{align-items:center;}
+  .hud-item.right{align-items:flex-end;}
+  .hud-label{font-size:9px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;}
+  .hud-value{font-size:18px;font-weight:600;color:var(--text);}
+  .hud-value.cyan{color:var(--cyan);}
+  .progress-track{width:100%;height:6px;background:var(--panel-edge);border-radius:3px;overflow:hidden;margin-top:6px;}
+  .progress-fill{height:100%;width:0%;background:var(--cyan);transition:width .3s ease;}
+
+  .plate-frame{ position:relative; width:100%; aspect-ratio:1/1; max-width:340px; border-radius:50%; background:var(--panel); border:1px solid var(--panel-edge); display:flex; align-items:center; justify-content:center; box-shadow: inset 0 0 0 1px rgba(16,24,32,.03), 0 2px 10px rgba(16,24,32,.05); }
+  .plate-frame::before{ content:''; position:absolute; inset:-1px; border-radius:50%; border:1px dashed var(--panel-edge); animation:spin 90s linear infinite; }
+  @media (prefers-reduced-motion: reduce){ .plate-frame::before{animation:none;} }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  canvas#plate{ width:88%; height:88%; border-radius:50%; }
+  .flash-ring{ position:absolute; inset:0; border-radius:50%; pointer-events:none; box-shadow:0 0 0 0 transparent; transition:box-shadow .35s ease; }
+  .flash-ring.neutral{ box-shadow:0 0 0 4px var(--cyan-dim), 0 0 18px 2px rgba(60,110,116,.15); }
+
+  .plate-caption{ font-family:var(--font-mono); font-size:10.5px; color:var(--muted); letter-spacing:.05em; text-align:center; line-height:1.6; }
+  .plate-caption b{ color:var(--cyan); font-weight:600; }
+
+  .choices{ width:100%; display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; }
+  .choice-btn{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:12px 8px 10px; background:var(--panel); border:1px solid var(--panel-edge); border-radius:10px; cursor:pointer; transition:border-color .15s, transform .1s, background .15s; color:var(--text); box-shadow:0 1px 2px rgba(16,24,32,.04); }
+  .choice-btn:hover{ border-color:var(--cyan-dim); }
+  .choice-btn:active{ transform:scale(.96); }
+  .choice-btn:focus-visible{ outline:2px solid var(--cyan); outline-offset:2px; }
+  .choice-btn canvas{ display:block; }
+  .choice-btn span{ font-family:var(--font-mono); font-size:9px; letter-spacing:.12em; color:var(--muted); text-transform:uppercase; }
+  .choice-btn.selected{ border-color:var(--cyan); background:rgba(60,110,116,.08); }
+  .choice-btn[disabled]{ cursor:default; opacity: 0.6; }
+
+  .choice-btn.nothing-choice{ border-style:dashed; grid-column: span 3; padding: 10px; }
+  .choice-btn.nothing-choice canvas { display: none; }
+  .choice-btn.nothing-choice span { font-size: 11px; font-weight: 500; }
+
+  .overlay{ width:100%; background:var(--panel); border:1px solid var(--panel-edge); border-radius:12px; padding:26px 22px; text-align:center; box-shadow:0 2px 12px rgba(16,24,32,.05); }
+  .overlay h2{ font-family:var(--font-display); font-size:20px; margin:0 0 10px; }
+  .overlay p{ font-size:13px; color:var(--muted); line-height:1.6; margin:0 0 18px; }
+  .overlay .stat-row{ display:flex; justify-content:center; gap:28px; margin-bottom:20px; }
+  .overlay .stat{ font-family:var(--font-mono); }
+  .overlay .stat b{ display:block; font-size:26px; color:var(--cyan); font-weight:600; }
+  .overlay .stat small{ font-size:9px; letter-spacing:.16em; color:var(--muted); text-transform:uppercase; }
+
+  .axis-card{ background:var(--bg); border:1px solid var(--panel-edge); border-radius:10px; padding:14px 16px; margin-bottom:10px; }
+  .axis-card .score{ float:right; font-family:var(--font-mono); font-size:11px; color:var(--text); }
+  .axis-card h4{ margin:0 0 7px; font-family:var(--font-display); font-weight:600; font-size:13.5px; color:var(--text); }
+  .axis-card .tag{ display:inline-block; font-family:var(--font-mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; padding:3px 8px; border-radius:20px; margin-bottom:8px; }
+  .axis-card .tag.strong{ color:var(--cyan); background:rgba(60,110,116,.10); border:1px solid var(--cyan-dim); }
+  .axis-card .tag.mixed{ color:var(--amber); background:rgba(184,134,11,.10); border:1px solid rgba(184,134,11,.35); }
+  .axis-card .tag.pattern{ color:var(--danger); background:rgba(179,69,75,.10); border:1px solid rgba(179,69,75,.35); }
+  .axis-card p{ margin:0; font-size:12px; color:var(--muted); line-height:1.55; }
+
+  .mode-row{ display:flex; gap:8px; margin-bottom:18px; }
+  .mode-btn{ flex:1; font-family:var(--font-mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; background:var(--bg); border:1px solid var(--panel-edge); color:var(--muted); border-radius:8px; padding:11px 6px; cursor:pointer; line-height:1.4; }
+  .mode-btn.active{ border-color:var(--cyan); color:var(--cyan); background:rgba(60,110,116,.07); }
+
+  .btn-primary{ font-family:var(--font-mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#ffffff; background:var(--cyan); border:none; border-radius:8px; padding:13px 28px; cursor:pointer; font-weight:600; transition:filter .15s, transform .1s; }
+  .btn-primary:hover{ filter:brightness(1.08); }
+  .btn-primary:active{ transform:scale(.97); }
+
+  .btn-ghost{ font-family:var(--font-mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); background:transparent; border:1px solid var(--panel-edge); border-radius:8px; padding:10px 16px; cursor:pointer; margin-top:10px; }
+  .btn-ghost:hover{ color:var(--cyan); border-color:var(--cyan-dim); }
+
+  .footnote{ font-size:10.5px; color:var(--muted); text-align:center; line-height:1.5; }
+
+  .hidden{ display:none !important; }
+
+  .modal-backdrop{ position:fixed; inset:0; background:rgba(17,24,31,.45); display:flex; align-items:center; justify-content:center; padding:20px; z-index:50; }
+  .modal{ background:var(--panel); border:1px solid var(--panel-edge); border-radius:12px; padding:24px 22px; max-width:440px; max-height:82vh; overflow-y:auto; text-align:left; box-shadow:0 8px 32px rgba(16,24,32,.18); }
+  .modal h3{ font-family:var(--font-display); font-size:17px; margin:0 0 4px; }
+  .modal h4{ font-family:var(--font-mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--cyan); margin:18px 0 6px; }
+  .modal p, .modal li{ font-size:12.5px; color:var(--muted); line-height:1.65; }
+  .modal ul{ margin:6px 0; padding-left:18px; }
+  .modal .cite{ font-family:var(--font-mono); font-size:10.5px; color:#5a6570; margin:2px 0; }
+  .modal .close-row{ text-align:right; margin-top:16px; }
+</style>
 </head>
 <body>
 
-<div id="app-container">
-    <!-- Welcome Screen -->
-    <div id="screen-welcome" class="card">
-        <h2 style="color:var(--accent)">Adaptive Psychometric Color Screening</h2>
-        <p>This clinical-grade PWA uses a dynamic staircase algorithm spanning <strong>35 evaluation stages</strong>.</p>
-        <p>As you answer correctly, color distances shrink toward absolute human thresholds. Incorrect selections automatically step back the difficulty to map subtle anomalies.</p>
-        <p><em style="color:#aaa;">Pre-test checklist: Turn off display filters (Night Shift/TrueTone) and maximize screen brightness.</em></p>
-        <button class="primary-action" onclick="startTest()">Begin Diagnostic Examination</button>
+<div class="rig">
+  <div class="header">
+    <p class="eyebrow">Optical Instrument · Field Unit 07</p>
+    <h1>Chromatic Field Test</h1>
+    <p class="subtitle">A short, fixed-length plate sequence that reads out a per-axis summary at the end. Built from real cone-confusion math, not random colors — details below.</p>
+  </div>
+
+  <!-- START SCREEN -->
+  <div class="overlay" id="startScreen">
+    <h2>Begin Assessment</h2>
+    <p>Each plate hides one shape along a genuine red-green or blue-yellow confusion axis, at a range of simulated severities. Work through the full sequence — there's no score or lives, just a results summary at the end. If you genuinely can't make anything out, choose "I don't see a shape" rather than guessing; a lucky guess would just add noise to your results.</p>
+
+    <div class="mode-row" id="modeRow">
+      <button class="mode-btn active" data-mode="rg">Red-Green Focus<br><span style="opacity:.7">Protan / Deutan · 20 plates</span></button>
+      <button class="mode-btn" data-mode="full">Full Spectrum<br><span style="opacity:.7">Adds Tritan axis · 30 plates</span></button>
     </div>
 
-    <!-- Test Screen -->
-    <div id="screen-test" class="card hidden">
-        <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:5px;">
-            <span id="plate-progress">Plate 1 / 35</span>
-            <span id="difficulty-factor" style="color:var(--accent)">Difficulty: Level 1</span>
-        </div>
-        <div class="progress-bar-container"><div id="p-bar" class="progress-bar"></div></div>
-        
-        <canvas id="plateCanvas" width="400" height="400"></canvas>
-        
-        <div class="btn-grid">
-            <button onclick="submitAnswer('circle')">🔴 Circle</button>
-            <button onclick="submitAnswer('square')">⬜ Square</button>
-            <button onclick="submitAnswer('triangle')">🔺 Triangle</button>
-            <button onclick="submitAnswer('nothing')" class="action-nothing">Can't See Anything</button>
-        </div>
+    <button class="btn-primary" id="startBtn">Begin Assessment</button><br>
+    <button class="btn-ghost" id="methodBtn">How this is built &amp; scored</button>
+  </div>
+
+  <!-- ASSESSMENT SCREEN -->
+  <div id="gameScreen" class="hidden" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:18px;">
+    <div class="hud">
+      <div class="hud-item">
+        <span class="hud-label">Plate</span>
+        <span class="hud-value cyan" id="plateVal">1 / 20</span>
+      </div>
+      <div class="hud-item right" style="flex:1;align-items:stretch;">
+        <span class="hud-label">Progress</span>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      </div>
     </div>
 
-    <!-- Results Screen -->
-    <div id="screen-results" class="card hidden">
-        <h2 style="color:var(--accent)">Diagnostic Metric Profiles</h2>
-        <div id="results-output"></div>
-        <button class="primary-action" style="margin-top:20px;" onclick="resetTest()">Restart Profile Run</button>
+    <div class="plate-frame">
+      <canvas id="plate" width="600" height="600"></canvas>
+      <div class="flash-ring" id="flashRing"></div>
     </div>
+    <p class="plate-caption" id="plateCaption">Which shape do you see?</p>
+
+    <div class="choices" id="choices"></div>
+  </div>
+
+  <!-- RESULTS SCREEN -->
+  <div class="overlay hidden" id="overScreen">
+    <h2>Assessment Complete</h2>
+    <p id="overSummary">—</p>
+    <p id="overPattern" style="margin-top:-10px;"></p>
+    <div id="axisResults" style="text-align:left;"></div>
+    <button class="btn-primary" id="retryBtn">Run Again</button><br>
+    <button class="btn-ghost" id="methodBtn2">How this is built &amp; scored</button>
+  </div>
+
+  <p class="footnote">Procedurally generated using LMS cone-confusion simulation on your uncalibrated screen — a self-familiarization tool, not a medical diagnosis. See methodology for details and limitations.</p>
+</div>
+
+<!-- METHODOLOGY MODAL -->
+<div class="modal-backdrop hidden" id="methodModal">
+  <div class="modal">
+    <h3>Methodology &amp; limitations</h3>
+    <p>This is a game inspired by pseudoisochromatic plate tests like the Ishihara test, built from published color-vision-deficiency (CVD) science. It is not a validated clinical instrument.</p>
+
+    <h4>How each plate is generated</h4>
+    <ul>
+      <li>Every round targets one cone confusion axis: <b style="color:var(--text)">protan</b> (L-cone), <b style="color:var(--text)">deutan</b> (M-cone), or, in Full Spectrum mode, the rare <b style="color:var(--text)">tritan</b> (S-cone) axis.</li>
+      <li>A background color is chosen at random. The game then searches hundreds of candidate figure colors and keeps the one that becomes nearly identical to the background when both are run through a dichromacy simulation — i.e. a real confusion pair for that axis, not just a random hue shift.</li>
+      <li>The simulation uses the physiologically-based transform of Machado, Oliveira &amp; Fernandes (2009), applied in linear-light RGB. Milder "anomalous trichromat" levels are approximated by linearly blending toward the full-dichromat transform, following the interpolation approach described by Flatla &amp; Gutwin (2012).</li>
+      <li>Color closeness is measured with CIE L*a*b* ΔE (CIE76). Candidate figure colors are only accepted if they stay at least ΔE 14 from the background in <em>normal</em>, untransformed vision; among those, the one with the smallest simulated distance is kept. This keeps every plate legible to typical color vision while still collapsing under the CVD simulation.</li>
+      <li>"I don't see a shape" is scored the same as any other miss. It exists so a genuine non-detection isn't forced into a guess among the visible shape options, which would otherwise occasionally land on the right answer by chance and understate a real difficulty.</li>
+      <li>Per-dot color noise is applied in L*a*b* space (not raw hue/saturation), which is what keeps each "color family" varied without breaking the underlying confusion pairing — the same design idea used in real hidden-digit plates.</li>
+    </ul>
+
+    <h4>How the sequence is structured</h4>
+    <p>Each tested axis (deutan/protan, plus tritan in Full Spectrum mode) is presented at five simulated severities — from full dichromacy (1.0) down to mild anomalous trichromacy (0.3) — twice each, in random order. Dot size, spacing, and jitter are held fixed for every plate, so a miss traces back to the axis and severity being tested rather than the plate simply getting visually busier.</p>
+
+    <h4>How results are compiled</h4>
+    <p>Nothing is revealed as correct or incorrect while you're working through the plates. At the end, responses are grouped by axis and scored for accuracy, and the severities of any missed plates on that axis are reported. This is meant to loosely mirror how graded clinical batteries separate strong dichromats from mild anomalous trichromats — it is not a scored clinical instrument, and the categories shown ("no pattern detected," "some inconsistency," "difficulty pattern") are informal accuracy bands, not diagnostic classifications.</p>
+
+    <h4>Real-world prevalence used for axis weighting</h4>
+    <p>Red-green deficiency accounts for the large majority of congenital CVD, appearing in roughly 8% of men and 0.5% of women of Northern European descent, lower in other populations. Deutan defects (~6% of men) are markedly more common than protan defects (~1–2% of men). Tritan (blue-yellow) deficiency is rare and, unlike red-green CVD, affects males and females roughly equally.</p>
+
+    <h4>Honest limitations</h4>
+    <ul>
+      <li>This runs on your uncalibrated screen, under your ambient lighting — real plate tests are printed and standardized against a specific illuminant. Neither this nor any on-screen test replaces one.</li>
+      <li>It has not been validated against diagnosed patients. It cannot diagnose color vision deficiency, only give you a playful, science-grounded sense of confusion-axis difficulty.</li>
+      <li>If you suspect a color vision deficiency, an optometrist or ophthalmologist can test you properly with calibrated plates or an anomaloscope.</li>
+    </ul>
+
+    <h4>References</h4>
+    <p class="cite">Ishihara, S. (1917). Tests for Colour-Blindness.</p>
+    <p class="cite">Machado, G.M., Oliveira, M.M. &amp; Fernandes, L.A.F. (2009). A Physiologically-based Model for Simulation of Color Vision Deficiency. IEEE TVCG, 15(6), 1291–1298.</p>
+    <p class="cite">Viénot, F., Brettel, H. &amp; Mollon, J.D. (1999). Digital video colourmaps for checking the legibility of displays by dichromats. Color Research &amp; Application, 24(4), 243–252.</p>
+    <p class="cite">Brettel, H., Viénot, F. &amp; Mollon, J.D. (1997). Computerized simulation of color appearance for dichromats. JOSA A, 14(10), 2647–2655.</p>
+    <p class="cite">Flatla, D.R. &amp; Gutwin, C. (2012). So that's what you see: building understanding with personalized simulations of colour vision deficiency.</p>
+    <p class="cite">Birch, J. (2012). Worldwide prevalence of red-green color deficiency. JOSA A, 29(3), 313–320.</p>
+
+    <div class="close-row"><button class="btn-ghost" id="closeMethod">Close</button></div>
+  </div>
 </div>
 
 <script>
-// Service Worker Registration for Complete Offline PWA Compliance
-if ('serviceWorker' in navigator) {
-    const swCode = `self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => caches.match(e.request))));`;
-    const blob = new Blob([swCode], {type: 'application/javascript'});
-    navigator.serviceWorker.register(URL.createObjectURL(blob));
-}
+(function(){
+  "use strict";
 
-const TOTAL_PLATES = 35;
-const SHAPES = ['circle', 'square', 'triangle', 'nothing'];
-const AXIS_TYPES = ['control', 'protan', 'deutan', 'tritan'];
+  /* =========================================================
+     COLOR SCIENCE CORE
+     sRGB <-> linear <-> CIE XYZ (D65) <-> CIE L*a*b*
+     + Machado/Oliveira/Fernandes (2009) CVD simulation matrices,
+       applied in linear RGB, severity-interpolated per
+       Flatla & Gutwin (2012).
+  ========================================================= */
 
-// Dynamic Staircase Trackers
-let currentPlateIdx = 0;
-let userAnswers = [];
-let currentDifficulty = 1; // 1 (Easiest, wide ΔE) to 5 (Hardest, narrow clinical ΔE)
+  const CVD_MATRIX = {
+    protan: [[0.567,0.433,0.000],[0.558,0.442,0.000],[0.000,0.242,0.758]],
+    deutan: [[0.625,0.375,0.000],[0.700,0.300,0.000],[0.000,0.300,0.700]],
+    tritan: [[0.950,0.050,0.000],[0.000,0.433,0.567],[0.000,0.475,0.525]]
+  };
+  const AXIS_LABEL = { protan:'PROTAN · L-CONE', deutan:'DEUTAN · M-CONE', tritan:'TRITAN · S-CONE' };
+  const AXIS_NAME = { protan:'Protan axis (red-weak pattern)', deutan:'Deutan axis (green-weak pattern)', tritan:'Tritan axis (blue-yellow pattern)' };
 
-// Generate sequence structure balancing Protan, Deutan, and Tritan pathways
-let testSequence = [];
+  function srgbToLinearCh(c){ return c<=0.04045 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4); }
+  function linearToSrgbCh(c){ c=Math.min(Math.max(c,0),1); return c<=0.0031308 ? c*12.92 : 1.055*Math.pow(c,1/2.4)-0.055; }
 
-function generateTestSequence() {
-    testSequence = [];
-    // Plate 1: Strict Control calibration
-    testSequence.push({ type: 'control', target: 'circle' });
-    
-    // Fill remaining plates balanced across channels
-    for (let i = 1; i < TOTAL_PLATES; i++) {
-        // Rotates across axes, keeping every 7th plate a control check
-        let type = AXIS_TYPES[i % 4];
-        if (i % 7 === 0) type = 'control';
-        
-        // Randomly select target shape, occasional vanishing plate ('nothing')
-        let target = SHAPES[Math.floor(Math.random() * (SHAPES.length))];
-        testSequence.push({ type, target });
+  function srgbToXyz(rgb){
+    const [r,g,b] = rgb.map(srgbToLinearCh);
+    return [
+      0.4124564*r+0.3575761*g+0.1804375*b,
+      0.2126729*r+0.7151522*g+0.0721750*b,
+      0.0193339*r+0.1191920*g+0.9503041*b
+    ];
+  }
+  function xyzToLinear(xyz){
+    const [X,Y,Z]=xyz;
+    return [
+       3.2404542*X -1.5371385*Y -0.4985314*Z,
+      -0.9692660*X +1.8760108*Y +0.0415560*Z,
+       0.0556434*X -0.2040259*Y +1.0572252*Z
+    ];
+  }
+  const Xn=0.95047, Yn=1.0, Zn=1.08883;
+  function xyzToLab(xyz){
+    const f = t => t>0.008856 ? Math.cbrt(t) : (7.787*t + 16/116);
+    const fx=f(xyz[0]/Xn), fy=f(xyz[1]/Yn), fz=f(xyz[2]/Zn);
+    return [116*fy-16, 500*(fx-fy), 200*(fy-fz)];
+  }
+  function labToXyz(lab){
+    const [L,a,b]=lab;
+    const fy=(L+16)/116, fx=fy+a/500, fz=fy-b/200;
+    const finv = t => t>0.206893 ? t*t*t : (t-16/116)/7.787;
+    return [Xn*finv(fx), Yn*finv(fy), Zn*finv(fz)];
+  }
+  function srgbToLab(rgb){ return xyzToLab(srgbToXyz(rgb)); }
+  function labToSrgb(lab){
+    const lin = xyzToLinear(labToXyz(lab)).map(v=>Math.min(Math.max(v,0),1));
+    return lin.map(linearToSrgbCh);
+  }
+  function deltaE76(lab1, lab2){
+    return Math.sqrt((lab1[0]-lab2[0])**2 + (lab1[1]-lab2[1])**2 + (lab1[2]-lab2[2])**2);
+  }
+
+  function simulateCVD(srgb, type, severity){
+    const lin = srgb.map(srgbToLinearCh);
+    const m = CVD_MATRIX[type];
+    const full = [
+      m[0][0]*lin[0]+m[0][1]*lin[1]+m[0][2]*lin[2],
+      m[1][0]*lin[0]+m[1][1]*lin[1]+m[1][2]*lin[2],
+      m[2][0]*lin[0]+m[2][1]*lin[1]+m[2][2]*lin[2]
+    ];
+    const out = [0,1,2].map(i => lin[i] + (full[i]-lin[i])*severity);
+    return out.map(linearToSrgbCh);
+  }
+
+  function hslToSrgb(h,s,l){
+    h = ((h%360)+360)%360/360;
+    function hue2rgb(p,q,t){
+      if(t<0)t+=1; if(t>1)t-=1;
+      if(t<1/6) return p+(q-p)*6*t;
+      if(t<1/2) return q;
+      if(t<2/3) return p+(q-p)*(2/3-t)*6;
+      return p;
     }
-}
+    if(s===0) return [l,l,l];
+    const q = l<0.5 ? l*(1+s) : l+s-l*s;
+    const p = 2*l-q;
+    return [ hue2rgb(p,q,h+1/3), hue2rgb(p,q,h), hue2rgb(p,q,h-1/3) ];
+  }
+  function randomAnchorColor(){
+    const h = Math.random()*360;
+    const s = 0.55 + Math.random()*0.30;
+    const l = 0.38 + Math.random()*0.24;
+    return hslToSrgb(h,s,l);
+  }
+  function toCss(srgb01){
+    const c = srgb01.map(v=>Math.round(Math.min(Math.max(v,0),1)*255));
+    return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+  }
 
-function startTest() {
-    document.getElementById('screen-welcome').classList.add('hidden');
-    document.getElementById('screen-test').classList.remove('hidden');
-    currentPlateIdx = 0;
-    currentDifficulty = 1;
-    userAnswers = [];
-    generateTestSequence();
-    renderPlate();
-}
+  const MIN_NORMAL_DE = 14;
 
-function getAdaptiveColors(type, difficulty) {
-    // Scaling color parameters dynamically via difficulty step. High step = closer hue distances
-    const stepRatio = (6 - difficulty) / 5; // Difficulty 1 = 1.0, Difficulty 5 = 0.2
-    
-    switch(type) {
-        case 'control': // High Contrast White/Grey vs Dark Blue
-            return {
-                fg: { h: 210, s: 85, l: 30 + (difficulty * 4) },
-                bg: { h: 40, s: 15, l: 75 - (difficulty * 4) }
-            };
-        case 'protan': // Red-Blind Axis (L-Cone confusion)
-            return {
-                fg: { h: 355, s: 60, l: 45 },
-                bg: { h: 20 + (18 * stepRatio), s: 35 + (10 * (1-stepRatio)), l: 46 }
-            };
-        case 'deutan': // Green-Blind Axis (M-Cone confusion)
-            return {
-                fg: { h: 15, s: 55, l: 45 },
-                bg: { h: 110 - (25 * stepRatio), s: 30 + (10 * (1-stepRatio)), l: 45 }
-            };
-        case 'tritan': // Blue-Blind Axis (S-Cone confusion)
-            return {
-                fg: { h: 195, s: 65, l: 45 },
-                bg: { h: 70 + (35 * stepRatio), s: 55, l: 48 }
-            };
+  function findConfusionFigure(bgSrgb, type, severity, iterations){
+    const bgLab = srgbToLab(bgSrgb);
+    const bgSimLab = srgbToLab(simulateCVD(bgSrgb, type, severity));
+    let best = null;
+    let bestAny = null;
+    for(let i=0;i<iterations;i++){
+      const cand = randomAnchorColor();
+      const normDE = deltaE76(bgLab, srgbToLab(cand));
+      const simLab = srgbToLab(simulateCVD(cand, type, severity));
+      const simDE = deltaE76(bgSimLab, simLab);
+
+      if(!bestAny || simDE < bestAny.simDE) bestAny = { color:cand, simDE, normDE };
+      if(normDE >= MIN_NORMAL_DE && (!best || simDE < best.simDE)){
+        best = { color:cand, simDE, normDE };
+      }
     }
-}
+    return best || bestAny;
+  }
 
-function renderPlate() {
-    const config = testSequence[currentPlateIdx];
-    document.getElementById('plate-progress').innerText = `Plate ${currentPlateIdx + 1} / ${TOTAL_PLATES}`;
-    document.getElementById('difficulty-factor').innerText = `Difficulty: Lvl ${currentDifficulty}`;
-    document.getElementById('p-bar').style.width = `${(currentPlateIdx / TOTAL_PLATES) * 100}%`;
+  /* ========================================================= */
 
-    const canvas = document.getElementById('plateCanvas');
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#0f0f0f';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // ---------- Assessment state ----------
+  let locked = false;
+  let testMode = 'rg';
+  let protocol = [];      
+  let trialIndex = 0;     
+  let results = [];       
 
-    const colors = getAdaptiveColors(config.type, currentDifficulty);
-    const dots = [];
-    const packedCount = 1100;
+  // ---------- Elements ----------
+  const startScreen = document.getElementById('startScreen');
+  const gameScreen = document.getElementById('gameScreen');
+  const overScreen = document.getElementById('overScreen');
+  const startBtn = document.getElementById('startBtn');
+  const retryBtn = document.getElementById('retryBtn');
+  const plateVal = document.getElementById('plateVal');
+  const progressFill = document.getElementById('progressFill');
+  const canvas = document.getElementById('plate');
+  const ctx = canvas.getContext('2d');
+  const flashRing = document.getElementById('flashRing');
+  const choicesEl = document.getElementById('choices');
+  const plateCaption = document.getElementById('plateCaption');
+  const overSummary = document.getElementById('overSummary');
+  const overPattern = document.getElementById('overPattern');
+  const axisResultsEl = document.getElementById('axisResults');
+  const modeRow = document.getElementById('modeRow');
+  const methodBtn = document.getElementById('methodBtn');
+  const methodBtn2 = document.getElementById('methodBtn2');
+  const methodModal = document.getElementById('methodModal');
+  const closeMethod = document.getElementById('closeMethod');
 
-    for (let i = 0; i < packedCount; i++) {
-        let x, y, r, overlap;
-        let attempts = 0;
-        
-        do {
-            attempts++;
-            x = Math.random() * 360 + 20;
-            y = Math.random() * 360 + 20;
-            r = Math.random() * 5.5 + 2.5; // Dot radius constraints 2.5px to 8px
-            
-            if (Math.hypot(x - 200, y - 200) > 175) { overlap = true; continue; }
+  modeRow.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.mode-btn');
+    if(!btn) return;
+    testMode = btn.dataset.mode;
+    Array.from(modeRow.children).forEach(b=>b.classList.toggle('active', b===btn));
+  });
+  methodBtn.addEventListener('click', ()=>methodModal.classList.remove('hidden'));
+  methodBtn2.addEventListener('click', ()=>methodModal.classList.remove('hidden'));
+  closeMethod.addEventListener('click', ()=>methodModal.classList.add('hidden'));
+  methodModal.addEventListener('click', (e)=>{ if(e.target===methodModal) methodModal.classList.add('hidden'); });
 
-            overlap = false;
-            for (let j = 0; j < dots.length; j++) {
-                const d = dots[j];
-                if (Math.hypot(x - d.x, y - d.y) < (r + d.r + 1.2)) {
-                    overlap = true;
-                    break;
-                }
-            }
-        } while (overlap && attempts < 60);
-
-        if (!overlap) {
-            let isInsideTarget = false;
-            
-            // Masking Evaluator Matrix
-            if (config.target === 'circle') {
-                const dist = Math.hypot(x - 200, y - 200);
-                isInsideTarget = dist < 85 && dist > 40;
-            } else if (config.target === 'square') {
-                const dx = Math.abs(x - 200);
-                const dy = Math.abs(y - 200);
-                isInsideTarget = dx < 65 && dy < 65 && !(dx < 25 && dy < 25);
-            } else if (config.target === 'triangle') {
-                // Barycentric coordinates point-in-triangle check
-                // Normalized coordinate system mapping vertices
-                const x1 = 200, y1 = 110;
-                const x2 = 125, y2 = 250;
-                const x3 = 275, y3 = 250;
-                
-                let denominator = ((y2 - y3)*(x1 - x3) + (x3 - x2)*(y1 - y3));
-                let a = ((y2 - y3)*(x - x3) + (x3 - x2)*(y - y3)) / denominator;
-                let b = ((y3 - y1)*(x - x3) + (x1 - x3)*(y - y3)) / denominator;
-                let c = 1 - a - b;
-                
-                isInsideTarget = a > 0 && b > 0 && c > 0 && !(Math.hypot(x - 200, y - 210) < 25);
-            } // 'nothing' branches keep isInsideTarget false entirely
-
-            const baseColor = isInsideTarget ? colors.fg : colors.bg;
-            
-            // Jitter Profile calculation: Tighter chrominance, heavier luminance obfuscation at higher difficulties
-            const hJitter = baseColor.h + (Math.random() * 8 - 4);
-            const sJitter = Math.max(5, Math.min(100, baseColor.s + (Math.random() * 16 - 8)));
-            // High luminance masking: 35% variance breaks lightness pattern extraction
-            const lJitter = Math.max(10, Math.min(90, baseColor.l + (Math.random() * 34 - 17))); 
-
-            dots.push({ x, y, r, color: `hsl(${hJitter}, ${sJitter}%, ${lJitter}%)` });
-        }
+  // ---------- Shape geometry ----------
+  function regularPolygonPoints(cx, cy, r, sides, rotationDeg){
+    const pts = []; const rot = rotationDeg*Math.PI/180;
+    for(let i=0;i<sides;i++){ const a=rot+i*(2*Math.PI/sides); pts.push([cx+r*Math.cos(a), cy+r*Math.sin(a)]); }
+    return pts;
+  }
+  function starPoints(cx, cy, outerR, innerR, points, rotationDeg){
+    const pts=[]; const rot=rotationDeg*Math.PI/180; const step=Math.PI/points;
+    for(let i=0;i<points*2;i++){ const r=(i%2===0)?outerR:innerR; const a=rot+i*step; pts.push([cx+r*Math.cos(a), cy+r*Math.sin(a)]); }
+    return pts;
+  }
+  function plusPoints(cx, cy, size){
+    const arm=size*0.34, half=size;
+    return [[-arm,-half],[arm,-half],[arm,-arm],[half,-arm],[half,arm],[arm,arm],[arm,half],[-arm,half],[-arm,arm],[-half,arm],[-half,-arm],[-arm,-arm]]
+      .map(p=>[cx+p[0], cy+p[1]]);
+  }
+  function buildShapePath(shape, cx, cy, size){
+    const path = new Path2D();
+    switch(shape){
+      case 'circle': path.arc(cx, cy, size, 0, Math.PI*2); break;
+      case 'square': { const p=regularPolygonPoints(cx,cy,size*0.95,4,45); path.moveTo(p[0][0],p[0][1]); p.slice(1).forEach(q=>path.lineTo(q[0],q[1])); path.closePath(); break; }
+      case 'diamond': { const p=regularPolygonPoints(cx,cy,size*1.05,4,0); path.moveTo(p[0][0],p[0][1]); p.slice(1).forEach(q=>path.lineTo(q[0],q[1])); path.closePath(); break; }
+      case 'triangle': { const p=regularPolygonPoints(cx,cy,size*1.08,3,-90); path.moveTo(p[0][0],p[0][1]); p.slice(1).forEach(q=>path.lineTo(q[0],q[1])); path.closePath(); break; }
+      case 'star': { const p=starPoints(cx,cy,size*1.1,size*0.44,5,-90); path.moveTo(p[0][0],p[0][1]); p.slice(1).forEach(q=>path.lineTo(q[0],q[1])); path.closePath(); break; }
+      case 'plus': { const p=plusPoints(cx,cy,size*0.85); path.moveTo(p[0][0],p[0][1]); p.slice(1).forEach(q=>path.lineTo(q[0],q[1])); path.closePath(); break; }
     }
+    return path;
+  }
+  function drawShapeIcon(canvasEl, shape, color){
+    const c = canvasEl.getContext('2d'); const w=canvasEl.width, h=canvasEl.height;
+    c.clearRect(0,0,w,h);
+    const path = buildShapePath(shape, w/2, h/2, w*0.36);
+    c.fillStyle = color; c.fill(path);
+  }
 
-    dots.forEach(d => {
+  // ---------- Helpers ----------
+  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+
+  const FIXED_PRESENTATION = {
+    minR: 6, maxR: 10.5,
+    spacingFactor: 0.92,
+    jitterL: 4, jitterAB: 6,
+    // Elements are pre-sorted alphabetically to ensure options never shuffle location
+    shapePool: ['circle', 'diamond', 'plus', 'square', 'star', 'triangle']
+  };
+
+  const AXES_BY_MODE = { rg: ['deutan','protan'], full: ['deutan','protan','tritan'] };
+  const SEVERITY_LEVELS = [1.0, 0.85, 0.7, 0.55, 0.4];
+  const REPS_PER_SEVERITY = 2;
+
+  function buildProtocol(mode){
+    const axes = AXES_BY_MODE[mode];
+    const trials = [];
+    axes.forEach(axis=>{
+      SEVERITY_LEVELS.forEach(sev=>{
+        for(let r=0;r<REPS_PER_SEVERITY;r++){ trials.push({ axis, severity: sev }); }
+      });
+    });
+    for(let i=trials.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [trials[i], trials[j]] = [trials[j], trials[i]];
+    }
+    return trials;
+  }
+
+  // ---------- Plate generation ----------
+  let currentAnswer = null;
+
+  function generatePlate(){
+    const pres = FIXED_PRESENTATION;
+    const trial = protocol[trialIndex];
+    const axis = trial.axis, severity = trial.severity;
+
+    const shape = pres.shapePool[Math.floor(Math.random()*pres.shapePool.length)];
+    currentAnswer = shape;
+
+    const bg = randomAnchorColor();
+    const found = findConfusionFigure(bg, axis, severity, 1500);
+    const fig = found.color;
+    const labBG = srgbToLab(bg);
+    const labFIG = srgbToLab(fig);
+
+    const W = canvas.width, H = canvas.height, cx = W/2, cy = H/2, R = W/2 - 6;
+    ctx.clearRect(0,0,W,H);
+
+    const shapeSize = R * 0.62;
+    const shapePath = buildShapePath(shape, cx, cy, shapeSize);
+
+    const avgDot = (pres.minR + pres.maxR)/2;
+    const spacing = avgDot * 2 * pres.spacingFactor;
+    const rowH = spacing * 0.87;
+
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.clip();
+
+    let row = 0;
+    for(let y = cy - R - spacing; y <= cy + R + spacing; y += rowH){
+      const xOffset = (row % 2 === 0) ? 0 : spacing/2;
+      for(let x = cx - R - spacing + xOffset; x <= cx + R + spacing; x += spacing){
+        if(Math.random() < 0.09) continue;
+        const jx = x + (Math.random()-0.5)*spacing*0.55;
+        const jy = y + (Math.random()-0.5)*spacing*0.55;
+        const dist = Math.hypot(jx-cx, jy-cy);
+        if(dist > R - 2) continue;
+
+        const r = pres.minR + Math.random()*(pres.maxR - pres.minR);
+        const isFigure = ctx.isPointInPath(shapePath, jx, jy);
+        const base = isFigure ? labFIG : labBG;
+        const dotLab = [
+          clamp(base[0] + (Math.random()-0.5)*pres.jitterL*2, 8, 95),
+          base[1] + (Math.random()-0.5)*pres.jitterAB*2,
+          base[2] + (Math.random()-0.5)*pres.jitterAB*2
+        ];
+        const dotColor = toCss(labToSrgb(dotLab));
+
         ctx.beginPath();
-        ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
-        ctx.fillStyle = d.color;
+        ctx.fillStyle = dotColor;
+        ctx.arc(jx, jy, r, 0, Math.PI*2);
         ctx.fill();
-    });
-}
-
-function submitAnswer(answer) {
-    const config = testSequence[currentPlateIdx];
-    const isCorrect = answer === config.target;
-    
-    userAnswers.push({
-        type: config.type,
-        difficulty: currentDifficulty,
-        correct: isCorrect
-    });
-
-    // Psychometric Staircase Adjustment
-    if (isCorrect) {
-        // Progressively increase difficulty on correct actions
-        if (currentDifficulty < 5) currentDifficulty++;
-    } else {
-        // Drop down a step if they hit a wall to find their precision ceiling
-        if (currentDifficulty > 1) currentDifficulty--;
+      }
+      row++;
     }
+    ctx.restore();
 
-    if (currentPlateIdx < TOTAL_PLATES - 1) {
-        currentPlateIdx++;
-        renderPlate();
-    } else {
-        showResults();
+    plateCaption.textContent = 'Which shape do you see?';
+
+    resetChoiceUI();
+  }
+
+  // Pre-render option nodes natively once on boot to save operations 
+  function setupStaticChoices(){
+    choicesEl.innerHTML = '';
+    FIXED_PRESENTATION.shapePool.forEach(shape => {
+      const btn = document.createElement('button');
+      btn.className = 'choice-btn'; btn.type = 'button';
+      btn.dataset.shape = shape;
+      
+      const iconCanvas = document.createElement('canvas');
+      iconCanvas.width = 44; iconCanvas.height = 44;
+      drawShapeIcon(iconCanvas, shape, '#454e57');
+      btn.appendChild(iconCanvas);
+      
+      const label = document.createElement('span'); label.textContent = shape;
+      btn.appendChild(label);
+      
+      btn.addEventListener('click', () => handleAnswer(shape, btn));
+      choicesEl.appendChild(btn);
+    });
+
+    const nothingBtn = document.createElement('button');
+    nothingBtn.className = 'choice-btn nothing-choice'; nothingBtn.type = 'button';
+    nothingBtn.dataset.shape = "nothing";
+    const nothingLabel = document.createElement('span'); nothingLabel.textContent = "I don't see a shape";
+    nothingBtn.appendChild(nothingLabel);
+    nothingBtn.addEventListener('click', () => handleAnswer(null, nothingBtn));
+    choicesEl.appendChild(nothingBtn);
+  }
+
+  function resetChoiceUI(){
+    Array.from(choicesEl.children).forEach(btn => {
+      btn.disabled = false;
+      btn.classList.remove('selected');
+    });
+  }
+
+  function handleAnswer(shape, btnEl){
+    if(locked) return;
+    locked = true;
+    const correct = shape === currentAnswer;
+    const allBtns = Array.from(choicesEl.children);
+    allBtns.forEach(b=>b.disabled = true);
+
+    btnEl.classList.add('selected');
+    flash('neutral');
+
+    const trial = protocol[trialIndex];
+    results.push({ axis: trial.axis, severity: trial.severity, correct });
+
+    setTimeout(()=>{
+      locked = false;
+      trialIndex++;
+      updateHUD();
+      if(trialIndex >= protocol.length){ endGame(); } else { generatePlate(); }
+    }, 450);
+  }
+
+  function flash(type){
+    flashRing.classList.remove('neutral');
+    void flashRing.offsetWidth;
+    flashRing.classList.add(type);
+  }
+
+  function updateHUD(){
+    const shown = Math.min(trialIndex+1, protocol.length);
+    plateVal.textContent = `${shown} / ${protocol.length}`;
+    progressFill.style.width = `${Math.round((trialIndex/protocol.length)*100)}%`;
+  }
+
+  // ---------- Results ----------
+  function formatSeverities(list){
+    return list.slice().sort((a,b)=>b-a).map(s=>s.toFixed(2)).join(', ');
+  }
+
+  function computeAxisSummary(axis){
+    const axisResults = results.filter(r=>r.axis===axis);
+    const total = axisResults.length;
+    const correctCount = axisResults.filter(r=>r.correct).length;
+    const accuracy = total ? correctCount/total : 0;
+    const missedSeverities = axisResults.filter(r=>!r.correct).map(r=>r.severity);
+    return { axis, total, correctCount, accuracy, missedSeverities };
+  }
+
+  function interpretAxis(summary){
+    if(summary.total === 0){
+      return { cls:'strong', tag:'Not tested', text:'This axis was not included in the selected mode.' };
     }
-}
-
-function showResults() {
-    document.getElementById('screen-test').classList.add('hidden');
-    document.getElementById('screen-results').classList.remove('hidden');
-
-    let metrics = {
-        control: { correct: 0, total: 0, avgDiff: 0 },
-        protan:  { correct: 0, total: 0, avgDiff: 0 },
-        deutan:  { correct: 0, total: 0, avgDiff: 0 },
-        tritan:  { correct: 0, total: 0, avgDiff: 0 }
+    if(summary.accuracy >= 0.9){
+      return {
+        cls:'strong', tag:'No pattern detected',
+        text:`${summary.correctCount} of ${summary.total} correct, including the mildest simulated differences used in this session. No sign of difficulty on this axis today.`
+      };
+    }
+    if(summary.accuracy >= 0.6){
+      return {
+        cls:'mixed', tag:'Some inconsistency',
+        text:`${summary.correctCount} of ${summary.total} correct. Misses landed at simulated severity ${formatSeverities(summary.missedSeverities)} — could be normal variability or screen conditions, or a mild version of this axis's confusion pattern.`
+      };
+    }
+    return {
+      cls:'pattern', tag:'Difficulty pattern',
+      text:`Only ${summary.correctCount} of ${summary.total} correct, including misses at higher simulated severity (${formatSeverities(summary.missedSeverities)}). This resembles the kind of confusion associated with this axis — worth a proper screening from an eye care professional if you haven't had one.`
     };
+  }
 
-    userAnswers.forEach(ans => {
-        metrics[ans.type].total++;
-        if (ans.correct) {
-            metrics[ans.type].correct++;
-            metrics[ans.type].avgDiff += ans.difficulty;
-        }
-    });
-
-    // Normalize averages
-    ['protan', 'deutan', 'tritan'].forEach(k => {
-        metrics[k].avgDiff = metrics[k].correct > 0 ? (metrics[k].avgDiff / metrics[k].correct).toFixed(1) : 0;
-    });
-
-    const controlPassed = (metrics.control.correct / metrics.control.total) >= 0.8;
-    
-    let diagnosis = "";
-    if (!controlPassed) {
-        diagnosis = `<h3 style="color:#ff5252">⚠️ Evaluation Inconclusive</h3>
-                     <p>You missed several basic high-contrast control points. This usually means glare, low backlighting, or a software filter (like Night Shift) is interfering with color spacing accuracy.</p>`;
-    } else if (metrics.protan.correct === metrics.protan.total && metrics.deutan.correct === metrics.deutan.total && metrics.tritan.correct === metrics.tritan.total) {
-        diagnosis = `<h3 style="color:#00e676">✓ Outstanding Trichromacy</h3>
-                     <p>Perfect registration across all dynamic vectors. You effortlessly resolved color fields down to Phase 5 clinical limits.</p>`;
-    } else {
-        // Look for localized deficiency trends
-        let redLoss = (metrics.protan.correct / metrics.protan.total) < 0.7;
-        let greenLoss = (metrics.deutan.correct / metrics.deutan.total) < 0.7;
-        let blueLoss = (metrics.tritan.correct / metrics.tritan.total) < 0.7;
-        
-        if (redLoss || greenLoss || blueLoss) {
-            diagnosis = `<h3 style="color:#ffb74d">📊 Color Vision Deficiency Indicated</h3><p>System flagged specialized drop-offs in specific color pathways:</p><ul>`;
-            if (redLoss) diagnosis += `<li><strong>Protanomaly Tendency:</strong> Reduced resolution of long-wavelength (Red/L-cone) ranges. Max dynamic depth reached: Lvl ${metrics.protan.avgDiff}</li>`;
-            if (greenLoss) diagnosis += `<li><strong>Deuteranomaly Tendency:</strong> Reduced resolution of medium-wavelength (Green/M-cone) spaces. Max dynamic depth reached: Lvl ${metrics.deutan.avgDiff}</li>`;
-            if (blueLoss) diagnosis += `<li><strong>Tritanomaly Tendency:</strong> Rare variation affecting short-wavelength (Blue/Yellow/S-cone) regions. Max dynamic depth reached: Lvl ${metrics.tritan.avgDiff}</li>`;
-            diagnosis += `</ul>`;
-        } else {
-            diagnosis = `<h3 style="color:#81c784">✓ Normal / Mild Variations</h3>
-                         <p>You passed overall thresholds, though you experienced normal structural friction at higher difficulty phases.</p>`;
-        }
+  function overallPatternText(summaries){
+    const tested = summaries.filter(s=>s.total>0);
+    if(tested.length < 2) return '';
+    const sorted = [...tested].sort((a,b)=>a.accuracy-b.accuracy);
+    const weakest = sorted[0], strongest = sorted[sorted.length-1];
+    if(strongest.accuracy - weakest.accuracy >= 0.3){
+      return `Accuracy was noticeably lower on the ${AXIS_NAME[weakest.axis]} than on the other axes tested — a pattern worth mentioning if you ever get a clinical screening.`;
     }
+    return `Accuracy was broadly similar across the axes tested, with no single axis standing out.`;
+  }
 
-    document.getElementById('results-output').innerHTML = `
-        ${diagnosis}
-        <div style="margin-top: 20px;">
-            <div class="stat-line"><span>Control Plates Accuracy:</span><span>${metrics.control.correct}/${metrics.control.total}</span></div>
-            <div class="stat-line"><span>Protan (Red Channel) Correct:</span><span>${metrics.protan.correct}/${metrics.protan.total} (Avg Lvl: ${metrics.protan.avgDiff})</span></div>
-            <div class="stat-line"><span>Deutan (Green Channel) Correct:</span><span>${metrics.deutan.correct}/${metrics.deutan.total} (Avg Lvl: ${metrics.deutan.avgDiff})</span></div>
-            <div class="stat-line"><span>Tritan (Blue Channel) Correct:</span><span>${metrics.tritan.correct}/${metrics.tritan.total} (Avg Lvl: ${metrics.tritan.avgDiff})</span></div>
-        </div>
-        <blockquote style="border-left: 3px solid var(--accent); padding-left:10px; margin: 20px 0 0 0; font-size:13px; color:#aaa; text-align:left;">
-            This screening tool uses an experimental procedural staircase setup. It shouldn't substitute for professional anomaloscope diagnostic assessments with an eye care professional.
-        </blockquote>
-    `;
-}
+  function endGame(){
+    gameScreen.classList.add('hidden');
+    overScreen.classList.remove('hidden');
+    progressFill.style.width = '100%';
 
-function resetTest() {
-    document.getElementById('screen-results').classList.add('hidden');
-    document.getElementById('screen-welcome').classList.remove('hidden');
-}
+    const axes = AXES_BY_MODE[testMode];
+    const summaries = axes.map(computeAxisSummary);
+    const overallCorrect = results.filter(r=>r.correct).length;
+    const overallTotal = results.length;
+
+    overSummary.textContent = `${overallCorrect} of ${overallTotal} plates correctly identified across ${axes.length} confusion ax${axes.length>1?'es':'is'}.`;
+    overPattern.textContent = overallPatternText(summaries);
+
+    axisResultsEl.innerHTML = '';
+    summaries.forEach(summary=>{
+      const interp = interpretAxis(summary);
+      const card = document.createElement('div');
+      card.className = 'axis-card';
+      card.innerHTML = `
+        <span class="score">${summary.correctCount}/${summary.total}</span>
+        <h4>${AXIS_NAME[summary.axis]}</h4>
+        <span class="tag ${interp.cls}">${interp.tag}</span>
+        <p>${interp.text}</p>
+      `;
+      axisResultsEl.appendChild(card);
+    });
+  }
+
+  function startGame(){
+    protocol = buildProtocol(testMode);
+    trialIndex = 0;
+    results = [];
+    locked = false;
+    startScreen.classList.add('hidden');
+    overScreen.classList.add('hidden');
+    gameScreen.classList.remove('hidden');
+    updateHUD();
+    generatePlate();
+  }
+
+  // Initialize once on script load
+  setupStaticChoices();
+
+  startBtn.addEventListener('click', startGame);
+  retryBtn.addEventListener('click', startGame);
+
+})();
 </script>
 </body>
 </html>
