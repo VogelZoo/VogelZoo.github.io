@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procedural Color Vision Screener</title>
+    <link rel="manifest" href="data:application/json,{%22name%22:%22Procedural%20Color%20Vision%20Screener%22,%22short_name%22:%22ColorTest%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%23121212%22,%22theme_color%22:%22%231f1f1f%22}">
+    <style>
+        :root {
+            --bg: #121212;
+            --surface: #1f1f1f;
+            --text: #e0e0e0;
+            --accent: #2196f3;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        #app-container {
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        .card {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            margin-bottom: 20px;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
+            border-radius: 50%;
+            background: #000;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+        .btn-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+        button:active { transform: scale(0.97); }
+        button.secondary { background: #444; }
+        .hidden { display: none !important; }
+        ul { text-align: left; padding-left: 20px; }
+        li { margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <div id="screen-welcome" class="card">
+        <h2>Clinical Color Vision Screener</h2>
+        <p>This test procedurally generates pseudoisochromatic plates to screen for Protan, Deutan, and Tritan color vision deficiencies.</p>
+        <p><strong>Instructions:</strong> Identify the geometric shape hidden within the dots. Ensure your screen brightness is high and TrueTone/Night Shift is disabled.</p>
+        <button onclick="startTest()">Start Examination</button>
+    </div>
+
+    <div id="screen-test" class="card hidden">
+        <h3 id="plate-progress">Plate 1 of 6</h3>
+        <canvas id="plateCanvas" width="400" height="400"></canvas>
+        <p>What shape do you see embedded above?</p>
+        <div class="btn-grid">
+            <button onclick="submitAnswer('circle')">Circle</button>
+            <button onclick="submitAnswer('square')">Square</button>
+            <button onclick="submitAnswer('nothing')">Nothing</button>
+        </div>
+    </div>
+
+    <div id="screen-results" class="card hidden">
+        <h2>Diagnostic Results</h2>
+        <hr style="border-color:#333;">
+        <div id="results-output"></div>
+        <button class="secondary" style="margin-top:20px; width:100%;" onclick="resetTest()">Retake Test</button>
+    </div>
+</div>
+
+<script>
+// PWA Service Worker Registration via Data URI
+if ('serviceWorker' in navigator) {
+    const swCode = `self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => caches.match(e.request))));`;
+    const blob = new Blob([swCode], {type: 'application/javascript'});
+    navigator.serviceWorker.register(URL.createObjectURL(blob));
+}
+
+// Medical Configuration: Deficiency Confusion Axis Color Maps
+const PLATE_CONFIGS = [
+    { type: 'control', target: 'circle', fg: {h: 30, s: 80, l: 50}, bg: {h: 210, s: 70, l: 40} }, // High contrast baseline
+    { type: 'deutan',  target: 'square', fg: {h: 10, s: 50, l: 50}, bg: {h: 100, s: 40, l: 45} }, // Red/Green confusion (Deutan)
+    { type: 'protan',  target: 'circle', fg: {h: 0, s: 60, l: 40},  bg: {h: 40, s: 30, l: 45} },  // Dark Red/Brown confusion (Protan)
+    { type: 'deutan',  target: 'circle', fg: {h: 20, s: 55, l: 48}, bg: {h: 120, s: 35, l: 43} }, // Red/Green confusion variant
+    { type: 'protan',  target: 'square', fg: {h: 355, s: 65, l: 45}, bg: {h: 25, s: 25, l: 50} },  // Protan primary confusion axis
+    { type: 'tritan',  target: 'square', fg: {h: 200, s: 65, l: 50}, bg: {h: 60, s: 60, l: 50} }   // Blue/Yellow confusion (Tritan)
+];
+
+let currentPlateIdx = 0;
+let userAnswers = [];
+
+function startTest() {
+    document.getElementById('screen-welcome').classList.add('hidden');
+    document.getElementById('screen-test').classList.remove('hidden');
+    currentPlateIdx = 0;
+    userAnswers = [];
+    renderPlate();
+}
+
+function renderPlate() {
+    document.getElementById('plate-progress').innerText = `Plate ${currentPlateIdx + 1} of ${PLATE_CONFIGS.length}`;
+    const canvas = document.getElementById('plateCanvas');
+    const ctx = canvas.getContext('2d');
+    const config = PLATE_CONFIGS[currentPlateIdx];
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const dots = [];
+    const numDots = 900;
+    const minR = 3;
+    const maxR = 9;
+    const padding = 1.5;
+
+    // Fast Poisson-ish loop packing algorithm
+    for (let i = 0; i < numDots; i++) {
+        let x, y, r, overlap;
+        let attempts = 0;
+        
+        do {
+            attempts++;
+            x = Math.random() * (canvas.width - 40) + 20;
+            y = Math.random() * (canvas.height - 40) + 20;
+            r = Math.random() * (maxR - minR) + minR;
+            
+            // Constrain inside large circle boundary
+            const distFromCenter = Math.hypot(x - 200, y - 200);
+            if (distFromCenter > 175) { overlap = true; continue; }
+
+            overlap = false;
+            for (let j = 0; j < dots.length; j++) {
+                const d = dots[j];
+                if (Math.hypot(x - d.x, y - d.y) < (r + d.r + padding)) {
+                    overlap = true;
+                    break;
+                }
+            }
+        } while (overlap && attempts < 100);
+
+        if (!overlap) {
+            // Determine if dot falls within the designated geometric mask
+            let isInsideTarget = false;
+            if (config.target === 'circle') {
+                isInsideTarget = Math.hypot(x - 200, y - 200) < 75 && Math.hypot(x - 200, y - 200) > 35;
+            } else if (config.target === 'square') {
+                isInsideTarget = Math.abs(x - 200) < 60 && Math.abs(y - 200) < 60 && !(Math.abs(x - 200) < 25 && Math.abs(y - 200) < 25);
+            }
+
+            // Apply Jittering to completely break luminance patterns
+            const colorSpec = isInsideTarget ? config.fg : config.bg;
+            const hJitter = colorSpec.h + (Math.random() * 12 - 6);
+            const sJitter = Math.max(10, Math.min(100, colorSpec.s + (Math.random() * 20 - 10)));
+            const lJitter = Math.max(10, Math.min(90, colorSpec.l + (Math.random() * 30 - 15))); // Heavy luminance jitter
+
+            dots.push({ x, y, r, color: `hsl(${hJitter}, ${sJitter}%, ${lJitter}%)` });
+        }
+    }
+
+    // Render packed field
+    dots.forEach(d => {
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+        ctx.fillStyle = d.color;
+        ctx.fill();
+    });
+}
+
+function submitAnswer(answer) {
+    userAnswers.push({
+        config: PLATE_CONFIGS[currentPlateIdx],
+        answer: answer,
+        correct: answer === PLATE_CONFIGS[currentPlateIdx].target
+    });
+
+    if (currentPlateIdx < PLATE_CONFIGS.length - 1) {
+        currentPlateIdx++;
+        renderPlate();
+    } else {
+        showResults();
+    }
+}
+
+function showResults() {
+    document.getElementById('screen-test').classList.add('hidden');
+    document.getElementById('screen-results').classList.remove('hidden');
+
+    let protanErrors = 0, protanTotal = 0;
+    let deutanErrors = 0, deutanTotal = 0;
+    let tritanErrors = 0, tritanTotal = 0;
+    let controlPassed = true;
+
+    userAnswers.forEach(res => {
+        if (res.config.type === 'control' && !res.correct) controlPassed = false;
+        if (res.config.type === 'protan') { protanTotal++; if(!res.correct) protanErrors++; }
+        if (res.config.type === 'deutan') { deutanTotal++; if(!res.correct) deutanErrors++; }
+        if (res.config.type === 'tritan') { tritanTotal++; if(!res.correct) tritanErrors++; }
+    });
+
+    let diagnosticSummary = "";
+    if (!controlPassed) {
+        diagnosticSummary = "<p style='color:#ff5252;'><strong>Inconclusive Test:</strong> You missed the calibration control plate. This may mean your display contrast is too low, or ambient glare is interfering with accuracy.</p>";
+    } else if (protanErrors === 0 && deutanErrors === 0 && tritanErrors === 0) {
+        diagnosticSummary = "<p style='color:#4caf50;'><strong>Normal Color Vision Verified:</strong> You successfully resolved all procedural isoluminant targets across the red, green, and blue confusion bands.</p>";
+    } else {
+        diagnosticSummary = "<p style='color:#ffb74d;'><strong>Deficiency Indicated:</strong> Screening flags indicate varying performance across particular cone response spectrums.</p>";
+    }
+
+    let html = `
+        ${diagnosticSummary}
+        <h3>Sub-Type Breakdown</h3>
+        <ul>
+            <li><strong>Control Plate:</strong> ${controlPassed ? "Passed" : "Failed"}</li>
+            <li><strong>Protan Axis (L-Cone / Red):</strong> ${protanTotal - protanErrors} / ${protanTotal} Correct</li>
+            <li><strong>Deutan Axis (M-Cone / Green):</strong> ${deutanTotal - deutanErrors} / ${deutanTotal} Correct</li>
+            <li><strong>Tritan Axis (S-Cone / Blue):</strong> ${tritanTotal - tritanErrors} / ${tritanTotal} Correct</li>
+        </ul>
+        <blockquote><em>Disclaimer: This application is a procedural screening tool only. It is not an official clinical diagnosis. For definitive medical evaluations, consult an optometrist or ophthalmologist for an anomaloscope evaluation.</em></blockquote>
+    `;
+    document.getElementById('results-output').innerHTML = html;
+}
+
+function resetTest() {
+    document.getElementById('screen-results').classList.add('hidden');
+    document.getElementById('screen-welcome').classList.remove('hidden');
+}
+</script>
+</body>
+</html>
