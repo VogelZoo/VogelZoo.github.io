@@ -254,6 +254,12 @@ let state = {
     plans: JSON.parse(localStorage.getItem("ee_plans")) || [],
     measurements: JSON.parse(localStorage.getItem("ee_measurements")) || DEFAULT_MEASUREMENTS,
     measurementLogs: JSON.parse(localStorage.getItem("ee_measurement_logs")) || [],
+    // Total Time is its own record category — parallel to exercises and
+    // measurements — rather than a pseudo-exercise embedded in `history`.
+    // Each entry is { id, date, minutes }. See migrateTotalTimeEntries()
+    // for one-time migration of older backups that still have Total Time
+    // rows embedded in history.
+    totalTimeLogs: JSON.parse(localStorage.getItem("ee_total_time_logs")) || [],
     // In-memory only (never persisted) — which 7-Day Horizon card is
     // highlighted. Purely visual now that the inline log form (and its
     // log-date field) is gone; tapping a card just moves this highlight.
@@ -269,7 +275,9 @@ document.addEventListener("DOMContentLoaded", () => {
 function initApp() {
     if (!Array.isArray(state.measurements)) state.measurements = DEFAULT_MEASUREMENTS;
     if (!Array.isArray(state.measurementLogs)) state.measurementLogs = [];
+    if (!Array.isArray(state.totalTimeLogs)) state.totalTimeLogs = [];
     migrateIntensityData();
+    migrateTotalTimeEntries();
     saveState();
     evaluateTodayPlans();
     renderPlanExerciseSelector();
@@ -306,12 +314,34 @@ function migrateIntensityData() {
     if (changed) saveState();
 }
 
+// One-time migration: older backups/sessions stored Total Time as a
+// pseudo-exercise entry inside `history` (exerciseName === TOTAL_TIME_EXERCISE_NAME).
+// That polluted exercise-only stats like "Most Logged Exercise". This pulls
+// any such entries out into state.totalTimeLogs (their own category) and
+// strips them from history. Safe to call every load — a no-op once migrated.
+function migrateTotalTimeEntries() {
+    const embedded = state.history.filter(h => h.exerciseName === TOTAL_TIME_EXERCISE_NAME);
+    if (embedded.length === 0) return false;
+
+    embedded.forEach(entry => {
+        state.totalTimeLogs.push({
+            id: entry.id,
+            date: entry.date,
+            minutes: (entry.data && entry.data.timeMinutes) || 0
+        });
+    });
+    state.history = state.history.filter(h => h.exerciseName !== TOTAL_TIME_EXERCISE_NAME);
+    state.totalTimeLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
+    return true;
+}
+
 function saveState() {
     localStorage.setItem("ee_exercises", JSON.stringify(state.exercises));
     localStorage.setItem("ee_history", JSON.stringify(state.history));
     localStorage.setItem("ee_plans", JSON.stringify(state.plans));
     localStorage.setItem("ee_measurements", JSON.stringify(state.measurements));
     localStorage.setItem("ee_measurement_logs", JSON.stringify(state.measurementLogs));
+    localStorage.setItem("ee_total_time_logs", JSON.stringify(state.totalTimeLogs));
     if (typeof BackupSync !== "undefined") BackupSync.notifyStateChanged();
 }
 
@@ -1219,10 +1249,25 @@ function initEditEntry(id) {
 
     haptic('light');
     document.getElementById("log-modal").classList.remove("hidden");
-    if (entry.exerciseName === TOTAL_TIME_EXERCISE_NAME) {
-        LogModal.openTotalTimeForm(entry);
-    } else {
-        LogModal.openExerciseForm(entry.exerciseName, entry);
+    LogModal.openExerciseForm(entry.exerciseName, entry);
+}
+
+// Mirrors initEditEntry/deleteEntry, but for the Total Time category, which
+// now lives in its own state.totalTimeLogs array rather than history.
+function initEditTotalTimeLog(id) {
+    const entry = state.totalTimeLogs.find(t => t.id === id);
+    if (!entry) return;
+
+    haptic('light');
+    document.getElementById("log-modal").classList.remove("hidden");
+    LogModal.openTotalTimeForm(entry);
+}
+
+function deleteTotalTimeLog(id) {
+    if (confirm("Are you sure you want to delete this historical total time entry?")) {
+        state.totalTimeLogs = state.totalTimeLogs.filter(t => t.id !== id);
+        saveState();
+        initApp();
     }
 }
 
@@ -1319,10 +1364,10 @@ function populateChartFilter() {
         return count >= 2;
     });
 
-    // Total Exercise Time is a virtual pseudo-exercise (not part of
-    // state.exercises — see TOTAL_TIME_EXERCISE_DEF), so it's checked and
-    // included separately, in its own "Other" group further down.
-    const totalTimeCount = state.history.filter(h => h.exerciseName === TOTAL_TIME_EXERCISE_NAME).length;
+    // Total Exercise Time is now its own record category (state.totalTimeLogs)
+    // rather than a pseudo-exercise in state.history — checked and included
+    // separately, in its own "Other" group further down.
+    const totalTimeCount = state.totalTimeLogs.length;
     const isTotalTimeChartable = totalTimeCount >= 2;
 
     let chartableMeasurements = (state.measurements || []).filter(m => {
@@ -1376,7 +1421,7 @@ function populateChartFilter() {
     });
 
     if (isTotalTimeChartable) {
-        html += `<optgroup label="Other"><option value="ex:${TOTAL_TIME_EXERCISE_NAME}">${TOTAL_TIME_EXERCISE_NAME}</option></optgroup>`;
+        html += `<optgroup label="Other"><option value="tt:total">${TOTAL_TIME_EXERCISE_NAME}</option></optgroup>`;
     }
 
     if (chartableMeasurements.length > 0) {
@@ -1459,6 +1504,67 @@ function renderMeasurementChart(measurementKey, sortedBuckets, graphContainer, l
     `;
 }
 
+// Single-line trend chart for Total Exercise Time — mirrors
+// renderMeasurementChart's shape (no dual-axis, no intensity coloring),
+// but for the dedicated state.totalTimeLogs category rather than a
+// measurement. `sortedBuckets` are pre-aggregated by the caller via
+// aggregateByPeriod, each item has { date (anchor), value } in minutes.
+function renderTotalTimeChart(sortedBuckets, graphContainer, legendBlock) {
+    if (legendBlock) legendBlock.style.display = "none";
+
+    if (sortedBuckets.length < 2) {
+        const unitWord = chartGranularity === 'daily' ? 'days' : chartGranularity === 'weekly' ? 'weeks' : 'months';
+        graphContainer.innerHTML = `<p class="text-muted" style="text-align:center; padding:1rem; border:1px dashed var(--border); border-radius:8px;">Log Total Time on 2+ ${unitWord} to view progression.</p>`;
+        return;
+    }
+
+    const width = 440;
+    const height = 200;
+    const paddingLeft = 40;
+    const paddingRight = 20;
+    const paddingTop = 30;
+    const paddingBottom = 30;
+
+    let vals = sortedBuckets.map(l => l.value);
+    let minVal = Math.min(...vals) * 0.95;
+    let maxVal = Math.max(...vals) * 1.05;
+    if (maxVal === minVal) { minVal -= 5; maxVal += 5; }
+    if (minVal < 0) minVal = 0;
+    let range = maxVal - minVal;
+
+    const xDenom = Math.max(sortedBuckets.length - 1, 1);
+    let points = sortedBuckets.map((entry, idx) => {
+        let x = paddingLeft + (idx / xDenom) * (width - paddingLeft - paddingRight);
+        let y = (height - paddingBottom) - ((entry.value - minVal) / range) * (height - paddingTop - paddingBottom);
+        return { x, y, value: entry.value, date: entry.date };
+    });
+
+    let linePath = `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(" ");
+
+    let dots = points.map(p => `
+        <circle cx="${p.x}" cy="${p.y}" r="4" fill="#2563eb" stroke="#1e1e24" stroke-width="1"/>
+        <text x="${p.x}" y="${p.y - 8}" font-size="7" font-weight="bold" fill="#f3f4f6" text-anchor="middle">${Number(p.value.toFixed(1))}</text>
+    `).join("");
+
+    graphContainer.innerHTML = `
+        <div class="svg-chart-container">
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.5rem; text-align:center;">
+                ${TOTAL_TIME_EXERCISE_NAME} (minutes)
+            </div>
+            <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%">
+                <line x1="${paddingLeft}" y1="${paddingTop}" x2="${paddingLeft}" y2="${height - paddingBottom}" stroke="#374151" stroke-width="1"/>
+                <line x1="${paddingLeft}" y1="${height - paddingBottom}" x2="${width - paddingRight}" y2="${height - paddingBottom}" stroke="#374151" stroke-width="1"/>
+
+                <path d="${linePath}" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                ${dots}
+
+                <text x="${points[0].x}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="start">${formatPeriodLabel(points[0].date, chartGranularity)}</text>
+                <text x="${points[points.length - 1].x}" y="${height - 8}" font-size="7" fill="#9ca3af" text-anchor="end">${formatPeriodLabel(points[points.length - 1].date, chartGranularity)}</text>
+            </svg>
+        </div>
+    `;
+}
+
 function renderStats() {
     const summary = document.getElementById("stats-summary");
     const groupedContainer = document.getElementById("history-grouped-container");
@@ -1466,7 +1572,9 @@ function renderStats() {
     const legendBlock = document.getElementById("chart-legend");
     const filterSelect = document.getElementById("chart-exercise-select");
 
-    const totalLogCount = state.history.length + (state.measurementLogs ? state.measurementLogs.length : 0);
+    const totalLogCount = state.history.length
+        + (state.measurementLogs ? state.measurementLogs.length : 0)
+        + (state.totalTimeLogs ? state.totalTimeLogs.length : 0);
 
     if (totalLogCount === 0) {
         summary.innerHTML = `<p class="text-muted">Complete your first log to start tracking metrics.</p>`;
@@ -1478,7 +1586,8 @@ function renderStats() {
 
     const rawSelection = filterSelect.value;
     const isMeasurementSelected = rawSelection.startsWith("meas:");
-    const targetExercise = isMeasurementSelected ? null : rawSelection.replace(/^ex:/, "");
+    const isTotalTimeSelected = rawSelection === "tt:total";
+    const targetExercise = (isMeasurementSelected || isTotalTimeSelected) ? null : rawSelection.replace(/^ex:/, "");
     const targetMeasurementKey = isMeasurementSelected ? rawSelection.replace(/^meas:/, "") : null;
 
     let exerciseHistory = [];
@@ -1498,8 +1607,20 @@ function renderStats() {
         );
     }
 
+    let totalTimeHistory = [];
+    if (isTotalTimeSelected) {
+        totalTimeHistory = aggregateByPeriod(
+            state.totalTimeLogs,
+            chartGranularity,
+            "date",
+            (entry) => ({ value: entry.minutes })
+        );
+    }
+
     if (targetMeasurementKey) {
         renderMeasurementChart(targetMeasurementKey, measurementHistory, graphContainer, legendBlock);
+    } else if (isTotalTimeSelected) {
+        renderTotalTimeChart(totalTimeHistory, graphContainer, legendBlock);
     } else if (!targetExercise || exerciseHistory.length < 2) {
         graphContainer.innerHTML = `<p class="text-muted" style="text-align:center; padding:1rem; border:1px dashed var(--border); border-radius:8px;">Select or complete an exercise or measurement with 2+ entries to view progression.</p>`;
         if (legendBlock) legendBlock.style.display = "none";
@@ -1658,9 +1779,10 @@ function renderStats() {
     }
 
     const totalMeasurementLogs = state.measurementLogs ? state.measurementLogs.length : 0;
-    summary.innerHTML = `<p><strong>Total Lifetime Logs:</strong> ${state.history.length} exercise sessions, ${totalMeasurementLogs} measurements</p>`;
+    const totalTimeLogCount = state.totalTimeLogs ? state.totalTimeLogs.length : 0;
+    summary.innerHTML = `<p><strong>Total Lifetime Logs:</strong> ${state.history.length} exercise sessions, ${totalMeasurementLogs} measurements, ${totalTimeLogCount} total-time entries</p>`;
 
-    // --- COMPACT GROUP BY DAY TIMELINE COMPILATION (exercises + measurements merged) ---
+    // --- COMPACT GROUP BY DAY TIMELINE COMPILATION (exercises + measurements + total time merged) ---
     let dailyGroups = {};
     state.history.forEach(entry => {
         if (!dailyGroups[entry.date]) dailyGroups[entry.date] = [];
@@ -1669,6 +1791,10 @@ function renderStats() {
     (state.measurementLogs || []).forEach(entry => {
         if (!dailyGroups[entry.date]) dailyGroups[entry.date] = [];
         dailyGroups[entry.date].push({ _kind: "measurement", ...entry });
+    });
+    (state.totalTimeLogs || []).forEach(entry => {
+        if (!dailyGroups[entry.date]) dailyGroups[entry.date] = [];
+        dailyGroups[entry.date].push({ _kind: "totaltime", ...entry });
     });
 
     let sortedDaysKeys = Object.keys(dailyGroups).sort((a,b) => new Date(b) - new Date(a));
@@ -1693,6 +1819,18 @@ function renderStats() {
                                     <div class="history-item-actions">
                                         <span class="action-link" onclick="TrackingModal.editLog(${item.id})">Edit</span>
                                         <span class="action-link delete" onclick="TrackingModal.deleteLog(${item.id})">Del</span>
+                                    </div>
+                                </li>
+                            `;
+                        }
+
+                        if (item._kind === "totaltime") {
+                            return `
+                                <li class="list-group-item">
+                                    <div><strong>${ICON_CLOCK} ${TOTAL_TIME_EXERCISE_NAME}</strong><br><span class="text-muted" style="font-size:0.8rem;">${item.minutes}min</span></div>
+                                    <div class="history-item-actions">
+                                        <span class="action-link" onclick="initEditTotalTimeLog(${item.id})">Edit</span>
+                                        <span class="action-link delete" onclick="deleteTotalTimeLog(${item.id})">Del</span>
                                     </div>
                                 </li>
                             `;
@@ -2076,14 +2214,12 @@ const TimerModal = {
         const minutes = Math.round((elapsedMs / 60000) * 100) / 100; // 2 decimal places
         haptic('success');
 
-        state.history.unshift({
+        state.totalTimeLogs.unshift({
             id: Date.now(),
             date: getLocalDateString(new Date()),
-            exerciseName: TOTAL_TIME_EXERCISE_NAME,
-            intensity: null,
-            data: { timeMinutes: minutes }
+            minutes: minutes
         });
-        state.history.sort((a, b) => new Date(b.date) - new Date(a.date));
+        state.totalTimeLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
         saveState();
 
         const hint = document.getElementById("timer-log-hint");
@@ -2381,7 +2517,7 @@ const LogModal = {
     // manually with a date/minutes form instead of read off a running clock.
     openTotalTimeForm(existingEntry = null) {
         document.getElementById("log2-tt-edit-id").value = existingEntry ? existingEntry.id : "";
-        document.getElementById("log2-tt-minutes").value = existingEntry ? (existingEntry.data.timeMinutes || "") : "";
+        document.getElementById("log2-tt-minutes").value = existingEntry ? (existingEntry.minutes ?? "") : "";
         document.getElementById("log2-tt-date").value = existingEntry ? existingEntry.date : getLocalDateString(new Date());
         document.getElementById("log2-tt-submit-btn").innerText = existingEntry ? "Update Entry" : "Save Entry";
         this._setStep("totaltime-form", existingEntry ? "Edit Total Time" : "Log Total Time", true);
@@ -2396,22 +2532,20 @@ const LogModal = {
         if (!date || !Number.isFinite(minutes)) return;
 
         if (editingId) {
-            let index = state.history.findIndex(h => h.id === parseInt(editingId));
+            let index = state.totalTimeLogs.findIndex(t => t.id === parseInt(editingId));
             if (index !== -1) {
-                state.history[index].date = date;
-                state.history[index].data = { timeMinutes: minutes };
+                state.totalTimeLogs[index].date = date;
+                state.totalTimeLogs[index].minutes = minutes;
             }
         } else {
-            state.history.unshift({
+            state.totalTimeLogs.unshift({
                 id: Date.now(),
                 date: date,
-                exerciseName: TOTAL_TIME_EXERCISE_NAME,
-                intensity: null,
-                data: { timeMinutes: minutes }
+                minutes: minutes
             });
         }
 
-        state.history.sort((a, b) => new Date(b.date) - new Date(a.date));
+        state.totalTimeLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
         saveState();
         haptic('success');
         this.close();
@@ -2700,6 +2834,10 @@ function importData(event) {
             const importedState = JSON.parse(e.target.result);
             if (importedState.history && importedState.exercises) {
                 state = importedState;
+                // Older backups won't have this category yet — initApp()'s
+                // migrateTotalTimeEntries() will also pull out any Total
+                // Time rows still embedded in history, if present.
+                if (!Array.isArray(state.totalTimeLogs)) state.totalTimeLogs = [];
                 saveState();
                 initApp();
                 alert("Data configuration imported successfully!");
@@ -2712,7 +2850,9 @@ function importData(event) {
 }
 
 function exportCSV() {
-    if (state.history.length === 0) {
+    const hasHistory = state.history.length > 0;
+    const hasTotalTime = state.totalTimeLogs && state.totalTimeLogs.length > 0;
+    if (!hasHistory && !hasTotalTime) {
         alert("No historical workout log entries found to export.");
         return;
     }
@@ -2723,6 +2863,7 @@ function exportCSV() {
             Object.keys(entry.data).forEach(key => allMetricKeys.add(key));
         }
     });
+    if (hasTotalTime) allMetricKeys.add("timeMinutes");
     const metricKeysArray = Array.from(allMetricKeys).sort();
 
     const baseHeaders = ["ID", "Date", "Exercise Name", "Intensity"];
@@ -2744,6 +2885,21 @@ function exportCSV() {
             rowData.push(value);
         });
 
+        const processedRow = rowData.map(val => {
+            const strVal = String(val).replace(/"/g, '""');
+            return `"${strVal}"`;
+        });
+        csvRows.push(processedRow.join(","));
+    });
+
+    // Total Time is its own record category (state.totalTimeLogs), but the
+    // CSV export stays a single flat timeline — appended here as rows under
+    // the same "Total Exercise Time" label it always had.
+    (state.totalTimeLogs || []).forEach(entry => {
+        const rowData = [entry.id, entry.date, TOTAL_TIME_EXERCISE_NAME, ""];
+        metricKeysArray.forEach(key => {
+            rowData.push(key === "timeMinutes" ? entry.minutes : "");
+        });
         const processedRow = rowData.map(val => {
             const strVal = String(val).replace(/"/g, '""');
             return `"${strVal}"`;

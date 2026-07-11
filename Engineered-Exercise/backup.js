@@ -120,7 +120,8 @@ const BackupSync = (() => {
             history: JSON.parse(localStorage.getItem("ee_history")) || [],
             plans: JSON.parse(localStorage.getItem("ee_plans")) || [],
             measurements: JSON.parse(localStorage.getItem("ee_measurements")) || [],
-            measurementLogs: JSON.parse(localStorage.getItem("ee_measurement_logs")) || []
+            measurementLogs: JSON.parse(localStorage.getItem("ee_measurement_logs")) || [],
+            totalTimeLogs: JSON.parse(localStorage.getItem("ee_total_time_logs")) || []
         };
     }
 
@@ -131,6 +132,7 @@ const BackupSync = (() => {
         localStorage.setItem("ee_plans", JSON.stringify(snapshot.plans || []));
         localStorage.setItem("ee_measurements", JSON.stringify(snapshot.measurements || []));
         localStorage.setItem("ee_measurement_logs", JSON.stringify(snapshot.measurementLogs || []));
+        localStorage.setItem("ee_total_time_logs", JSON.stringify(snapshot.totalTimeLogs || []));
         // Reload in-memory state + re-render everything, if app.js's globals exist.
         if (typeof state !== "undefined") {
             state.exercises = snapshot.exercises;
@@ -138,6 +140,7 @@ const BackupSync = (() => {
             state.plans = snapshot.plans || [];
             state.measurements = snapshot.measurements || [];
             state.measurementLogs = snapshot.measurementLogs || [];
+            state.totalTimeLogs = snapshot.totalTimeLogs || [];
         }
         if (typeof initApp === "function") initApp();
         return true;
@@ -201,12 +204,24 @@ const BackupSync = (() => {
             return (a.id || 0) - (b.id || 0);
         });
 
+        // Total time logs: union by id, same approach as history/measurement logs.
+        const totalTimeById = new Map();
+        const olderTotalTime = remoteIsNewer ? local.totalTimeLogs : remote.totalTimeLogs;
+        const newerTotalTime = remoteIsNewer ? remote.totalTimeLogs : local.totalTimeLogs;
+        (olderTotalTime || []).forEach(t => totalTimeById.set(t.id, t));
+        (newerTotalTime || []).forEach(t => totalTimeById.set(t.id, t));
+        const mergedTotalTimeLogs = Array.from(totalTimeById.values()).sort((a, b) => {
+            if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+            return (a.id || 0) - (b.id || 0);
+        });
+
         return {
             exercises: mergedExercises,
             history: mergedHistory,
             plans: mergedPlans,
             measurements: mergedMeasurements,
-            measurementLogs: mergedMeasurementLogs
+            measurementLogs: mergedMeasurementLogs,
+            totalTimeLogs: mergedTotalTimeLogs
         };
     }
 
