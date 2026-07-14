@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reading Progress Tracker</title>
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-main: #2d3748;
+            --text-muted: #718096;
+            --primary: #4f46e5;
+            --primary-light: #e0e7ff;
+            --border: #e2e8f0;
+            --reader-1: #3b82f6;
+            --reader-2: #10b981;
+            --reader-3: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 16px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .book-meta {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .chart-container {
+            margin-bottom: 32px;
+            background: #fafafa;
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .chart-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .comparison-bar-stack {
+            display: flex;
+            height: 24px;
+            background-color: var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .stack-segment {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .stack-segment.r1 { background-color: var(--reader-1); }
+        .stack-segment.r2 { background-color: var(--reader-2); }
+        .stack-segment.r3 { background-color: var(--reader-3); }
+
+        .readers-list {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .reader-card {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            position: relative;
+        }
+
+        .reader-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .reader-name-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .color-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .reader-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .reader-stats {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .progress-bg {
+            width: 100%;
+            height: 8px;
+            background-color: var(--primary-light);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 8px;
+        }
+
+        input[type="number"] {
+            width: 90px;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        button {
+            padding: 8px 12px;
+            border: none;
+            background-color: var(--primary);
+            color: white;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #4338ca;
+        }
+
+        .quick-btn {
+            background-color: #edf2f7;
+            color: var(--text-main);
+        }
+        .quick-btn:hover {
+            background-color: #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>📖 Book Club Tracker</h1>
+        <div class="book-meta">Goal: <span id="total-pages">531</span> Pages</div>
+    </header>
+
+    <div class="chart-container">
+        <div class="chart-title">Total Combined Progress Contribution</div>
+        <div class="comparison-bar-stack" id="comparison-stack">
+            <div class="stack-segment r1" id="stack-r1" style="width: 0%"></div>
+            <div class="stack-segment r2" id="stack-r2" style="width: 0%"></div>
+            <div class="stack-segment r3" id="stack-r3" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <div class="readers-list">
+        <div class="reader-card" id="card-1">
+            <div class="reader-header">
+                <div class="reader-name-group">
+                    <div class="color-dot" style="background-color: var(--reader-1);"></div>
+                    <div class="reader-name" contenteditable="true" onblur="saveNames()">Reader 1</div>
+                </div>
+                <div class="reader-stats"><span id="pages-1">0</span> / 531 pgs</div>
+            </div>
+            <div class="progress-bg">
+                <div class="progress-fill" id="fill-1" style="background-color: var(--reader-1);"></div>
+            </div>
+            <div class="controls">
+                <input type="number" id="input-1" min="0" max="531" placeholder="Page #">
+                <button onclick="updateProgress(1)">Update</button>
+                <div style="margin-left: auto; font-size: 0.85rem; color: var(--text-muted);">
+                    <span id="rem-1">531</span> left
+                </div>
+            </div>
+        </div>
+
+        <div class="reader-card" id="card-2">
+            <div class="reader-header">
+                <div class="reader-name-group">
+                    <div class="color-dot" style="background-color: var(--reader-2);"></div>
+                    <div class="reader-name" contenteditable="true" onblur="saveNames()">Reader 2</div>
+                </div>
+                <div class="reader-stats"><span id="pages-2">0</span> / 531 pgs</div>
+            </div>
+            <div class="progress-bg">
+                <div class="progress-fill" id="fill-2" style="background-color: var(--reader-2);"></div>
+            </div>
+            <div class="controls">
+                <input type="number" id="input-2" min="0" max="531" placeholder="Page #">
+                <button onclick="updateProgress(2)">Update</button>
+                <div style="margin-left: auto; font-size: 0.85rem; color: var(--text-muted);">
+                    <span id="rem-2">531</span> left
+                </div>
+            </div>
+        </div>
+
+        <div class="reader-card" id="card-3">
+            <div class="reader-header">
+                <div class="reader-name-group">
+                    <div class="color-dot" style="background-color: var(--reader-3);"></div>
+                    <div class="reader-name" contenteditable="true" onblur="saveNames()">Reader 3</div>
+                </div>
+                <div class="reader-stats"><span id="pages-3">0</span> / 531 pgs</div>
+            </div>
+            <div class="progress-bg">
+                <div class="progress-fill" id="fill-3" style="background-color: var(--reader-3);"></div>
+            </div>
+            <div class="controls">
+                <input type="number" id="input-3" min="0" max="531" placeholder="Page #">
+                <button onclick="updateProgress(3)">Update</button>
+                <div style="margin-left: auto; font-size: 0.85rem; color: var(--text-muted);">
+                    <span id="rem-3">531</span> left
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const TOTAL_PAGES = 531;
+    
+    // Initialize tracking data state from LocalStorage or default
+    let appState = JSON.parse(localStorage.getItem('readingTrackerState')) || {
+        readers: {
+            1: { current: 0, name: "Reader 1" },
+            2: { current: 0, name: "Reader 2" },
+            3: { current: 0, name: "Reader 3" }
+        }
+    };
+
+    function init() {
+        // Load stored names to DOM
+        document.querySelectorAll('.reader-name').forEach((el, index) => {
+            el.innerText = appState.readers[index + 1].name;
+        });
+        render();
+    }
+
+    function saveNames() {
+        document.querySelectorAll('.reader-name').forEach((el, index) => {
+            appState.readers[index + 1].name = el.innerText.trim() || `Reader ${index + 1}`;
+        });
+        saveState();
+    }
+
+    function updateProgress(id) {
+        const inputEl = document.getElementById(`input-${id}`);
+        let val = parseInt(inputEl.value, 10);
+
+        if (isNaN(val)) return;
+        if (val < 0) val = 0;
+        if (val > TOTAL_PAGES) val = TOTAL_PAGES;
+
+        appState.readers[id].current = val;
+        inputEl.value = ''; // clear input
+        saveState();
+        render();
+    }
+
+    function saveState() {
+        localStorage.setItem('readingTrackerState', JSON.stringify(appState));
+    }
+
+    function render() {
+        let totalProgressCombined = 0;
+
+        for (let id in appState.readers) {
+            const current = appState.readers[id].current;
+            totalProgressCombined += current;
+
+            // Compute metrics
+            const pct = ((current / TOTAL_PAGES) * 100).toFixed(1);
+            const remaining = TOTAL_PAGES - current;
+
+            // Render individual elements
+            document.getElementById(`pages-${id}`).innerText = current;
+            document.getElementById(`rem-${id}`).innerText = remaining;
+            document.getElementById(`fill-${id}`).style.width = `${pct}%`;
+        }
+
+        // Render cumulative visualization bar breakdown
+        const maxPossiblePool = TOTAL_PAGES * 3;
+        for (let id in appState.readers) {
+            const current = appState.readers[id].current;
+            const segmentPct = maxPossiblePool > 0 ? ((current / maxPossiblePool) * 100) : 0;
+            document.getElementById(`stack-r1`).style.width = `${((appState.readers[1].current / maxPossiblePool) * 100)}%`;
+            document.getElementById(`stack-r2`).style.width = `${((appState.readers[2].current / maxPossiblePool) * 100)}%`;
+            document.getElementById(`stack-r3`).style.width = `${((appState.readers[3].current / maxPossiblePool) * 100)}%`;
+        }
+    }
+
+    // Run setup on initialization
+    init();
+</script>
+</body>
+</html>
