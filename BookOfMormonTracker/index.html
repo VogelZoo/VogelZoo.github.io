@@ -13,9 +13,8 @@
             --primary: #4f46e5;
             --primary-light: #e0e7ff;
             --border: #e2e8f0;
-            --reader-1: #3b82f6;
-            --reader-2: #10b981;
-            --reader-3: #f59e0b;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
         }
 
         * {
@@ -61,6 +60,34 @@
             font-weight: 500;
         }
 
+        .action-bar {
+            background: #fafafa;
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .action-bar input {
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .action-bar input[type="text"] {
+            flex: 1;
+            min-width: 130px;
+        }
+
+        .action-bar input[type="number"] {
+            width: 90px;
+        }
+
         .chart-container {
             margin-bottom: 32px;
             background: #fafafa;
@@ -91,10 +118,6 @@
             height: 100%;
             transition: width 0.4s ease;
         }
-
-        .stack-segment.r1 { background-color: var(--reader-1); }
-        .stack-segment.r2 { background-color: var(--reader-2); }
-        .stack-segment.r3 { background-color: var(--reader-3); }
 
         .readers-list {
             display: flex;
@@ -133,6 +156,12 @@
         .reader-name {
             font-weight: 600;
             font-size: 1.1rem;
+            border-bottom: 1px dashed transparent;
+        }
+
+        .reader-name:hover {
+            border-bottom-color: var(--text-muted);
+            cursor: pointer;
         }
 
         .rank-badge {
@@ -191,7 +220,7 @@
             font-weight: 600;
         }
 
-        input[type="number"] {
+        .controls input[type="number"] {
             width: 75px;
             padding: 6px;
             border: 1px solid var(--border);
@@ -201,7 +230,7 @@
         }
 
         button {
-            padding: 6px 12px;
+            padding: 7px 12px;
             border: none;
             background-color: var(--primary);
             color: white;
@@ -215,6 +244,21 @@
         button:hover {
             background-color: #4338ca;
         }
+
+        .btn-danger {
+            background-color: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background-color: var(--danger-hover);
+        }
+
+        .empty-state {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 20px;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -225,217 +269,183 @@
         <div class="book-meta">Tracking Custom Reader Goals</div>
     </header>
 
+    <!-- Controls for Dynamic Member Management -->
+    <div class="action-bar">
+        <input type="text" id="new-name" placeholder="New Person's Name">
+        <input type="number" id="new-total" min="1" placeholder="Book Pages" value="500">
+        <button onclick="addPerson()">Add Person</button>
+    </div>
+
     <div class="chart-container">
         <div class="chart-title">Relative Progress Contribution (Based on %)</div>
         <div class="comparison-bar-stack" id="comparison-stack">
-            <div class="stack-segment r1" id="stack-r1" style="width: 0%"></div>
-            <div class="stack-segment r2" id="stack-r2" style="width: 0%"></div>
-            <div class="stack-segment r3" id="stack-r3" style="width: 0%"></div>
+            <!-- Dynamically populated stacks -->
         </div>
     </div>
 
     <div class="readers-list" id="readers-container">
-        <!-- Reader Card 1 -->
-        <div class="reader-card" id="card-1" data-id="1">
-            <div class="reader-header">
-                <div class="reader-name-group">
-                    <div class="color-dot" style="background-color: var(--reader-1);"></div>
-                    <div class="reader-name" contenteditable="true" onblur="saveNames(1)">Reader 1</div>
-                    <span class="rank-badge" id="rank-1">1st</span>
-                </div>
-                <div class="reader-stats">
-                    <div class="pct-display" id="pct-1">0%</div>
-                    <div><span id="pages-1">0</span> / <span id="total-display-1">500</span> pgs</div>
-                </div>
-            </div>
-            <div class="progress-bg">
-                <div class="progress-fill" id="fill-1" style="background-color: var(--reader-1);"></div>
-            </div>
-            <div class="controls">
-                <div class="input-group">
-                    <label for="input-1">Page:</label>
-                    <input type="number" id="input-1" min="0" placeholder="Current">
-                </div>
-                <div class="input-group">
-                    <label for="total-1">Total:</label>
-                    <input type="number" id="total-1" min="1" placeholder="Max">
-                </div>
-                <button onclick="updateProgress(1)">Update</button>
-                <div style="margin-left: auto; font-size: 0.85rem; color: var(--text-muted);">
-                    <span id="rem-1">500</span> left
-                </div>
-            </div>
-        </div>
-
-        <!-- Reader Card 2 -->
-        <div class="reader-card" id="card-2" data-id="2">
-            <div class="reader-header">
-                <div class="reader-name-group">
-                    <div class="color-dot" style="background-color: var(--reader-2);"></div>
-                    <div class="reader-name" contenteditable="true" onblur="saveNames(2)">Reader 2</div>
-                    <span class="rank-badge" id="rank-2">2nd</span>
-                </div>
-                <div class="reader-stats">
-                    <div class="pct-display" id="pct-2">0%</div>
-                    <div><span id="pages-2">0</span> / <span id="total-display-2">500</span> pgs</div>
-                </div>
-            </div>
-            <div class="progress-bg">
-                <div class="progress-fill" id="fill-2" style="background-color: var(--reader-2);"></div>
-            </div>
-            <div class="controls">
-                <div class="input-group">
-                    <label for="input-2">Page:</label>
-                    <input type="number" id="input-2" min="0" placeholder="Current">
-                </div>
-                <div class="input-group">
-                    <label for="total-2">Total:</label>
-                    <input type="number" id="total-2" min="1" placeholder="Max">
-                </div>
-                <button onclick="updateProgress(2)">Update</button>
-                <div style="margin-left: auto; font-size: 0.85rem; color: var(--text-muted);">
-                    <span id="rem-2">500</span> left
-                </div>
-            </div>
-        </div>
-
-        <!-- Reader Card 3 -->
-        <div class="reader-card" id="card-3" data-id="3">
-            <div class="reader-header">
-                <div class="reader-name-group">
-                    <div class="color-dot" style="background-color: var(--reader-3);"></div>
-                    <div class="reader-name" contenteditable="true" onblur="saveNames(3)">Reader 3</div>
-                    <span class="rank-badge" id="rank-3">3rd</span>
-                </div>
-                <div class="reader-stats">
-                    <div class="pct-display" id="pct-3">0%</div>
-                    <div><span id="pages-3">0</span> / <span id="total-display-3">500</span> pgs</div>
-                </div>
-            </div>
-            <div class="progress-bg">
-                <div class="progress-fill" id="fill-3" style="background-color: var(--reader-3);"></div>
-            </div>
-            <div class="controls">
-                <div class="input-group">
-                    <label for="input-3">Page:</label>
-                    <input type="number" id="input-3" min="0" placeholder="Current">
-                </div>
-                <div class="input-group">
-                    <label for="total-3">Total:</label>
-                    <input type="number" id="total-3" min="1" placeholder="Max">
-                </div>
-                <button onclick="updateProgress(3)">Update</button>
-                <div style="margin-left: auto; font-size: 0.85rem; color: var(--text-muted);">
-                    <span id="rem-3">500</span> left
-                </div>
-            </div>
-        </div>
+        <!-- Dynamically generated reader cards will be injected here -->
     </div>
 </div>
 
 <script>
-    // Initialize tracking data state from LocalStorage or default setup
-    let appState = JSON.parse(localStorage.getItem('readingTrackerState')) || {
-        readers: {
-            1: { current: 0, total: 500, name: "Reader 1" },
-            2: { current: 0, total: 500, name: "Reader 2" },
-            3: { current: 0, total: 500, name: "Reader 3" }
-        }
+    // Pallet loop to handle multiple colors gracefully
+    const PALETTE = ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4'];
+
+    // Initialize state from LocalStorage or seed defaults
+    let appState = JSON.parse(localStorage.getItem('dynamicTrackerState')) || {
+        readers: [
+            { id: Date.now() + 1, current: 0, total: 531, name: "Reader 1" },
+            { id: Date.now() + 2, current: 0, total: 420, name: "Reader 2" },
+            { id: Date.now() + 3, current: 0, total: 600, name: "Reader 3" }
+        ]
     };
 
-    function init() {
-        // Hydrate DOM inputs and text with existing state data
-        for (let id in appState.readers) {
-            const reader = appState.readers[id];
-            const card = document.getElementById(`card-${id}`);
-            if (card) {
-                card.querySelector('.reader-name').innerText = reader.name;
-                document.getElementById(`total-${id}`).value = reader.total;
-                document.getElementById(`input-${id}`).value = reader.current || '';
-            }
-        }
+    function addPerson() {
+        const nameInput = document.getElementById('new-name');
+        const totalInput = document.getElementById('new-total');
+        
+        const name = nameInput.value.trim() || `Reader ${appState.readers.length + 1}`;
+        let total = parseInt(totalInput.value, 10);
+
+        if (isNaN(total) || total <= 0) total = 100;
+
+        appState.readers.push({
+            id: Date.now(),
+            name: name,
+            current: 0,
+            total: total
+        });
+
+        nameInput.value = '';
+        saveState();
         render();
     }
 
-    function saveNames(id) {
-        const card = document.getElementById(`card-${id}`);
-        if (card) {
-            appState.readers[id].name = card.querySelector('.reader-name').innerText.trim() || `Reader ${id}`;
-            saveState();
-        }
+    function removePerson(id) {
+        appState.readers = appState.readers.filter(r => r.id !== id);
+        saveState();
+        render();
     }
 
     function updateProgress(id) {
-        const inputEl = document.getElementById(`input-${id}`);
-        const totalEl = document.getElementById(`total-${id}`);
+        const currentInput = document.getElementById(`input-${id}`);
+        const totalInput = document.getElementById(`total-${id}`);
         
-        let currentVal = parseInt(inputEl.value, 10);
-        let totalVal = parseInt(totalEl.value, 10);
+        let currentVal = parseInt(currentInput.value, 10);
+        let totalVal = parseInt(totalInput.value, 10);
 
-        // Validation safeguards
-        if (isNaN(totalVal) || totalVal <= 0) totalVal = 100; // Default fallback if broken
+        const reader = appState.readers.find(r => r.id === id);
+        if (!reader) return;
+
+        if (isNaN(totalVal) || totalVal <= 0) totalVal = 100;
         if (isNaN(currentVal) || currentVal < 0) currentVal = 0;
         if (currentVal > totalVal) currentVal = totalVal;
 
-        appState.readers[id].current = currentVal;
-        appState.readers[id].total = totalVal;
-        
-        inputEl.value = currentVal;
-        totalEl.value = totalVal;
+        reader.current = currentVal;
+        reader.total = totalVal;
 
         saveState();
         render();
     }
 
+    function updateInlineName(el, id) {
+        const reader = appState.readers.find(r => r.id === id);
+        if (reader) {
+            reader.name = el.innerText.trim() || `Reader`;
+            saveState();
+        }
+    }
+
     function saveState() {
-        localStorage.setItem('readingTrackerState', JSON.stringify(appState));
+        localStorage.setItem('dynamicTrackerState', JSON.stringify(appState));
     }
 
     function render() {
         const container = document.getElementById('readers-container');
-        const readerDataArr = [];
+        const stackContainer = document.getElementById('comparison-stack');
+        
+        container.innerHTML = '';
+        stackContainer.innerHTML = '';
 
-        // 1. Calculate and update individual reader elements
-        for (let id in appState.readers) {
-            const reader = appState.readers[id];
+        if (appState.readers.length === 0) {
+            container.innerHTML = '<div class="empty-state">No participants added yet. Add someone above!</div>';
+            return;
+        }
+
+        // Calculate metadata, percentages, and retain dynamic sorting orders
+        const calculatedArr = appState.readers.map((reader, index) => {
             const pct = reader.total > 0 ? (reader.current / reader.total) * 100 : 0;
             const remaining = Math.max(0, reader.total - reader.current);
-
-            document.getElementById(`pages-${id}`).innerText = reader.current;
-            document.getElementById(`total-display-${id}`).innerText = reader.total;
-            document.getElementById(`rem-${id}`).innerText = remaining;
-            document.getElementById(`pct-${id}`).innerText = `${pct.toFixed(1)}%`;
-            document.getElementById(`fill-${id}`).style.width = `${pct}%`;
-
-            readerDataArr.push({ id: id, pct: pct });
-        }
-
-        // 2. Sort metrics hierarchy (Highest percentage first)
-        readerDataArr.sort((a, b) => b.pct - a.pct);
-
-        // 3. Re-order elements inside the container DOM according to sorting hierarchy
-        readerDataArr.forEach((item, index) => {
-            const card = document.getElementById(`card-${item.id}`);
-            container.appendChild(card); // Re-appending moves it to the bottom of the stack seamlessly
-
-            // Update visible leaderboard position badges
-            const rankSuffixes = ["1st", "2nd", "3rd"];
-            document.getElementById(`rank-${item.id}`).innerText = rankSuffixes[index] || `${index + 1}th`;
+            const color = PALETTE[index % PALETTE.length];
+            return { ...reader, pct, remaining, color };
         });
 
-        // 4. Update upper cumulative graphical bar metrics out of maximum 300% (100% max per person)
-        const combinedPctTotal = readerDataArr.reduce((sum, item) => sum + item.pct, 0);
+        // Sort Highest Percentage First
+        calculatedArr.sort((a, b) => b.pct - a.pct);
+
+        const rankSuffixes = ["1st", "2nd", "3rd"];
         
-        for (let id in appState.readers) {
-            const currentPct = readerDataArr.find(item => item.id == id).pct;
-            // Scale segments relative to the entire combined progress container pool
-            const segmentWidth = combinedPctTotal > 0 ? (currentPct / 300) * 100 : 0;
-            document.getElementById(`stack-r${id}`).style.width = `${segmentWidth}%`;
-        }
+        // 1. Build & Append UI Cards
+        calculatedArr.forEach((reader, index) => {
+            const rankLabel = rankSuffixes[index] || `${index + 1}th`;
+            
+            const card = document.createElement('div');
+            card.className = 'reader-card';
+            card.id = `card-${reader.id}`;
+            card.innerHTML = `
+                <div class="reader-header">
+                    <div class="reader-name-group">
+                        <div class="color-dot" style="background-color: ${reader.color};"></div>
+                        <div class="reader-name" contenteditable="true" onblur="updateInlineName(this, ${reader.id})">${reader.name}</div>
+                        <span class="rank-badge">${rankLabel}</span>
+                    </div>
+                    <div class="reader-stats">
+                        <div class="pct-display">${reader.pct.toFixed(1)}%</div>
+                        <div><span>${reader.current}</span> / <span>${reader.total}</span> pgs</div>
+                    </div>
+                </div>
+                <div class="progress-bg">
+                    <div class="progress-fill" style="width: ${reader.pct}%; background-color: ${reader.color};"></div>
+                </div>
+                <div class="controls">
+                    <div class="input-group">
+                        <label>Page:</label>
+                        <input type="number" id="input-${reader.id}" min="0" value="${reader.current}">
+                    </div>
+                    <div class="input-group">
+                        <label>Total:</label>
+                        <input type="number" id="total-${reader.id}" min="1" value="${reader.total}">
+                    </div>
+                    <button onclick="updateProgress(${reader.id})">Update</button>
+                    <button class="btn-danger" onclick="removePerson(${reader.id})">Remove</button>
+                    <div style="margin-left: auto; font-size: 0.85rem; color: var(--text-muted);">
+                        <span>${reader.remaining}</span> left
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+
+        // 2. Build Top Global Comparison Stack Graphics
+        const totalProgressPool = calculatedArr.reduce((sum, r) => sum + r.pct, 0);
+        const maxPoolScale = calculatedArr.length * 100; // 100% capacity pool per user
+
+        calculatedArr.forEach(reader => {
+            const segmentWidth = maxPoolScale > 0 ? (reader.pct / maxPoolScale) * 100 : 0;
+            if (segmentWidth > 0) {
+                const segment = document.createElement('div');
+                segment.className = 'stack-segment';
+                segment.style.width = `${segmentWidth}%`;
+                segment.style.backgroundColor = reader.color;
+                segment.title = `${reader.name}: ${reader.pct.toFixed(1)}%`;
+                stackContainer.appendChild(segment);
+            }
+        });
     }
 
-    // Fire application engine initialization
-    init();
+    // Run DOM generation
+    render();
 </script>
 </body>
 </html>
