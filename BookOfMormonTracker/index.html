@@ -89,7 +89,7 @@
 
         .stack-segment {
             height: 100%;
-            transition: width 0.3s ease;
+            transition: width 0.4s ease;
         }
 
         .stack-segment.r1 { background-color: var(--reader-1); }
@@ -107,6 +107,8 @@
             border-radius: 12px;
             padding: 16px;
             position: relative;
+            background: var(--card-bg);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
         .reader-header {
@@ -133,9 +135,25 @@
             font-size: 1.1rem;
         }
 
+        .rank-badge {
+            font-size: 0.8rem;
+            font-weight: 700;
+            background: #edf2f7;
+            padding: 2px 8px;
+            border-radius: 20px;
+            color: var(--text-main);
+        }
+
         .reader-stats {
             font-size: 0.9rem;
             color: var(--text-muted);
+            text-align: right;
+        }
+
+        .pct-display {
+            font-weight: 700;
+            color: var(--text-main);
+            font-size: 1rem;
         }
 
         .progress-bg {
@@ -150,7 +168,7 @@
         .progress-fill {
             height: 100%;
             width: 0%;
-            transition: width 0.3s ease;
+            transition: width 0.4s ease;
         }
 
         .controls {
@@ -158,11 +176,24 @@
             gap: 8px;
             align-items: center;
             margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .input-group label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 600;
         }
 
         input[type="number"] {
-            width: 90px;
-            padding: 8px;
+            width: 75px;
+            padding: 6px;
             border: 1px solid var(--border);
             border-radius: 6px;
             font-size: 0.9rem;
@@ -170,7 +201,7 @@
         }
 
         button {
-            padding: 8px 12px;
+            padding: 6px 12px;
             border: none;
             background-color: var(--primary);
             color: white;
@@ -184,14 +215,6 @@
         button:hover {
             background-color: #4338ca;
         }
-
-        .quick-btn {
-            background-color: #edf2f7;
-            color: var(--text-main);
-        }
-        .quick-btn:hover {
-            background-color: #e2e8f0;
-        }
     </style>
 </head>
 <body>
@@ -199,11 +222,11 @@
 <div class="container">
     <header>
         <h1>📖 Book Club Tracker</h1>
-        <div class="book-meta">Goal: <span id="total-pages">531</span> Pages</div>
+        <div class="book-meta">Tracking Custom Reader Goals</div>
     </header>
 
     <div class="chart-container">
-        <div class="chart-title">Total Combined Progress Contribution</div>
+        <div class="chart-title">Relative Progress Contribution (Based on %)</div>
         <div class="comparison-bar-stack" id="comparison-stack">
             <div class="stack-segment r1" id="stack-r1" style="width: 0%"></div>
             <div class="stack-segment r2" id="stack-r2" style="width: 0%"></div>
@@ -211,63 +234,99 @@
         </div>
     </div>
 
-    <div class="readers-list">
-        <div class="reader-card" id="card-1">
+    <div class="readers-list" id="readers-container">
+        <!-- Reader Card 1 -->
+        <div class="reader-card" id="card-1" data-id="1">
             <div class="reader-header">
                 <div class="reader-name-group">
                     <div class="color-dot" style="background-color: var(--reader-1);"></div>
-                    <div class="reader-name" contenteditable="true" onblur="saveNames()">Reader 1</div>
+                    <div class="reader-name" contenteditable="true" onblur="saveNames(1)">Reader 1</div>
+                    <span class="rank-badge" id="rank-1">1st</span>
                 </div>
-                <div class="reader-stats"><span id="pages-1">0</span> / 531 pgs</div>
+                <div class="reader-stats">
+                    <div class="pct-display" id="pct-1">0%</div>
+                    <div><span id="pages-1">0</span> / <span id="total-display-1">500</span> pgs</div>
+                </div>
             </div>
             <div class="progress-bg">
                 <div class="progress-fill" id="fill-1" style="background-color: var(--reader-1);"></div>
             </div>
             <div class="controls">
-                <input type="number" id="input-1" min="0" max="531" placeholder="Page #">
+                <div class="input-group">
+                    <label for="input-1">Page:</label>
+                    <input type="number" id="input-1" min="0" placeholder="Current">
+                </div>
+                <div class="input-group">
+                    <label for="total-1">Total:</label>
+                    <input type="number" id="total-1" min="1" placeholder="Max">
+                </div>
                 <button onclick="updateProgress(1)">Update</button>
                 <div style="margin-left: auto; font-size: 0.85rem; color: var(--text-muted);">
-                    <span id="rem-1">531</span> left
+                    <span id="rem-1">500</span> left
                 </div>
             </div>
         </div>
 
-        <div class="reader-card" id="card-2">
+        <!-- Reader Card 2 -->
+        <div class="reader-card" id="card-2" data-id="2">
             <div class="reader-header">
                 <div class="reader-name-group">
                     <div class="color-dot" style="background-color: var(--reader-2);"></div>
-                    <div class="reader-name" contenteditable="true" onblur="saveNames()">Reader 2</div>
+                    <div class="reader-name" contenteditable="true" onblur="saveNames(2)">Reader 2</div>
+                    <span class="rank-badge" id="rank-2">2nd</span>
                 </div>
-                <div class="reader-stats"><span id="pages-2">0</span> / 531 pgs</div>
+                <div class="reader-stats">
+                    <div class="pct-display" id="pct-2">0%</div>
+                    <div><span id="pages-2">0</span> / <span id="total-display-2">500</span> pgs</div>
+                </div>
             </div>
             <div class="progress-bg">
                 <div class="progress-fill" id="fill-2" style="background-color: var(--reader-2);"></div>
             </div>
             <div class="controls">
-                <input type="number" id="input-2" min="0" max="531" placeholder="Page #">
+                <div class="input-group">
+                    <label for="input-2">Page:</label>
+                    <input type="number" id="input-2" min="0" placeholder="Current">
+                </div>
+                <div class="input-group">
+                    <label for="total-2">Total:</label>
+                    <input type="number" id="total-2" min="1" placeholder="Max">
+                </div>
                 <button onclick="updateProgress(2)">Update</button>
                 <div style="margin-left: auto; font-size: 0.85rem; color: var(--text-muted);">
-                    <span id="rem-2">531</span> left
+                    <span id="rem-2">500</span> left
                 </div>
             </div>
         </div>
 
-        <div class="reader-card" id="card-3">
+        <!-- Reader Card 3 -->
+        <div class="reader-card" id="card-3" data-id="3">
             <div class="reader-header">
                 <div class="reader-name-group">
                     <div class="color-dot" style="background-color: var(--reader-3);"></div>
-                    <div class="reader-name" contenteditable="true" onblur="saveNames()">Reader 3</div>
+                    <div class="reader-name" contenteditable="true" onblur="saveNames(3)">Reader 3</div>
+                    <span class="rank-badge" id="rank-3">3rd</span>
                 </div>
-                <div class="reader-stats"><span id="pages-3">0</span> / 531 pgs</div>
+                <div class="reader-stats">
+                    <div class="pct-display" id="pct-3">0%</div>
+                    <div><span id="pages-3">0</span> / <span id="total-display-3">500</span> pgs</div>
+                </div>
             </div>
             <div class="progress-bg">
                 <div class="progress-fill" id="fill-3" style="background-color: var(--reader-3);"></div>
             </div>
             <div class="controls">
-                <input type="number" id="input-3" min="0" max="531" placeholder="Page #">
+                <div class="input-group">
+                    <label for="input-3">Page:</label>
+                    <input type="number" id="input-3" min="0" placeholder="Current">
+                </div>
+                <div class="input-group">
+                    <label for="total-3">Total:</label>
+                    <input type="number" id="total-3" min="1" placeholder="Max">
+                </div>
                 <button onclick="updateProgress(3)">Update</button>
                 <div style="margin-left: auto; font-size: 0.85rem; color: var(--text-muted);">
-                    <span id="rem-3">531</span> left
+                    <span id="rem-3">500</span> left
                 </div>
             </div>
         </div>
@@ -275,42 +334,55 @@
 </div>
 
 <script>
-    const TOTAL_PAGES = 531;
-    
-    // Initialize tracking data state from LocalStorage or default
+    // Initialize tracking data state from LocalStorage or default setup
     let appState = JSON.parse(localStorage.getItem('readingTrackerState')) || {
         readers: {
-            1: { current: 0, name: "Reader 1" },
-            2: { current: 0, name: "Reader 2" },
-            3: { current: 0, name: "Reader 3" }
+            1: { current: 0, total: 500, name: "Reader 1" },
+            2: { current: 0, total: 500, name: "Reader 2" },
+            3: { current: 0, total: 500, name: "Reader 3" }
         }
     };
 
     function init() {
-        // Load stored names to DOM
-        document.querySelectorAll('.reader-name').forEach((el, index) => {
-            el.innerText = appState.readers[index + 1].name;
-        });
+        // Hydrate DOM inputs and text with existing state data
+        for (let id in appState.readers) {
+            const reader = appState.readers[id];
+            const card = document.getElementById(`card-${id}`);
+            if (card) {
+                card.querySelector('.reader-name').innerText = reader.name;
+                document.getElementById(`total-${id}`).value = reader.total;
+                document.getElementById(`input-${id}`).value = reader.current || '';
+            }
+        }
         render();
     }
 
-    function saveNames() {
-        document.querySelectorAll('.reader-name').forEach((el, index) => {
-            appState.readers[index + 1].name = el.innerText.trim() || `Reader ${index + 1}`;
-        });
-        saveState();
+    function saveNames(id) {
+        const card = document.getElementById(`card-${id}`);
+        if (card) {
+            appState.readers[id].name = card.querySelector('.reader-name').innerText.trim() || `Reader ${id}`;
+            saveState();
+        }
     }
 
     function updateProgress(id) {
         const inputEl = document.getElementById(`input-${id}`);
-        let val = parseInt(inputEl.value, 10);
+        const totalEl = document.getElementById(`total-${id}`);
+        
+        let currentVal = parseInt(inputEl.value, 10);
+        let totalVal = parseInt(totalEl.value, 10);
 
-        if (isNaN(val)) return;
-        if (val < 0) val = 0;
-        if (val > TOTAL_PAGES) val = TOTAL_PAGES;
+        // Validation safeguards
+        if (isNaN(totalVal) || totalVal <= 0) totalVal = 100; // Default fallback if broken
+        if (isNaN(currentVal) || currentVal < 0) currentVal = 0;
+        if (currentVal > totalVal) currentVal = totalVal;
 
-        appState.readers[id].current = val;
-        inputEl.value = ''; // clear input
+        appState.readers[id].current = currentVal;
+        appState.readers[id].total = totalVal;
+        
+        inputEl.value = currentVal;
+        totalEl.value = totalVal;
+
         saveState();
         render();
     }
@@ -320,34 +392,49 @@
     }
 
     function render() {
-        let totalProgressCombined = 0;
+        const container = document.getElementById('readers-container');
+        const readerDataArr = [];
 
+        // 1. Calculate and update individual reader elements
         for (let id in appState.readers) {
-            const current = appState.readers[id].current;
-            totalProgressCombined += current;
+            const reader = appState.readers[id];
+            const pct = reader.total > 0 ? (reader.current / reader.total) * 100 : 0;
+            const remaining = Math.max(0, reader.total - reader.current);
 
-            // Compute metrics
-            const pct = ((current / TOTAL_PAGES) * 100).toFixed(1);
-            const remaining = TOTAL_PAGES - current;
-
-            // Render individual elements
-            document.getElementById(`pages-${id}`).innerText = current;
+            document.getElementById(`pages-${id}`).innerText = reader.current;
+            document.getElementById(`total-display-${id}`).innerText = reader.total;
             document.getElementById(`rem-${id}`).innerText = remaining;
+            document.getElementById(`pct-${id}`).innerText = `${pct.toFixed(1)}%`;
             document.getElementById(`fill-${id}`).style.width = `${pct}%`;
+
+            readerDataArr.push({ id: id, pct: pct });
         }
 
-        // Render cumulative visualization bar breakdown
-        const maxPossiblePool = TOTAL_PAGES * 3;
+        // 2. Sort metrics hierarchy (Highest percentage first)
+        readerDataArr.sort((a, b) => b.pct - a.pct);
+
+        // 3. Re-order elements inside the container DOM according to sorting hierarchy
+        readerDataArr.forEach((item, index) => {
+            const card = document.getElementById(`card-${item.id}`);
+            container.appendChild(card); // Re-appending moves it to the bottom of the stack seamlessly
+
+            // Update visible leaderboard position badges
+            const rankSuffixes = ["1st", "2nd", "3rd"];
+            document.getElementById(`rank-${item.id}`).innerText = rankSuffixes[index] || `${index + 1}th`;
+        });
+
+        // 4. Update upper cumulative graphical bar metrics out of maximum 300% (100% max per person)
+        const combinedPctTotal = readerDataArr.reduce((sum, item) => sum + item.pct, 0);
+        
         for (let id in appState.readers) {
-            const current = appState.readers[id].current;
-            const segmentPct = maxPossiblePool > 0 ? ((current / maxPossiblePool) * 100) : 0;
-            document.getElementById(`stack-r1`).style.width = `${((appState.readers[1].current / maxPossiblePool) * 100)}%`;
-            document.getElementById(`stack-r2`).style.width = `${((appState.readers[2].current / maxPossiblePool) * 100)}%`;
-            document.getElementById(`stack-r3`).style.width = `${((appState.readers[3].current / maxPossiblePool) * 100)}%`;
+            const currentPct = readerDataArr.find(item => item.id == id).pct;
+            // Scale segments relative to the entire combined progress container pool
+            const segmentWidth = combinedPctTotal > 0 ? (currentPct / 300) * 100 : 0;
+            document.getElementById(`stack-r${id}`).style.width = `${segmentWidth}%`;
         }
     }
 
-    // Run setup on initialization
+    // Fire application engine initialization
     init();
 </script>
 </body>
