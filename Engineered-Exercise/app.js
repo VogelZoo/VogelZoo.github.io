@@ -1,83 +1,37 @@
-// --- INITIAL STATE & CATEGORIZED EXERCISES ---
-const DEFAULT_EXERCISES = [
-    { name: "Goblet Squat", category: "Strength", metrics: ["sets", "reps", "weight"] },
-    { name: "Bench Press", category: "Strength", metrics: ["sets", "reps", "weight"] },
-    { name: "One-Arm Row", category: "Strength", metrics: ["sets", "reps", "weight"] },
-    { name: "Romanian Deadlift", category: "Strength", metrics: ["sets", "reps", "weight"] },
-    { name: "Seated Shoulder Press", category: "Strength", metrics: ["sets", "reps", "weight"] },
-    { name: "Reverse Lunge", category: "Strength", metrics: ["sets", "reps", "weight"] },
-    { name: "Incline Dumbell Press", category: "Strength", metrics: ["sets", "reps", "weight"] },
-    { name: "Chest Supported Row", category: "Strength", metrics: ["sets", "reps", "weight"] },
-    { name: "Farmer Carry", category: "Strength", metrics: ["sets", "weight", "timeSeconds"] },
-    { name: "Plank", category: "Core", metrics: ["sets", "timeSeconds"] },
-    { name: "Side Plank", category: "Core", metrics: ["sets", "timeSeconds"] },
-    { name: "Running", category: "Cardio", metrics: ["distance", "timeMinutes"] },
-    { name: "Walking", category: "Cardio", metrics: ["distance", "timeMinutes"] },
-    { name: "Biking", category: "Cardio", metrics: ["distance", "timeMinutes"] },
-    { name: "Yoga", category: "Mobility/Yoga", metrics: ["timeMinutes"] }
-];
+// =============================================================================
+// Engineered Exercise — App (the "frontend")
+// =============================================================================
+// This file is UI only: DOM rendering, event wiring, and the small modal
+// state machines (LogModal/TrackingModal/TimerModal/SettingsDrawer). Every
+// read of app data goes through `state` (a direct reference to Store.state
+// — never reassigned here, only Store mutates its properties) and every
+// write goes through a Store.* method. No localStorage calls live in this
+// file anymore; Store owns persistence entirely.
+//
+// A handful of pure helpers Store exports are aliased locally purely to
+// keep the many call sites below unchanged (`getLocalDateString`,
+// `findExerciseDef`, etc.) — they're still Store's implementations, just
+// under a shorter name.
+// =============================================================================
 
-const DEFAULT_MEASUREMENTS = [
-    { key: "weight", name: "Weight", unit: "lbs" },
-    { key: "waist", name: "Waist Size", unit: "in" },
-    { key: "blood_pressure", name: "Blood Pressure", unit: "mmHg" }
-];
-
-// Blood Pressure is the one built-in measurement that needs two numbers
-// (systolic/diastolic) instead of one. Rather than generalizing the whole
-// measurement schema, it's handled as a special case wherever a measurement
-// value is entered or displayed: `value` holds systolic (so existing
-// charting/back-compat code that reads `.value` still works), and a sibling
-// `diastolic` field rides alongside it on the log entry.
-const BLOOD_PRESSURE_KEY = "blood_pressure";
-function isBloodPressureKey(key) { return key === BLOOD_PRESSURE_KEY; }
-function formatMeasurementValue(log, unit) {
-    if (isBloodPressureKey(log.measurementKey) && log.diastolic !== undefined && log.diastolic !== null) {
-        return `${log.value}/${log.diastolic}${unit ? ' ' + unit : ''}`;
-    }
-    return `${log.value}${unit ? ' ' + unit : ''}`;
-}
-
-// A virtual, non-deletable pseudo-exercise used solely by the Timer's
-// "Log Total Time" action (see TimerModal.logTotalTime). It is deliberately
-// NOT part of DEFAULT_EXERCISES / state.exercises — it never appears in the
-// exercise picker, Manage Exercises, or the Plan dropdown — but its history
-// entries flow through the exact same edit/save/History pipeline as any
-// other exercise by name-matching against this constant wherever
-// state.exercises.find(...) is used for log-entry rendering.
-const TOTAL_TIME_EXERCISE_NAME = "Total Exercise Time";
-const TOTAL_TIME_EXERCISE_DEF = { name: TOTAL_TIME_EXERCISE_NAME, category: null, emoji: "⏱️", metrics: ["timeMinutes"] };
-
-// Resolves an exercise definition by name, including the virtual
-// Total Exercise Time entry — use this instead of state.exercises.find(...)
-// anywhere a history entry's exerciseName might be the virtual one.
-function findExerciseDef(name) {
-    if (name === TOTAL_TIME_EXERCISE_NAME) return TOTAL_TIME_EXERCISE_DEF;
-    return state.exercises.find(e => e.name === name);
-}
-
-const FIELD_LABELS = {
-    sets: { label: "Sets", type: "number", placeholder: "0", step: "1" },
-    reps: { label: "Reps", type: "number", placeholder: "0", step: "1" },
-    weight: { label: "Weight (lbs)", type: "number", placeholder: "0.0", step: "0.5" },
-    timeSeconds: { label: "Time (Seconds)", type: "number", placeholder: "60", step: "1" },
-    timeMinutes: { label: "Time (Minutes)", type: "number", placeholder: "30", step: "1" },
-    distance: { label: "Distance (miles)", type: "number", placeholder: "0.00", step: "0.01" }
-};
-
-const INTENSITY_COLORS = {
-    1: "#4b5563",
-    2: "#65a30d",
-    3: "#d97706",
-    4: "#ea580c",
-    5: "#dc2626",
-    "Default": "#2563eb"
-};
-
-function getIntensityColor(value) {
-    if (!value || value < 1) return INTENSITY_COLORS["Default"];
-    return INTENSITY_COLORS[Math.round(value)] || INTENSITY_COLORS["Default"];
-}
+// --- Store aliases (thin references, not reimplementations) ---
+let state = Store.state;
+const getLocalDateString = Store.getLocalDateString;
+const isBloodPressureKey = Store.isBloodPressureKey;
+const formatMeasurementValue = Store.formatMeasurementValue;
+const findExerciseDef = Store.findExerciseDef;
+const getIntensityColor = Store.getIntensityColor;
+const getPlannedExercisesForDate = Store.getPlannedExercisesForDate;
+const isRestDayExplicitlyScheduled = Store.isRestDayExplicitlyScheduled;
+const calculateStreak = Store.calculateStreak;
+const getMostRecentEntryForExercise = Store.getMostRecentEntryForExercise;
+const getPreviousEntry = Store.getPreviousEntry;
+const getMostRecentIntensityForExercise = Store.getMostRecentIntensityForExercise;
+const formatPrevSetpoint = Store.formatPrevSetpoint;
+const aggregateByPeriod = Store.aggregateByPeriod;
+const formatPeriodLabel = Store.formatPeriodLabel;
+const FIELD_LABELS = Store.FIELD_LABELS;
+const TOTAL_TIME_EXERCISE_NAME = Store.TOTAL_TIME_EXERCISE_NAME;
 
 // Haptic feedback via the Vibration API. Supported on Android Chrome
 // (including installed PWAs); iOS Safari has no Vibration API at all, even
@@ -103,129 +57,17 @@ function haptic(type) {
     }
 }
 
-// Local-date (not UTC) "YYYY-MM-DD" formatter — avoids the day rolling over
-// early/late depending on the user's timezone offset from UTC.
-function getLocalDateString(date) {
-    const d = (date instanceof Date) ? date : new Date(date);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-// --- CHART AGGREGATION (daily / weekly / monthly) ---
-// Shared by the Progress Insight chart and the Average Intensity chart so
-// both respond to the same granularity toggle. Caps output to the most
-// recent MAX_CHART_POINTS buckets — older points are simply not displayed,
-// per spec, rather than being dropped before aggregation.
+// --- CHART GRANULARITY (UI-only selection, not persisted) ---
 let chartGranularity = "daily";
-const MAX_CHART_POINTS = 50;
 
 function setChartGranularity(granularity) {
     chartGranularity = granularity;
     renderStats();
 }
 
-// Returns a stable bucket key + a representative "anchor" date (used for
-// chart x-axis labels and chronological sorting) for a given YYYY-MM-DD
-// date string and granularity.
-function getPeriodBucket(dateStr, granularity) {
-    if (granularity === "daily") {
-        return { key: dateStr, anchorDate: dateStr };
-    }
-
-    const d = new Date(dateStr + "T00:00:00");
-
-    if (granularity === "weekly") {
-        // ISO-style week: Monday as the start of the week.
-        const dayOfWeek = d.getDay(); // 0=Sun..6=Sat
-        const diffToMonday = (dayOfWeek === 0) ? -6 : (1 - dayOfWeek);
-        const monday = new Date(d);
-        monday.setDate(d.getDate() + diffToMonday);
-        const key = getLocalDateString(monday);
-        return { key, anchorDate: key };
-    }
-
-    if (granularity === "monthly") {
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const key = `${year}-${month}`;
-        const anchorDate = `${year}-${month}-01`;
-        return { key, anchorDate };
-    }
-
-    return { key: dateStr, anchorDate: dateStr };
-}
-
-// Generic aggregator: groups `entries` into period buckets by `dateField`,
-// averages every key returned by `numericFieldsFn` (called once per entry),
-// and returns buckets sorted chronologically, capped to the most recent
-// MAX_CHART_POINTS (oldest buckets are dropped after aggregation).
-//
-// numericFieldsFn(entry) => { fieldName: number, ... } — every field present
-// is averaged across all entries that land in the same bucket. Non-numeric
-// metadata can be carried through via extraFieldsFn(entries) => {...}, which
-// receives the full array of raw entries in that bucket (e.g. to compute a
-// rounded average intensity for dot coloring).
-function aggregateByPeriod(entries, granularity, dateField, numericFieldsFn, extraFieldsFn) {
-    const buckets = new Map(); // key -> { anchorDate, items: [...] }
-
-    entries.forEach(entry => {
-        const { key, anchorDate } = getPeriodBucket(entry[dateField], granularity);
-        if (!buckets.has(key)) buckets.set(key, { anchorDate, items: [] });
-        buckets.get(key).items.push(entry);
-    });
-
-    let result = Array.from(buckets.entries()).map(([key, bucket]) => {
-        const fieldSums = {};
-        const fieldCounts = {};
-
-        bucket.items.forEach(entry => {
-            const fields = numericFieldsFn(entry);
-            Object.entries(fields).forEach(([fieldName, val]) => {
-                if (!Number.isFinite(val)) return;
-                fieldSums[fieldName] = (fieldSums[fieldName] || 0) + val;
-                fieldCounts[fieldName] = (fieldCounts[fieldName] || 0) + 1;
-            });
-        });
-
-        const averaged = {};
-        Object.keys(fieldSums).forEach(fieldName => {
-            averaged[fieldName] = fieldSums[fieldName] / fieldCounts[fieldName];
-        });
-
-        const extra = extraFieldsFn ? extraFieldsFn(bucket.items) : {};
-
-        return {
-            periodKey: key,
-            date: bucket.anchorDate,
-            count: bucket.items.length,
-            ...averaged,
-            ...extra
-        };
-    });
-
-    result.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    // Most recent N buckets — older points are not displayed.
-    if (result.length > MAX_CHART_POINTS) {
-        result = result.slice(result.length - MAX_CHART_POINTS);
-    }
-
-    return result;
-}
-
-// Human-friendly x-axis label for a bucket anchor date, tuned per granularity.
-function formatPeriodLabel(anchorDate, granularity) {
-    const d = new Date(anchorDate + "T00:00:00");
-    if (granularity === "monthly") {
-        return d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
-    }
-    if (granularity === "weekly") {
-        return `${d.getMonth() + 1}/${d.getDate()}`;
-    }
-    return anchorDate.substring(5);
-}
+// --- 7-Day Horizon selection (UI-only, purely visual highlight ring —
+// deliberately NOT part of Store's persisted state, since it's not app data) ---
+let selectedHorizonDate = getLocalDateString(new Date());
 
 const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAYS_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -248,37 +90,21 @@ const categoryEmojis = {
     'Default': '🏋️'
 };
 
-let state = {
-    exercises: JSON.parse(localStorage.getItem("ee_exercises")) || DEFAULT_EXERCISES,
-    history: JSON.parse(localStorage.getItem("ee_history")) || [],
-    plans: JSON.parse(localStorage.getItem("ee_plans")) || [],
-    measurements: JSON.parse(localStorage.getItem("ee_measurements")) || DEFAULT_MEASUREMENTS,
-    measurementLogs: JSON.parse(localStorage.getItem("ee_measurement_logs")) || [],
-    // Total Time is its own record category — parallel to exercises and
-    // measurements — rather than a pseudo-exercise embedded in `history`.
-    // Each entry is { id, date, minutes }. See migrateTotalTimeEntries()
-    // for one-time migration of older backups that still have Total Time
-    // rows embedded in history.
-    totalTimeLogs: JSON.parse(localStorage.getItem("ee_total_time_logs")) || [],
-    // In-memory only (never persisted) — which 7-Day Horizon card is
-    // highlighted. Purely visual now that the inline log form (and its
-    // log-date field) is gone; tapping a card just moves this highlight.
-    selectedHorizonDate: getLocalDateString(new Date())
-};
+function getCategoryEmoji(category) {
+    return categoryEmojis[category] || categoryEmojis['Default'];
+}
 
 document.addEventListener("DOMContentLoaded", () => {
+    Store.load();
     initApp();
     setupEventListeners();
     setupLog2StarRating();
 });
 
+// Render-everything entry point. Called once on load (after Store.load())
+// and again after any data mutation. Store.load() itself handles reading
+// from localStorage + running migrations, so this function only paints UI.
 function initApp() {
-    if (!Array.isArray(state.measurements)) state.measurements = DEFAULT_MEASUREMENTS;
-    if (!Array.isArray(state.measurementLogs)) state.measurementLogs = [];
-    if (!Array.isArray(state.totalTimeLogs)) state.totalTimeLogs = [];
-    migrateIntensityData();
-    migrateTotalTimeEntries();
-    saveState();
     evaluateTodayPlans();
     renderPlanExerciseSelector();
     renderPlanList();
@@ -292,67 +118,10 @@ function initApp() {
     renderStatsKpis();
 }
 
-function migrateIntensityData() {
-    const legacyMap = { "Low": 1, "Medium": 3, "High": 5 };
-    let changed = false;
-    state.history.forEach(h => {
-        if (typeof h.intensity === "string") {
-            if (legacyMap[h.intensity] !== undefined) {
-                h.intensity = legacyMap[h.intensity];
-            } else if (h.intensity.trim() === "") {
-                h.intensity = null;
-            } else {
-                let parsed = parseInt(h.intensity, 10);
-                h.intensity = Number.isFinite(parsed) ? parsed : null;
-            }
-            changed = true;
-        } else if (h.intensity === undefined) {
-            h.intensity = null;
-            changed = true;
-        }
-    });
-    if (changed) saveState();
-}
-
-// One-time migration: older backups/sessions stored Total Time as a
-// pseudo-exercise entry inside `history` (exerciseName === TOTAL_TIME_EXERCISE_NAME).
-// That polluted exercise-only stats like "Most Logged Exercise". This pulls
-// any such entries out into state.totalTimeLogs (their own category) and
-// strips them from history. Safe to call every load — a no-op once migrated.
-function migrateTotalTimeEntries() {
-    const embedded = state.history.filter(h => h.exerciseName === TOTAL_TIME_EXERCISE_NAME);
-    if (embedded.length === 0) return false;
-
-    embedded.forEach(entry => {
-        state.totalTimeLogs.push({
-            id: entry.id,
-            date: entry.date,
-            minutes: (entry.data && entry.data.timeMinutes) || 0
-        });
-    });
-    state.history = state.history.filter(h => h.exerciseName !== TOTAL_TIME_EXERCISE_NAME);
-    state.totalTimeLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
-    return true;
-}
-
-function saveState() {
-    localStorage.setItem("ee_exercises", JSON.stringify(state.exercises));
-    localStorage.setItem("ee_history", JSON.stringify(state.history));
-    localStorage.setItem("ee_plans", JSON.stringify(state.plans));
-    localStorage.setItem("ee_measurements", JSON.stringify(state.measurements));
-    localStorage.setItem("ee_measurement_logs", JSON.stringify(state.measurementLogs));
-    localStorage.setItem("ee_total_time_logs", JSON.stringify(state.totalTimeLogs));
-    if (typeof BackupSync !== "undefined") BackupSync.notifyStateChanged();
-}
-
-function getCategoryEmoji(category) {
-    return categoryEmojis[category] || categoryEmojis['Default'];
-}
-
 // --- SYSTEM NAVIGATION ---
-// Bottom nav now covers exactly 4 tabs: track, stats, timer, history.
-// Plan / Custom Exercise / Custom Measurement / Backup&Data moved into the
-// hamburger SettingsDrawer, and are no longer top-level views.
+// Bottom nav covers exactly 4 tabs: track, stats, timer, history. Plan /
+// Custom Exercise / Custom Measurement / Backup&Data live in the hamburger
+// SettingsDrawer.
 function switchView(viewId) {
     haptic('light');
     document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
@@ -388,150 +157,15 @@ function renderStreakWidget() {
     return currentStreak;
 }
 
-function calculateStreak() {
-    let todayStr = getLocalDateString(new Date());
-    let checkDate = new Date(todayStr + "T00:00:00");
-    let streak = 0;
-
-    // Build unique tracking map of logged historical event dates
-    let historyDates = new Set(state.history.map(h => h.date));
-
-    // Guard checking if any action occurred today or yesterday to continue loop validation
-    let yesterdayStr = getLocalDateString(new Date(new Date().setDate(new Date().getDate() - 1)));
-    if (!historyDates.has(todayStr) && !historyDates.has(yesterdayStr)) {
-        // If nothing logged today or yesterday, check if yesterday was an explicit scheduled plan rest day
-        let yesterdayPlan = getPlannedExercisesForDate(new Date(new Date().setDate(new Date().getDate() - 1)));
-        let yesterdayWasRest = (yesterdayPlan.length === 0 || isRestDayExplicitlyScheduled(new Date(new Date().setDate(new Date().getDate() - 1))));
-        if (!yesterdayWasRest) return 0;
-    }
-
-    // Step backwards through time to count consecutive successful days
-    for (let i = 0; i < 365; i++) {
-        let loopDateStr = getLocalDateString(checkDate);
-        let isExplicitRest = isRestDayExplicitlyScheduled(new Date(checkDate));
-
-        if (historyDates.has(loopDateStr) || isExplicitRest) {
-            streak++;
-        } else {
-            // Break loop if today is a non-rest day that has not been logged yet
-            if (i === 0 && loopDateStr === todayStr) {
-                // Skip breaking, user still has time to complete today's log
-            } else {
-                break;
-            }
-        }
-        checkDate.setDate(checkDate.getDate() - 1);
-    }
-    return streak;
-}
-
-function isRestDayExplicitlyScheduled(targetDate) {
-    const d = new Date(targetDate);
-    d.setHours(0, 0, 0, 0);
-    const dayOfWeek = d.getDay();
-    const ds = getLocalDateString(d);
-
-    return state.plans.some(plan => {
-        if (plan.exercise !== '__rest__') return false;
-        if (plan.type === 'weekly') return parseInt(plan.day) === dayOfWeek;
-        if (plan.type === 'interval' && plan.startDate) {
-            const start = new Date(plan.startDate + 'T00:00:00');
-            start.setHours(0, 0, 0, 0);
-            const diff = Math.round((d - start) / 86400000);
-            return diff >= 0 && diff % parseInt(plan.interval) === 0;
-        }
-        return false;
-    });
-}
-
 // --- INTERPOLATED ACTIVITY ENGINE & ADVANCED SCHEDULING ---
-// Now purely a "recompute everything that depends on plans/history" entry
-// point — the old inline-form date suggestion box is gone, and exercise
-// selection now happens via LogModal, which doesn't need a priority list.
 function evaluateTodayPlans() {
     render7DayHorizon(new Date());
     renderTodayExercisesCard();
     renderTrackKpis();
 }
 
-function getPlannedExercisesForDate(targetDate) {
-    let matches = [];
-    let queryDate = new Date(targetDate);
-    queryDate.setHours(0,0,0,0);
-
-    // 1. Process weekly scheduled routines — sorted by the plan's `order`
-    // field (set via drag-reorder in the Plan tab) so downstream consumers
-    // (7-Day Horizon tags, Today's Exercises card, chart dropdown stars)
-    // all reflect the same superset ordering the user arranged.
-    let weeklyMatchesForDay = state.plans.filter(plan =>
-        plan.type === 'weekly' && plan.exercise !== "__rest__" && parseInt(plan.day) === queryDate.getDay()
-    );
-    weeklyMatchesForDay.sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id));
-    weeklyMatchesForDay.forEach(plan => matches.push(plan.exercise));
-
-    // 2. Process interval-based routines with rest-day adjustments
-    state.plans.forEach(plan => {
-        if (plan.type === 'interval') {
-            let start = new Date(plan.startDate + "T00:00:00");
-            start.setHours(0,0,0,0);
-            
-            if (queryDate < start) return;
-
-            // Step forward day by day from the start date to evaluate the intervals
-            let workingDate = new Date(start);
-            let intervalDayCounter = 0;
-
-            while (workingDate <= queryDate) {
-                let isWorkingRestDay = isRestDayExplicitlyScheduled(workingDate);
-
-                if (isWorkingRestDay) {
-                    // Rest days are skipped entirely for interval counting
-                    if (workingDate.getTime() === queryDate.getTime()) {
-                        return; // It's a rest day, so nothing is scheduled
-                    }
-                } else {
-                    if (intervalDayCounter % parseInt(plan.interval) === 0) {
-                        if (workingDate.getTime() === queryDate.getTime()) {
-                            matches.push(plan.exercise);
-                        }
-                    }
-                    intervalDayCounter++;
-                }
-                workingDate.setDate(workingDate.getDate() + 1);
-            }
-        }
-    });
-
-    return matches;
-}
-
-// Compact "prev setpoint" string for an exercise, e.g. "3 sets × 10 reps × @135lbs"
-// built from whichever metrics that exercise tracks, using its most recent
-// logged entry. Returns "" if there's no prior entry to show.
-const SETPOINT_FORMAT_ORDER = ["sets", "reps", "weight", "distance", "timeMinutes", "timeSeconds"];
-
-function formatPrevSetpoint(exerciseName) {
-    const entry = getPreviousEntry(exerciseName);
-    if (!entry || !entry.data) return "";
-
-    const parts = [];
-    SETPOINT_FORMAT_ORDER.forEach(key => {
-        const val = entry.data[key];
-        if (val === undefined || val === null) return;
-        if (key === "sets") parts.push(`${val} sets`);
-        else if (key === "reps") parts.push(`${val} reps`);
-        else if (key === "weight") parts.push(`@${val}lbs`);
-        else if (key === "distance") parts.push(`${val}mi`);
-        else if (key === "timeMinutes") parts.push(`${val}min`);
-        else if (key === "timeSeconds") parts.push(`${val}s`);
-    });
-
-    return parts.join(" × ");
-}
-
 // --- TODAY'S EXERCISES CARD (Track tab) ---
-// Always reflects the actual calendar "today", independent of whatever date
-// is selected in the inline log form above it. Each instance of a scheduled
+// Always reflects the actual calendar "today". Each instance of a scheduled
 // exercise gets its own row — if scheduled 2x today, two rows render, and
 // each flips to "Edit" independently as soon as its own instance is logged
 // (matched oldest-logged-first against scheduled order).
@@ -551,8 +185,6 @@ function renderTodayExercisesCard() {
     }
     card.classList.remove("hidden");
 
-    // Today's logged entries per exercise name, oldest-first, so the Nth
-    // scheduled instance of an exercise maps to the Nth entry logged today.
     let loggedTodayByName = {};
     state.history.forEach(entry => {
         if (entry.date === todayStr) {
@@ -599,115 +231,56 @@ function renderTodayExercisesCard() {
 
 // --- TRACK TAB: top 4-up KPI row ---
 function renderTrackKpis() {
-    renderStreakWidget(); // pushes streak into kpi-streak-value
+    renderStreakWidget();
 
-    const today = new Date();
-    const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(today.getDate() - 6);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
+    const kpis = Store.computeTrackKpis();
 
-    // Workouts this week (last 7 rolling days)
-    const recentEntries = state.history.filter(h => new Date(h.date + "T00:00:00") >= sevenDaysAgo);
     const weekCountEl = document.getElementById("kpi-week-count-value");
-    if (weekCountEl) weekCountEl.textContent = recentEntries.length;
+    if (weekCountEl) weekCountEl.textContent = kpis.weekCount;
 
-    // 7-day average intensity (entries with a rating only)
-    const ratedRecent = recentEntries.filter(h => h.intensity && h.intensity > 0);
-    const avgIntensity = ratedRecent.length > 0
-        ? (ratedRecent.reduce((sum, h) => sum + h.intensity, 0) / ratedRecent.length)
-        : null;
     const intensityEl = document.getElementById("kpi-week-intensity-value");
-    if (intensityEl) intensityEl.textContent = avgIntensity !== null ? avgIntensity.toFixed(1) : "—";
+    if (intensityEl) intensityEl.textContent = kpis.avgIntensity !== null ? kpis.avgIntensity.toFixed(1) : "—";
 
-    // Current weight (most recent "weight" measurement log, default measurement key "weight")
-    const weightLogs = state.measurementLogs.filter(l => l.measurementKey === "weight");
-    const latestWeight = weightLogs.length > 0
-        ? [...weightLogs].sort((a, b) => new Date(b.date) - new Date(a.date))[0]
-        : null;
     const weightEl = document.getElementById("kpi-weight-value");
-    if (weightEl) {
-        if (latestWeight) {
-            const m = state.measurements.find(x => x.key === "weight");
-            weightEl.textContent = `${latestWeight.value}${m ? m.unit : ''}`;
-        } else {
-            weightEl.textContent = "—";
-        }
-    }
+    if (weightEl) weightEl.textContent = kpis.weightText;
 }
 
 // --- STATS TAB: 2x2 KPI grid ---
 function renderStatsKpis() {
-    renderStreakWidget(); // pushes streak into kpi2-streak-value
+    renderStreakWidget();
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // --- Avg Intensity (7d) + mini bar graph (per-day avg intensity, last 7 days) ---
-    const dayBuckets = [];
-    for (let i = 6; i >= 0; i--) {
-        const d = new Date(today);
-        d.setDate(today.getDate() - i);
-        dayBuckets.push(getLocalDateString(d));
-    }
-    const intensityByDay = dayBuckets.map(dateStr => {
-        const entries = state.history.filter(h => h.date === dateStr && h.intensity && h.intensity > 0);
-        if (entries.length === 0) return 0;
-        return entries.reduce((sum, h) => sum + h.intensity, 0) / entries.length;
-    });
-    const ratedDayValues = intensityByDay.filter(v => v > 0);
-    const avgIntensity7d = ratedDayValues.length > 0
-        ? (ratedDayValues.reduce((a, b) => a + b, 0) / ratedDayValues.length)
-        : null;
+    const kpis = Store.computeStatsKpis();
 
     const intensityValueEl = document.getElementById("kpi2-intensity-value");
-    if (intensityValueEl) intensityValueEl.textContent = avgIntensity7d !== null ? avgIntensity7d.toFixed(1) : "—";
+    if (intensityValueEl) intensityValueEl.textContent = kpis.avgIntensity7d !== null ? kpis.avgIntensity7d.toFixed(1) : "—";
 
     const intensityBarsEl = document.getElementById("kpi2-intensity-bars");
     if (intensityBarsEl) {
-        intensityBarsEl.innerHTML = intensityByDay.map(v => {
+        intensityBarsEl.innerHTML = kpis.intensityByDay.map(v => {
             const heightPct = Math.max(8, (v / 5) * 100);
             const color = v > 0 ? getIntensityColor(Math.round(v)) : "#374151";
             return `<div class="kmb-bar" style="height:${heightPct}%; background-color:${color};"></div>`;
         }).join("");
     }
 
-    // --- Streak dots: last 7 days, orange if a workout was completed that day ---
     const streakDotsEl = document.getElementById("kpi2-streak-dots");
     if (streakDotsEl) {
-        const loggedDateSet = new Set(state.history.map(h => h.date));
-        streakDotsEl.innerHTML = dayBuckets.map(dateStr => {
-            const active = loggedDateSet.has(dateStr);
+        streakDotsEl.innerHTML = kpis.streakDots.map(active => {
             return `<span class="ksd-dot${active ? ' ksd-active' : ''}"></span>`;
         }).join("");
     }
 
-    // --- Weight + 2-week mini line graph ---
-    const weightLogsSorted = [...state.measurementLogs]
-        .filter(l => l.measurementKey === "weight")
-        .sort((a, b) => new Date(a.date) - new Date(b.date));
     const weightValueEl = document.getElementById("kpi2-weight-value");
-    const weightMeas = state.measurements.find(m => m.key === "weight");
-    if (weightValueEl) {
-        const latest = weightLogsSorted[weightLogsSorted.length - 1];
-        weightValueEl.textContent = latest ? `${latest.value}${weightMeas ? weightMeas.unit : ''}` : "—";
-    }
+    if (weightValueEl) weightValueEl.textContent = kpis.weightText;
     const weightGraphEl = document.getElementById("kpi2-weight-graph");
-    if (weightGraphEl) {
-        const twoWeeksAgo = new Date(today);
-        twoWeeksAgo.setDate(today.getDate() - 14);
-        const recentWeights = weightLogsSorted.filter(l => new Date(l.date + "T00:00:00") >= twoWeeksAgo);
-        weightGraphEl.innerHTML = renderMiniLineSvg(recentWeights.map(l => l.value));
-    }
+    if (weightGraphEl) weightGraphEl.innerHTML = renderMiniLineSvg(kpis.recentWeights);
 
-    // --- Workouts by day (last 7 days) bar graph + this-week count ---
-    const workoutCountByDay = dayBuckets.map(dateStr => state.history.filter(h => h.date === dateStr).length);
-    const workoutsThisWeek = workoutCountByDay.reduce((a, b) => a + b, 0);
     const workoutsValueEl = document.getElementById("kpi2-workouts-value");
-    if (workoutsValueEl) workoutsValueEl.textContent = workoutsThisWeek;
+    if (workoutsValueEl) workoutsValueEl.textContent = kpis.workoutsThisWeek;
     const workoutsBarsEl = document.getElementById("kpi2-workouts-bars");
     if (workoutsBarsEl) {
-        const maxCount = Math.max(1, ...workoutCountByDay);
-        workoutsBarsEl.innerHTML = workoutCountByDay.map(c => {
+        const maxCount = Math.max(1, ...kpis.workoutCountByDay);
+        workoutsBarsEl.innerHTML = kpis.workoutCountByDay.map(c => {
             const heightPct = c > 0 ? Math.max(12, (c / maxCount) * 100) : 4;
             return `<div class="kmb-bar" style="height:${heightPct}%; background-color:${c > 0 ? '#2563eb' : '#374151'};"></div>`;
         }).join("");
@@ -740,40 +313,7 @@ function renderProgressOverview() {
     const body = document.getElementById("progress-overview-body");
     if (!body) return;
 
-    const rows = [];
-
-    // Total lifetime sessions
-    rows.push({ label: "Total Workouts Logged", value: state.history.length });
-
-    // Most logged exercise
-    if (state.history.length > 0) {
-        const counts = {};
-        state.history.forEach(h => { counts[h.exerciseName] = (counts[h.exerciseName] || 0) + 1; });
-        const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-        rows.push({ label: "Most Logged Exercise", value: `${top[0]} (${top[1]}x)` });
-    }
-
-    // Weight change over last 30 days
-    const weightLogsSorted = [...state.measurementLogs]
-        .filter(l => l.measurementKey === "weight")
-        .sort((a, b) => new Date(a.date) - new Date(b.date));
-    if (weightLogsSorted.length >= 2) {
-        const today = new Date();
-        const thirtyDaysAgo = new Date(today);
-        thirtyDaysAgo.setDate(today.getDate() - 30);
-        const inWindow = weightLogsSorted.filter(l => new Date(l.date + "T00:00:00") >= thirtyDaysAgo);
-        const baseline = inWindow.length >= 2 ? inWindow[0] : weightLogsSorted[0];
-        const latest = weightLogsSorted[weightLogsSorted.length - 1];
-        const delta = latest.value - baseline.value;
-        const meas = state.measurements.find(m => m.key === "weight");
-        const unit = meas ? meas.unit : "";
-        const sign = delta > 0 ? "+" : "";
-        const trendClass = delta > 0 ? "po-up" : (delta < 0 ? "po-down" : "");
-        rows.push({ label: "Weight Change (30d)", value: `${sign}${delta.toFixed(1)}${unit}`, cls: trendClass });
-    }
-
-    // Current streak (reuse calculation)
-    rows.push({ label: "Current Streak", value: `${calculateStreak()} days` });
+    const rows = Store.computeProgressOverview();
 
     if (rows.length === 0) {
         body.innerHTML = `<p class="text-muted">Log a few workouts to see your progress summary.</p>`;
@@ -791,10 +331,8 @@ function renderProgressOverview() {
 function render7DayHorizon(baseDate) {
     const container = document.getElementById("calendar-horizon-view");
     container.innerHTML = "";
-    const activeLogDate = state.selectedHorizonDate;
+    const activeLogDate = selectedHorizonDate;
 
-    // First pass: gather each day's data and find the max item count so all
-    // 7 cards can share a tall-enough events area (prevents clipped text).
     let daysData = [];
     let maxItemCount = 1;
     for (let i = 0; i < 7; i++) {
@@ -809,7 +347,7 @@ function render7DayHorizon(baseDate) {
         daysData.push({ futureDate, dayTargets, isRest });
     }
 
-    const perItemHeight = 16; // approx line-height + margin per tag, in px
+    const perItemHeight = 16;
     const eventsMinHeight = maxItemCount * perItemHeight;
 
     daysData.forEach(({ futureDate, dayTargets, isRest }, i) => {
@@ -821,15 +359,13 @@ function render7DayHorizon(baseDate) {
 
         dayCard.style.display = "flex";
         dayCard.style.flexDirection = "column";
-        dayCard.style.minHeight = "fit-content"; 
+        dayCard.style.minHeight = "fit-content";
         dayCard.style.height = "auto";
         dayCard.style.padding = "0.5rem";
 
-        // Purely visual now — selecting a day just moves the highlight ring.
-        // There's no inline form/date field left for this to feed into.
         dayCard.onclick = () => {
             haptic('light');
-            state.selectedHorizonDate = dateString;
+            selectedHorizonDate = dateString;
             render7DayHorizon(new Date());
         };
 
@@ -840,9 +376,6 @@ function render7DayHorizon(baseDate) {
             }
         });
 
-        // Strike through exactly as many instances of each exercise as have
-        // been logged for this date — if it's scheduled 2x and only 1 is
-        // logged, one tag shows completed and the other stays active.
         let seenSoFar = {};
         let tagsHtml = dayTargets.map(t => {
             seenSoFar[t] = (seenSoFar[t] || 0) + 1;
@@ -853,7 +386,7 @@ function render7DayHorizon(baseDate) {
             </span>
         `;
         }).join("");
-        
+
         if (isRest) {
             tagsHtml = `<span class="text-muted" style="font-size:0.65rem; display:block; margin-top:2px;">Rest</span>`;
         } else if (dayTargets.length === 0) {
@@ -870,9 +403,6 @@ function render7DayHorizon(baseDate) {
 }
 
 // --- DROPDOWN ELEMENT SELECTOR INJECTIONS ---
-// Used to populate both the inline log form's dropdown and the Plan
-// drawer's dropdown. The inline log form is gone (logging now goes through
-// LogModal, which builds its own picker), so this only feeds plan-exercise.
 function renderPlanExerciseSelector() {
     const selectPlan = document.getElementById("plan-exercise");
     if (!selectPlan) return;
@@ -898,35 +428,7 @@ function renderPlanExerciseSelector() {
     selectPlan.innerHTML = planHtml;
 }
 
-// Finds the entry for a given exercise whose `date` is chronologically most
-// recent — comparing actual date values, not array/insertion order (history
-// is normally kept sorted, but backfilled or imported entries can break that
-// assumption, so this never relies on it).
-function getMostRecentEntryForExercise(exerciseName, requireIntensity = false) {
-    let best = null;
-    state.history.forEach(entry => {
-        if (entry.exerciseName !== exerciseName) return;
-        if (requireIntensity && (!entry.intensity || entry.intensity <= 0)) return;
-        if (!best || new Date(entry.date) > new Date(best.date)) {
-            best = entry;
-        }
-    });
-    return best;
-}
-
-function getPreviousEntry(exerciseName) {
-    return getMostRecentEntryForExercise(exerciseName, false);
-}
-
-function getMostRecentIntensityForExercise(exerciseName) {
-    const entry = getMostRecentEntryForExercise(exerciseName, true);
-    return entry ? entry.intensity : null;
-}
-
 // --- LOG MODAL: parallel field-builder + star-rating helpers ---
-// Mirrors buildDynamicFormFields / setStarRatingValue exactly, but scoped to
-// the Log Modal's own element IDs (log2-*) so the inline Track-tab form and
-// the modal never fight over the same DOM nodes.
 function buildLog2DynamicFormFields(exerciseName, existingData = null) {
     const container = document.getElementById("log2-dynamic-fields-container");
     if (!container) return;
@@ -1007,11 +509,15 @@ function setupLog2StarRating() {
     });
 }
 
+// Generic themed confirmation modal — used for every destructive action in
+// the app (never the browser's native confirm(), which is inconsistent
+// with the rest of the UI and can silently no-op in embedded/hybrid
+// contexts without extra host-app wiring).
 function triggerConfirmationModal(title, text, confirmCallback) {
     const modal = document.getElementById("confirmation-modal");
     document.getElementById("modal-title").innerText = title;
     document.getElementById("modal-body").innerText = text;
-    
+
     modal.classList.remove("hidden");
 
     const cancelBtn = document.getElementById("modal-cancel-btn");
@@ -1019,7 +525,6 @@ function triggerConfirmationModal(title, text, confirmCallback) {
 
     const closeHandler = () => {
         modal.classList.add("hidden");
-        // Clear listeners to prevent duplicate triggers
         confirmBtn.replaceWith(confirmBtn.cloneNode(true));
         cancelBtn.replaceWith(cancelBtn.cloneNode(true));
     };
@@ -1048,8 +553,8 @@ function renderManageExercises() {
     sortedList.forEach(ex => {
         const item = document.createElement("div");
         item.className = "exercise-manage-item";
-        
-        let logCount = state.history.filter(h => h.exerciseName === ex.name).length;
+
+        let logCount = Store.countHistoryForExercise(ex.name);
         let countBadge = logCount > 0 ? `<span class="badge" style="background:#1e293b; color:#9ca3af; margin-left:0.5rem;">${logCount} logged</span>` : '';
 
         item.innerHTML = `
@@ -1109,12 +614,12 @@ function cancelExerciseEdit() {
 }
 
 function initExerciseDelete(exName) {
-    let logCount = state.history.filter(h => h.exerciseName === exName).length;
+    let logCount = Store.countHistoryForExercise(exName);
 
     if (logCount > 0) {
         triggerConfirmationModal(
-            "Cascade Dangerous Deletion", 
-            `Warning: "${exName}" contains ${logCount} logged activity entries. Deleting this exercise template will permanently wipe all associated historic logs.`, 
+            "Cascade Dangerous Deletion",
+            `Warning: "${exName}" contains ${logCount} logged activity entries. Deleting this exercise template will permanently wipe all associated historic logs.`,
             () => executeExerciseDeletion(exName)
         );
     } else {
@@ -1123,11 +628,7 @@ function initExerciseDelete(exName) {
 }
 
 function executeExerciseDeletion(exName) {
-    state.exercises = state.exercises.filter(e => e.name !== exName);
-    state.history = state.history.filter(h => h.exerciseName !== exName);
-    state.plans = state.plans.filter(p => p.exercise !== exName);
-    
-    saveState();
+    Store.deleteExercise(exName);
     initApp();
     cancelExerciseEdit();
 }
@@ -1149,7 +650,7 @@ function renderManageMeasurements() {
         const item = document.createElement("div");
         item.className = "exercise-manage-item";
 
-        let logCount = state.measurementLogs.filter(l => l.measurementKey === m.key).length;
+        let logCount = Store.countLogsForMeasurement(m.key);
         let countBadge = logCount > 0 ? `<span class="badge" style="background:#1e293b; color:#9ca3af; margin-left:0.5rem;">${logCount} logged</span>` : '';
 
         item.innerHTML = `
@@ -1205,7 +706,7 @@ function cancelMeasurementEdit() {
 function initMeasurementDelete(key) {
     const m = state.measurements.find(x => x.key === key);
     if (!m) return;
-    let logCount = state.measurementLogs.filter(l => l.measurementKey === key).length;
+    let logCount = Store.countLogsForMeasurement(key);
 
     if (logCount > 0) {
         triggerConfirmationModal(
@@ -1219,32 +720,16 @@ function initMeasurementDelete(key) {
 }
 
 function executeMeasurementDeletion(key) {
-    state.measurements = state.measurements.filter(m => m.key !== key);
-    state.measurementLogs = state.measurementLogs.filter(l => l.measurementKey !== key);
-
-    saveState();
+    Store.deleteMeasurement(key);
     initApp();
     cancelMeasurementEdit();
 }
 
-// Slug-ify a display name into a stable storage key, ensuring uniqueness
-// against existing measurement keys (appends -2, -3, ... on collision).
-function slugifyMeasurementName(name, excludeKey = null) {
-    let base = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "measurement";
-    let candidate = base;
-    let n = 2;
-    while (state.measurements.some(m => m.key === candidate && m.key !== excludeKey)) {
-        candidate = `${base}-${n}`;
-        n++;
-    }
-    return candidate;
-}
-
 // --- HISTORICAL TRACK LOG EDIT PIPELINES ---
-// Editing a logged entry from History now opens the Log Modal directly into
-// its exercise-entry step (pre-filled), rather than the old inline form.
+// Editing a logged entry from History opens the Log Modal directly into its
+// exercise-entry step (pre-filled).
 function initEditEntry(id) {
-    const entry = state.history.find(h => h.id === id);
+    const entry = Store.getHistoryEntry(id);
     if (!entry) return;
 
     haptic('light');
@@ -1252,10 +737,8 @@ function initEditEntry(id) {
     LogModal.openExerciseForm(entry.exerciseName, entry);
 }
 
-// Mirrors initEditEntry/deleteEntry, but for the Total Time category, which
-// now lives in its own state.totalTimeLogs array rather than history.
 function initEditTotalTimeLog(id) {
-    const entry = state.totalTimeLogs.find(t => t.id === id);
+    const entry = Store.getTotalTimeLog(id);
     if (!entry) return;
 
     haptic('light');
@@ -1264,27 +747,36 @@ function initEditTotalTimeLog(id) {
 }
 
 function deleteTotalTimeLog(id) {
-    if (confirm("Are you sure you want to delete this historical total time entry?")) {
-        state.totalTimeLogs = state.totalTimeLogs.filter(t => t.id !== id);
-        saveState();
-        initApp();
-    }
+    triggerConfirmationModal(
+        "Delete Entry",
+        "Are you sure you want to delete this historical total time entry?",
+        () => {
+            Store.deleteTotalTimeLog(id);
+            initApp();
+        }
+    );
 }
 
 function deleteEntry(id) {
-    if (confirm("Are you sure you want to delete this historical entry?")) {
-        state.history = state.history.filter(h => h.id !== id);
-        saveState();
-        initApp();
-    }
+    triggerConfirmationModal(
+        "Delete Entry",
+        "Are you sure you want to delete this historical entry?",
+        () => {
+            Store.deleteHistoryEntry(id);
+            initApp();
+        }
+    );
 }
 
 function deletePlan(id) {
-    if (confirm("Are you sure you want to delete this plan?")) {
-        state.plans = state.plans.filter(p => p.id !== id);
-        saveState();
-        initApp();
-    }
+    triggerConfirmationModal(
+        "Delete Plan",
+        "Are you sure you want to delete this plan?",
+        () => {
+            Store.deletePlan(id);
+            initApp();
+        }
+    );
 }
 
 // --- COMPREHENSIVE PROGRESS MATRIX INTERACTIVE GRAPH Engine ---
@@ -1298,7 +790,6 @@ function renderIntensityChart() {
         heading.innerText = labelByGranularity[chartGranularity] || "Average Intensity by Day";
     }
 
-    // Only entries with an actual intensity rating contribute to the average.
     const ratedEntries = state.history.filter(entry => entry.intensity && entry.intensity > 0);
 
     const buckets = aggregateByPeriod(
@@ -1364,9 +855,6 @@ function populateChartFilter() {
         return count >= 2;
     });
 
-    // Total Exercise Time is now its own record category (state.totalTimeLogs)
-    // rather than a pseudo-exercise in state.history — checked and included
-    // separately, in its own "Other" group further down.
     const totalTimeCount = state.totalTimeLogs.length;
     const isTotalTimeChartable = totalTimeCount >= 2;
 
@@ -1383,11 +871,6 @@ function populateChartFilter() {
 
     let currentSelection = filterSelect.value;
 
-    // Pinned "Today's Exercises" group — only the subset of today's scheduled
-    // exercises that already qualify for charting (2+ entries), starred and
-    // listed first, in addition to their normal spot further down. Ordered
-    // to match the Plan tab's drag-reordered sequence for today, same as
-    // the 7-Day Horizon tags and Today's Exercises card.
     const scheduledTodayOrdered = getPlannedExercisesForDate(new Date()).filter(name => name !== "__rest__");
     const todayOrderIndex = new Map();
     scheduledTodayOrdered.forEach((name, idx) => {
@@ -1404,7 +887,6 @@ function populateChartFilter() {
         html += `<optgroup label="Today's Exercises">${opts}</optgroup>`;
     }
 
-    // Group exercises by category, same ordering convention as the log/plan dropdowns
     let byCategory = {};
     chartableExercises.forEach(ex => {
         let cat = ex.category || "Uncategorized";
@@ -1439,12 +921,10 @@ function populateChartFilter() {
     }
 }
 
-// Simple single-line trend chart for a measurement (no dual-axis volume calc,
-// no intensity coloring — measurements don't carry an intensity rating).
-// Simple single-line trend chart for a measurement (no dual-axis volume calc,
-// no intensity coloring — measurements don't carry an intensity rating).
-// `sortedBuckets` are pre-aggregated by the caller via aggregateByPeriod —
-// each item has { date (anchor), value } after averaging.
+// Simple single-line trend chart for a measurement (no dual-axis volume
+// calc, no intensity coloring — measurements don't carry an intensity
+// rating). `sortedBuckets` are pre-aggregated by the caller via
+// aggregateByPeriod — each item has { date (anchor), value } after averaging.
 function renderMeasurementChart(measurementKey, sortedBuckets, graphContainer, legendBlock) {
     if (legendBlock) legendBlock.style.display = "none";
 
@@ -1505,10 +985,7 @@ function renderMeasurementChart(measurementKey, sortedBuckets, graphContainer, l
 }
 
 // Single-line trend chart for Total Exercise Time — mirrors
-// renderMeasurementChart's shape (no dual-axis, no intensity coloring),
-// but for the dedicated state.totalTimeLogs category rather than a
-// measurement. `sortedBuckets` are pre-aggregated by the caller via
-// aggregateByPeriod, each item has { date (anchor), value } in minutes.
+// renderMeasurementChart's shape (no dual-axis, no intensity coloring).
 function renderTotalTimeChart(sortedBuckets, graphContainer, legendBlock) {
     if (legendBlock) legendBlock.style.display = "none";
 
@@ -1626,23 +1103,21 @@ function renderStats() {
         if (legendBlock) legendBlock.style.display = "none";
     } else {
         if (legendBlock) legendBlock.style.display = "flex";
-        
+
         let sampleEntry = exerciseHistory[0].data;
         let keys = Object.keys(sampleEntry);
 
-        // Standard Primary Axis Configurations
-        let primaryMetricKey = keys.includes("weight") ? "weight" : 
-                             keys.includes("distance") ? "distance" : 
+        let primaryMetricKey = keys.includes("weight") ? "weight" :
+                             keys.includes("distance") ? "distance" :
                              keys.includes("timeSeconds") ? "timeSeconds" : "timeMinutes";
 
         if (!keys.includes(primaryMetricKey) && keys.length > 0) {
-            primaryMetricKey = keys[0]; // Adaptive fallback
+            primaryMetricKey = keys[0];
         }
 
         let secondaryMetricLabel = "";
         let hasSecondaryAxis = false;
 
-        // Dynamic Dual-Axis Calculation Configurations
         let calculatedData = exerciseHistory.map(entry => {
             let primaryVal = entry.data[primaryMetricKey] || 0;
             let secondaryVal = 0;
@@ -1676,10 +1151,6 @@ function renderStats() {
             };
         });
 
-        // Aggregate per-entry data into daily/weekly/monthly buckets. Primary
-        // and secondary values are averaged across entries in the same
-        // bucket; intensity is averaged too (rounded only at render time,
-        // for dot coloring), per spec.
         let aggregatedData = aggregateByPeriod(
             calculatedData,
             chartGranularity,
@@ -1699,7 +1170,6 @@ function renderStats() {
 
         calculatedData = aggregatedData;
 
-        // Compute Boundary Limits
         let primaryVals = calculatedData.map(d => d.primary);
         let minPri = Math.min(...primaryVals) * 0.9;
         let maxPri = Math.max(...primaryVals) * 1.1;
@@ -1766,7 +1236,7 @@ function renderStats() {
 
                     <path d="${primaryLinePath}" fill="none" stroke="#9ca3af" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                     ${hasSecondaryAxis ? `<path d="${secondaryLinePath}" fill="none" stroke="#10b981" stroke-width="1.5" stroke-dasharray="2,2" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
-                    
+
                     ${primaryDots}
                     ${secondaryDots}
 
@@ -1872,9 +1342,7 @@ function setupEventListeners() {
         const isRest = restToggle && restToggle.checked;
 
         const dayVal = type === 'weekly' ? document.getElementById("plan-day").value : null;
-        const sameDayCount = (!isRest && type === 'weekly')
-            ? state.plans.filter(p => p.type === 'weekly' && p.exercise !== "__rest__" && String(p.day) === String(dayVal)).length
-            : 0;
+        const sameDayCount = (!isRest && type === 'weekly') ? Store.countWeeklyPlansOnDay(dayVal) : 0;
 
         const newPlan = {
             id: Date.now(),
@@ -1886,8 +1354,7 @@ function setupEventListeners() {
             order: sameDayCount
         };
 
-        state.plans.push(newPlan);
-        saveState();
+        Store.addPlan(newPlan);
         haptic('success');
         initApp();
     });
@@ -1912,30 +1379,21 @@ function setupEventListeners() {
             let idx = parseInt(editIdxStr);
             let oldName = state.exercises[idx].name;
 
-            if (oldName.toLowerCase() !== name.toLowerCase() && state.exercises.some(ex => ex.name.toLowerCase() === name.toLowerCase())) {
+            if (oldName.toLowerCase() !== name.toLowerCase() && Store.exerciseNameExists(name, idx)) {
                 alert("This exercise name already exists.");
                 return;
             }
 
-            state.history.forEach(h => {
-                if (h.exerciseName === oldName) h.exerciseName = name;
-            });
-            state.plans.forEach(p => {
-                if (p.exercise === oldName) p.exercise = name;
-            });
-
-            // Preserve existing emoji if field left blank on edit
             const existingEmoji = state.exercises[idx].emoji || null;
-            state.exercises[idx] = { name, category, emoji: emoji !== null ? emoji : existingEmoji, metrics: selectedMetrics };
+            Store.updateExerciseAt(idx, { name, category, emoji: emoji !== null ? emoji : existingEmoji, metrics: selectedMetrics });
         } else {
-            if (state.exercises.some(ex => ex.name.toLowerCase() === name.toLowerCase())) {
+            if (Store.exerciseNameExists(name)) {
                 alert("This exercise name already exists.");
                 return;
             }
-            state.exercises.push({ name: name, category: category, emoji: emoji, metrics: selectedMetrics });
+            Store.addExercise({ name: name, category: category, emoji: emoji, metrics: selectedMetrics });
         }
 
-        saveState();
         haptic('success');
         cancelExerciseEdit();
         initApp();
@@ -1952,22 +1410,19 @@ function setupEventListeners() {
         if (editKey) {
             let idx = state.measurements.findIndex(m => m.key === editKey);
             if (idx === -1) return;
-            // Name-collision check against other measurements (case-insensitive)
-            if (state.measurements.some(m => m.key !== editKey && m.name.toLowerCase() === name.toLowerCase())) {
+            if (Store.measurementNameExists(name, editKey)) {
                 alert("This measurement name already exists.");
                 return;
             }
-            state.measurements[idx] = { ...state.measurements[idx], name, unit };
+            Store.updateMeasurement(editKey, name, unit);
         } else {
-            if (state.measurements.some(m => m.name.toLowerCase() === name.toLowerCase())) {
+            if (Store.measurementNameExists(name)) {
                 alert("This measurement name already exists.");
                 return;
             }
-            const key = slugifyMeasurementName(name);
-            state.measurements.push({ key, name, unit });
+            Store.addMeasurement(name, unit);
         }
 
-        saveState();
         haptic('success');
         cancelMeasurementEdit();
         initApp();
@@ -2005,7 +1460,7 @@ function renderPlanList() {
     const sortedDaysIndices = [1, 2, 3, 4, 5, 6, 0];
     sortedDaysIndices.forEach(dayIdx => {
         let dayPlans = weeklyPlans.filter(p => parseInt(p.day) === dayIdx);
-        
+
         html += `
             <div class="plan-day-block" data-day-idx="${dayIdx}">
                 <div class="plan-day-block-title">${DAYS_LONG[dayIdx]}</div>
@@ -2054,9 +1509,8 @@ function renderPlanList() {
 
 // --- DRAG-AND-DROP REORDERING OF PLANNED EXERCISES WITHIN A DAY ---
 // Pointer Events (not HTML5 DnD) so the same code path works for mouse and
-// touch alike. Reordering is scoped per-day (each plan-day-ul is its own
-// drag container) — grouping exercises together within a day is how the
-// user expresses a superset.
+// touch alike. Reordering is scoped per-day — grouping exercises together
+// within a day is how the user expresses a superset.
 let planDragState = null;
 
 function setupPlanDragReorder() {
@@ -2122,17 +1576,15 @@ function onPlanDragEnd(e) {
 
     const orderedIds = Array.from(ul.querySelectorAll('.plan-order-item[data-plan-id]'))
         .map(item => parseInt(item.dataset.planId, 10));
-    orderedIds.forEach((id, idx) => {
-        const plan = state.plans.find(p => p.id === id);
-        if (plan) plan.order = idx;
-    });
-    saveState();
+    Store.reorderPlans(orderedIds);
     haptic('light');
     planDragState = null;
     renderPlanList();
 }
 
 // --- TIMER MODAL (idle / running(green) / paused(orange) state machine) ---
+// Deliberately not part of Store: laps/elapsed time are ephemeral session
+// state that never persists across a reload, unlike everything in Store.
 const TimerModal = {
     state: "idle",       // "idle" | "running" | "paused"
     startedAt: 0,         // timestamp when current running segment began
@@ -2203,10 +1655,9 @@ const TimerModal = {
         this.renderLaps();
     },
 
-    // Logs the current elapsed time (while paused) to the workout history as
-    // a "Total Exercise Time" entry — a standalone time record not tied to
-    // any specific exercise. Does not stop or reset the timer, so the user
-    // can keep going and log again later if needed.
+    // Logs the current elapsed time (while paused) as a Total Time entry —
+    // a standalone time record not tied to any specific exercise. Does not
+    // stop or reset the timer, so the user can keep going and log again.
     logTotalTime() {
         const elapsedMs = this.getElapsedMs();
         if (elapsedMs < 1000) return; // nothing meaningful to log yet
@@ -2214,13 +1665,11 @@ const TimerModal = {
         const minutes = Math.round((elapsedMs / 60000) * 100) / 100; // 2 decimal places
         haptic('success');
 
-        state.totalTimeLogs.unshift({
+        Store.addTotalTimeLog({
             id: Date.now(),
             date: getLocalDateString(new Date()),
             minutes: minutes
         });
-        state.totalTimeLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
-        saveState();
 
         const hint = document.getElementById("timer-log-hint");
         if (hint) {
@@ -2242,7 +1691,6 @@ const TimerModal = {
         return this.elapsedMs;
     },
 
-    // Time elapsed since the most recent lap (or since start, if no laps yet).
     getCurrentLapMs() {
         return Math.max(0, this.getElapsedMs() - this.currentLapStartMs);
     },
@@ -2261,8 +1709,6 @@ const TimerModal = {
         const lapDisplay = document.getElementById("timer-lap-display");
         if (display) display.innerText = this.formatMs(this.getElapsedMs());
         if (lapDisplay) {
-            // Only meaningful while a session is actually active (running or
-            // paused mid-session) — idle has no lap to show.
             const showLap = this.state === "running" || (this.state === "paused" && this.elapsedMs > 0);
             if (showLap) {
                 lapDisplay.innerText = `Lap ${this.formatMs(this.getCurrentLapMs())}`;
@@ -2273,7 +1719,6 @@ const TimerModal = {
         }
     },
 
-    // Updates header icon color, modal control set (idle/running/paused), and state label
     refreshUI() {
         this.updateDisplay();
 
@@ -2313,7 +1758,6 @@ const TimerModal = {
             list.innerHTML = `<li class="list-group-item text-muted" style="justify-content:center;">No laps yet</li>`;
             return;
         }
-        // Most recent lap first
         list.innerHTML = this.laps.slice().reverse().map(lap => `
             <li class="list-group-item">
                 <span>${lap.label}</span>
@@ -2322,7 +1766,6 @@ const TimerModal = {
         `).join("");
     }
 };
-
 
 const TrackingModal = {
     open() {
@@ -2391,9 +1834,7 @@ const TrackingModal = {
             document.getElementById("tracking-log-edit-id").value = "";
             valueInput.value = "";
             diastolicInput.value = "";
-            const mostRecent = [...state.measurementLogs]
-                .filter(l => l.measurementKey === measurementKey)
-                .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+            const mostRecent = Store.getMostRecentMeasurementLog(measurementKey);
             valueInput.placeholder = mostRecent ? `Prev: ${mostRecent.value}` : "0.0";
             diastolicInput.placeholder = mostRecent && mostRecent.diastolic !== undefined ? `Prev: ${mostRecent.diastolic}` : "0";
             dateInput.value = getLocalDateString(new Date());
@@ -2415,25 +1856,13 @@ const TrackingModal = {
         if (!measurementKey || !date || !Number.isFinite(value)) return;
 
         if (editId) {
-            let idx = state.measurementLogs.findIndex(l => l.id === parseInt(editId));
-            if (idx !== -1) {
-                state.measurementLogs[idx].value = value;
-                state.measurementLogs[idx].date = date;
-                if (isBp) state.measurementLogs[idx].diastolic = diastolic;
-                else delete state.measurementLogs[idx].diastolic;
-            }
+            Store.updateMeasurementLog(parseInt(editId), value, date, diastolic);
         } else {
-            const newLog = {
-                id: Date.now(),
-                date: date,
-                measurementKey: measurementKey,
-                value: value
-            };
+            const newLog = { id: Date.now(), date: date, measurementKey: measurementKey, value: value };
             if (isBp && diastolic !== undefined) newLog.diastolic = diastolic;
-            state.measurementLogs.unshift(newLog);
+            Store.addMeasurementLog(newLog);
         }
 
-        saveState();
         haptic('success');
         this.close();
         initApp();
@@ -2441,7 +1870,7 @@ const TrackingModal = {
 
     // Opens the log form pre-filled for editing, used from the History Logs By Day list
     editLog(id) {
-        const log = state.measurementLogs.find(l => l.id === id);
+        const log = Store.getMeasurementLog(id);
         if (!log) return;
         this.renderPicker();
         document.getElementById("tracking-modal").classList.remove("hidden");
@@ -2449,21 +1878,24 @@ const TrackingModal = {
     },
 
     deleteLog(id) {
-        if (confirm("Are you sure you want to delete this historical measurement entry?")) {
-            state.measurementLogs = state.measurementLogs.filter(l => l.id !== id);
-            saveState();
-            initApp();
-        }
+        triggerConfirmationModal(
+            "Delete Entry",
+            "Are you sure you want to delete this historical measurement entry?",
+            () => {
+                Store.deleteMeasurementLog(id);
+                initApp();
+            }
+        );
     }
 };
 
 // --- LOG MODAL (global "+" entry point) ---
-// 3-step flow: Exercise vs Measurement -> pick which one -> entry fields.
-// Saving goes through the exact same state mutations as the inline
-// Track-tab form (for exercises) and the Tracking modal (for measurements),
-// so there's one source of truth for what a "save" actually does.
+// 3-step flow: Exercise vs Measurement vs Total Time -> pick which one ->
+// entry fields. Saving goes through the exact same Store methods as the
+// Tracking modal / Today's Exercises card, so there's one source of truth
+// for what a "save" actually does.
 const LogModal = {
-    step: "kind", // "kind" | "exercise-pick" | "measurement-pick" | "exercise-form" | "measurement-form"
+    step: "kind", // "kind" | "exercise-pick" | "measurement-pick" | "exercise-form" | "measurement-form" | "totaltime-form"
 
     open() {
         haptic('light');
@@ -2491,9 +1923,6 @@ const LogModal = {
         this._setStep("kind", "Log", false);
     },
 
-    // Back navigation mirrors the forward path: form -> pick -> kind.
-    // Total Time has no intermediate pick step, so its form goes straight
-    // back to kind, same as the others end up doing.
     back() {
         this.goToKind();
     },
@@ -2511,10 +1940,6 @@ const LogModal = {
         }
     },
 
-    // Total Time is its own entry type (not an exercise, not a measurement)
-    // — a standalone time record, same underlying history entry shape the
-    // Timer's "Log Total Time" button has always produced, just entered
-    // manually with a date/minutes form instead of read off a running clock.
     openTotalTimeForm(existingEntry = null) {
         document.getElementById("log2-tt-edit-id").value = existingEntry ? existingEntry.id : "";
         document.getElementById("log2-tt-minutes").value = existingEntry ? (existingEntry.minutes ?? "") : "";
@@ -2532,21 +1957,11 @@ const LogModal = {
         if (!date || !Number.isFinite(minutes)) return;
 
         if (editingId) {
-            let index = state.totalTimeLogs.findIndex(t => t.id === parseInt(editingId));
-            if (index !== -1) {
-                state.totalTimeLogs[index].date = date;
-                state.totalTimeLogs[index].minutes = minutes;
-            }
+            Store.updateTotalTimeLog(parseInt(editingId), date, minutes);
         } else {
-            state.totalTimeLogs.unshift({
-                id: Date.now(),
-                date: date,
-                minutes: minutes
-            });
+            Store.addTotalTimeLog({ id: Date.now(), date: date, minutes: minutes });
         }
 
-        state.totalTimeLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
-        saveState();
         haptic('success');
         this.close();
         initApp();
@@ -2640,9 +2055,7 @@ const LogModal = {
         } else {
             valueInput.value = "";
             diastolicInput.value = "";
-            const mostRecent = [...state.measurementLogs]
-                .filter(l => l.measurementKey === measurementKey)
-                .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+            const mostRecent = Store.getMostRecentMeasurementLog(measurementKey);
             valueInput.placeholder = mostRecent ? `Prev: ${mostRecent.value}` : "0.0";
             diastolicInput.placeholder = mostRecent && mostRecent.diastolic !== undefined ? `Prev: ${mostRecent.diastolic}` : "0";
             dateInput.value = getLocalDateString(new Date());
@@ -2679,15 +2092,14 @@ const LogModal = {
         });
 
         if (editingId) {
-            let index = state.history.findIndex(h => h.id === parseInt(editingId));
-            if (index !== -1) {
-                state.history[index].date = selectedDate;
-                state.history[index].exerciseName = exerciseName;
-                state.history[index].intensity = intensity || null;
-                state.history[index].data = logData;
-            }
+            Store.updateHistoryEntry(parseInt(editingId), {
+                date: selectedDate,
+                exerciseName: exerciseName,
+                intensity: intensity || null,
+                data: logData
+            });
         } else {
-            state.history.unshift({
+            Store.addHistoryEntry({
                 id: Date.now(),
                 date: selectedDate,
                 exerciseName: exerciseName,
@@ -2696,8 +2108,6 @@ const LogModal = {
             });
         }
 
-        state.history.sort((a, b) => new Date(b.date) - new Date(a.date));
-        saveState();
         haptic('success');
         this.close();
         initApp();
@@ -2716,25 +2126,13 @@ const LogModal = {
         if (!measurementKey || !date || !Number.isFinite(value)) return;
 
         if (editId) {
-            let idx = state.measurementLogs.findIndex(l => l.id === parseInt(editId));
-            if (idx !== -1) {
-                state.measurementLogs[idx].value = value;
-                state.measurementLogs[idx].date = date;
-                if (isBp) state.measurementLogs[idx].diastolic = diastolic;
-                else delete state.measurementLogs[idx].diastolic;
-            }
+            Store.updateMeasurementLog(parseInt(editId), value, date, diastolic);
         } else {
-            const newLog = {
-                id: Date.now(),
-                date: date,
-                measurementKey: measurementKey,
-                value: value
-            };
+            const newLog = { id: Date.now(), date: date, measurementKey: measurementKey, value: value };
             if (isBp && diastolic !== undefined) newLog.diastolic = diastolic;
-            state.measurementLogs.unshift(newLog);
+            Store.addMeasurementLog(newLog);
         }
 
-        saveState();
         haptic('success');
         this.close();
         initApp();
@@ -2790,14 +2188,11 @@ const SettingsDrawer = {
     }
 };
 
-
 // iOS Safari silently no-ops `<a download>` clicks when the site is running
 // as an installed standalone PWA — no error, nothing downloads, it just does
 // nothing. The Web Share API (with a File) is the one mechanism that
 // reliably works for saving a file out of an installed iOS PWA, so it's
-// tried first; the classic anchor-download approach (which works fine in a
-// regular browser tab, and on platforms/browsers without file-sharing
-// support) is kept as the fallback.
+// tried first; the classic anchor-download approach is kept as the fallback.
 async function shareOrDownloadFile(filename, mimeType, contentStr) {
     try {
         const file = new File([contentStr], filename, { type: mimeType });
@@ -2820,7 +2215,9 @@ async function shareOrDownloadFile(filename, mimeType, contentStr) {
 }
 
 function exportData() {
-    const dataStr = JSON.stringify(state, null, 2);
+    // Only the persisted AppData fields — never a transient UI field like
+    // the 7-Day Horizon's selected-day highlight.
+    const dataStr = JSON.stringify(Store.getSnapshot(), null, 2);
     shareOrDownloadFile("engineered_exercise_backup.json", "application/json", dataStr);
 }
 
@@ -2833,12 +2230,7 @@ function importData(event) {
         try {
             const importedState = JSON.parse(e.target.result);
             if (importedState.history && importedState.exercises) {
-                state = importedState;
-                // Older backups won't have this category yet — initApp()'s
-                // migrateTotalTimeEntries() will also pull out any Total
-                // Time rows still embedded in history, if present.
-                if (!Array.isArray(state.totalTimeLogs)) state.totalTimeLogs = [];
-                saveState();
+                Store.replaceAll(importedState);
                 initApp();
                 alert("Data configuration imported successfully!");
             }
@@ -2850,63 +2242,10 @@ function importData(event) {
 }
 
 function exportCSV() {
-    const hasHistory = state.history.length > 0;
-    const hasTotalTime = state.totalTimeLogs && state.totalTimeLogs.length > 0;
-    if (!hasHistory && !hasTotalTime) {
+    const csvContent = Store.buildCsvContent();
+    if (!csvContent) {
         alert("No historical workout log entries found to export.");
         return;
     }
-
-    const allMetricKeys = new Set();
-    state.history.forEach(entry => {
-        if (entry.data) {
-            Object.keys(entry.data).forEach(key => allMetricKeys.add(key));
-        }
-    });
-    if (hasTotalTime) allMetricKeys.add("timeMinutes");
-    const metricKeysArray = Array.from(allMetricKeys).sort();
-
-    const baseHeaders = ["ID", "Date", "Exercise Name", "Intensity"];
-    const fullHeaders = [...baseHeaders, ...metricKeysArray];
-
-    const csvRows = [];
-    csvRows.push(fullHeaders.map(header => `"${header}"`).join(","));
-
-    state.history.forEach(entry => {
-        const rowData = [
-            entry.id,
-            entry.date,
-            entry.exerciseName,
-            entry.intensity || ""
-        ];
-
-        metricKeysArray.forEach(key => {
-            const value = entry.data && entry.data[key] !== undefined ? entry.data[key] : "";
-            rowData.push(value);
-        });
-
-        const processedRow = rowData.map(val => {
-            const strVal = String(val).replace(/"/g, '""');
-            return `"${strVal}"`;
-        });
-        csvRows.push(processedRow.join(","));
-    });
-
-    // Total Time is its own record category (state.totalTimeLogs), but the
-    // CSV export stays a single flat timeline — appended here as rows under
-    // the same "Total Exercise Time" label it always had.
-    (state.totalTimeLogs || []).forEach(entry => {
-        const rowData = [entry.id, entry.date, TOTAL_TIME_EXERCISE_NAME, ""];
-        metricKeysArray.forEach(key => {
-            rowData.push(key === "timeMinutes" ? entry.minutes : "");
-        });
-        const processedRow = rowData.map(val => {
-            const strVal = String(val).replace(/"/g, '""');
-            return `"${strVal}"`;
-        });
-        csvRows.push(processedRow.join(","));
-    });
-
-    const csvContent = "\uFEFF" + csvRows.join("\n");
     shareOrDownloadFile("engineered_exercise_history.csv", "text/csv", csvContent);
 }

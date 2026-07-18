@@ -113,116 +113,26 @@ const BackupSync = (() => {
         else localStorage.removeItem(LS_KEYS.provider);
     }
 
+    // getCurrentStateSnapshot/applyStateSnapshot/mergeSnapshots are thin
+    // delegations to Store — Store is the single source of truth for the
+    // AppData shape, localStorage keys, and merge algorithm. Keeping that
+    // logic in one place (rather than duplicated here) is what makes a
+    // future native port straightforward: the sync provider layer below
+    // only ever needs a JSON blob in and out, never direct storage-key
+    // knowledge.
     function getCurrentStateSnapshot() {
-        // Mirrors the exact shape app.js's `state` object uses.
-        return {
-            exercises: JSON.parse(localStorage.getItem("ee_exercises")) || [],
-            history: JSON.parse(localStorage.getItem("ee_history")) || [],
-            plans: JSON.parse(localStorage.getItem("ee_plans")) || [],
-            measurements: JSON.parse(localStorage.getItem("ee_measurements")) || [],
-            measurementLogs: JSON.parse(localStorage.getItem("ee_measurement_logs")) || [],
-            totalTimeLogs: JSON.parse(localStorage.getItem("ee_total_time_logs")) || []
-        };
+        return Store.getSnapshot();
     }
 
     function applyStateSnapshot(snapshot) {
-        if (!snapshot || !snapshot.history || !snapshot.exercises) return false;
-        localStorage.setItem("ee_exercises", JSON.stringify(snapshot.exercises));
-        localStorage.setItem("ee_history", JSON.stringify(snapshot.history));
-        localStorage.setItem("ee_plans", JSON.stringify(snapshot.plans || []));
-        localStorage.setItem("ee_measurements", JSON.stringify(snapshot.measurements || []));
-        localStorage.setItem("ee_measurement_logs", JSON.stringify(snapshot.measurementLogs || []));
-        localStorage.setItem("ee_total_time_logs", JSON.stringify(snapshot.totalTimeLogs || []));
-        // Reload in-memory state + re-render everything, if app.js's globals exist.
-        if (typeof state !== "undefined") {
-            state.exercises = snapshot.exercises;
-            state.history = snapshot.history;
-            state.plans = snapshot.plans || [];
-            state.measurements = snapshot.measurements || [];
-            state.measurementLogs = snapshot.measurementLogs || [];
-            state.totalTimeLogs = snapshot.totalTimeLogs || [];
-        }
-        if (typeof initApp === "function") initApp();
-        return true;
+        const applied = Store.applySnapshot(snapshot);
+        // Store has no DOM access by design — trigger the UI repaint here.
+        if (applied && typeof initApp === "function") initApp();
+        return applied;
     }
 
-    // -------------------------------------------------------------------------
-    // Merge logic: union of history entries by id, newest-wins on exercises/plans.
-    // "Newest" for exercises/plans is approximated by array position from each
-    // source — since neither has a reliable per-record timestamp, we trust
-    // whichever snapshot is more recently synced (passed in as `remoteIsNewer`)
-    // for collisions, and always union by identity otherwise.
-    // -------------------------------------------------------------------------
     function mergeSnapshots(local, remote, remoteIsNewer) {
-        // History: union by id. If the same id exists in both (shouldn't
-        // normally happen since ids are Date.now()), prefer whichever
-        // snapshot is considered newer.
-        const historyById = new Map();
-        const olderHistory = remoteIsNewer ? local.history : remote.history;
-        const newerHistory = remoteIsNewer ? remote.history : local.history;
-        (olderHistory || []).forEach(h => historyById.set(h.id, h));
-        (newerHistory || []).forEach(h => historyById.set(h.id, h)); // overwrites on collision
-        const mergedHistory = Array.from(historyById.values()).sort((a, b) => {
-            if (a.date !== b.date) return a.date < b.date ? -1 : 1;
-            return (a.id || 0) - (b.id || 0);
-        });
-
-        // Exercises: union by name (case-insensitive), newer snapshot wins on conflict.
-        const exByName = new Map();
-        const olderEx = remoteIsNewer ? local.exercises : remote.exercises;
-        const newerEx = remoteIsNewer ? remote.exercises : local.exercises;
-        (olderEx || []).forEach(e => exByName.set(e.name.toLowerCase(), e));
-        (newerEx || []).forEach(e => exByName.set(e.name.toLowerCase(), e));
-        const mergedExercises = Array.from(exByName.values());
-
-        // Plans: union by id, newer snapshot wins on collision.
-        const plansById = new Map();
-        const olderPlans = remoteIsNewer ? local.plans : remote.plans;
-        const newerPlans = remoteIsNewer ? remote.plans : local.plans;
-        (olderPlans || []).forEach(p => plansById.set(p.id, p));
-        (newerPlans || []).forEach(p => plansById.set(p.id, p));
-        const mergedPlans = Array.from(plansById.values());
-
-        // Measurements: union by key, newer snapshot wins on conflict — same
-        // pattern as exercises, but keyed by `key` (the stable slug) rather
-        // than `name`, since name is editable without changing the key.
-        const measByKey = new Map();
-        const olderMeas = remoteIsNewer ? local.measurements : remote.measurements;
-        const newerMeas = remoteIsNewer ? remote.measurements : local.measurements;
-        (olderMeas || []).forEach(m => measByKey.set(m.key, m));
-        (newerMeas || []).forEach(m => measByKey.set(m.key, m));
-        const mergedMeasurements = Array.from(measByKey.values());
-
-        // Measurement logs: union by id, same approach as history.
-        const measLogsById = new Map();
-        const olderMeasLogs = remoteIsNewer ? local.measurementLogs : remote.measurementLogs;
-        const newerMeasLogs = remoteIsNewer ? remote.measurementLogs : local.measurementLogs;
-        (olderMeasLogs || []).forEach(l => measLogsById.set(l.id, l));
-        (newerMeasLogs || []).forEach(l => measLogsById.set(l.id, l));
-        const mergedMeasurementLogs = Array.from(measLogsById.values()).sort((a, b) => {
-            if (a.date !== b.date) return a.date < b.date ? -1 : 1;
-            return (a.id || 0) - (b.id || 0);
-        });
-
-        // Total time logs: union by id, same approach as history/measurement logs.
-        const totalTimeById = new Map();
-        const olderTotalTime = remoteIsNewer ? local.totalTimeLogs : remote.totalTimeLogs;
-        const newerTotalTime = remoteIsNewer ? remote.totalTimeLogs : local.totalTimeLogs;
-        (olderTotalTime || []).forEach(t => totalTimeById.set(t.id, t));
-        (newerTotalTime || []).forEach(t => totalTimeById.set(t.id, t));
-        const mergedTotalTimeLogs = Array.from(totalTimeById.values()).sort((a, b) => {
-            if (a.date !== b.date) return a.date < b.date ? -1 : 1;
-            return (a.id || 0) - (b.id || 0);
-        });
-
-        return {
-            exercises: mergedExercises,
-            history: mergedHistory,
-            plans: mergedPlans,
-            measurements: mergedMeasurements,
-            measurementLogs: mergedMeasurementLogs,
-            totalTimeLogs: mergedTotalTimeLogs
-        };
+        return Store.mergeSnapshots(local, remote, remoteIsNewer);
     }
 
     // -------------------------------------------------------------------------
