@@ -99,6 +99,10 @@ document.addEventListener("DOMContentLoaded", () => {
     initApp();
     setupEventListeners();
     setupLog2StarRating();
+    BackupReminder.refresh();
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) BackupReminder.refresh();
+    });
 });
 
 // Render-everything entry point. Called once on load (after Store.load())
@@ -2193,15 +2197,18 @@ const SettingsDrawer = {
 // nothing. The Web Share API (with a File) is the one mechanism that
 // reliably works for saving a file out of an installed iOS PWA, so it's
 // tried first; the classic anchor-download approach is kept as the fallback.
+// Returns true if the file was actually shared/downloaded, false if the
+// person cancelled the share sheet — callers that need to know whether the
+// export "really happened" (e.g. the backup reminder) check this.
 async function shareOrDownloadFile(filename, mimeType, contentStr) {
     try {
         const file = new File([contentStr], filename, { type: mimeType });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({ files: [file] });
-            return;
+            return true;
         }
     } catch (err) {
-        if (err && err.name === "AbortError") return; // user cancelled the share sheet
+        if (err && err.name === "AbortError") return false; // user cancelled the share sheet
         console.warn("Web Share failed, falling back to direct download:", err);
     }
 
@@ -2212,13 +2219,18 @@ async function shareOrDownloadFile(filename, mimeType, contentStr) {
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
+    return true; // no completion signal available for the anchor-download path; assume success
 }
 
-function exportData() {
+async function exportData() {
     // Only the persisted AppData fields — never a transient UI field like
     // the 7-Day Horizon's selected-day highlight.
     const dataStr = JSON.stringify(Store.getSnapshot(), null, 2);
-    shareOrDownloadFile("engineered_exercise_backup.json", "application/json", dataStr);
+    const completed = await shareOrDownloadFile("engineered_exercise_backup.json", "application/json", dataStr);
+    if (completed) {
+        Store.markJsonExported();
+        BackupReminder.refresh();
+    }
 }
 
 function importData(event) {
@@ -2249,3 +2261,39 @@ function exportCSV() {
     }
     shareOrDownloadFile("engineered_exercise_history.csv", "text/csv", csvContent);
 }
+
+// --- BACKUP REMINDER BADGE ---
+// A small persistent pill (bottom-right, same slot the old on-device
+// "not synced" indicator used) that nags the person to export a JSON
+// backup once it's been 4+ days since their last one — regardless of
+// whether On Device auto-sync is configured, since that's a best-effort
+// background sync, not a "you have a copy of your data" guarantee.
+// Tapping it runs the same export as the Data tab's "Export Backup (JSON)"
+// button.
+const BackupReminder = {
+    el: null,
+
+    ensureEl() {
+        if (this.el) return this.el;
+        const badge = document.createElement("div");
+        badge.id = "backup-reminder-badge";
+        badge.style.cssText = `
+            position: fixed; bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+            right: 1rem; z-index: 400; background: #dc2626; color: #fff;
+            font-size: 0.72rem; font-weight: 600; padding: 0.4rem 0.7rem;
+            border-radius: 999px; box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            display: none; align-items: center; gap: 0.35rem; cursor: pointer;
+        `;
+        badge.innerHTML = `<span>⚠️</span><span>Time to Backup</span>`;
+        badge.onclick = () => { haptic('light'); exportData(); };
+        document.body.appendChild(badge);
+        this.el = badge;
+        return badge;
+    },
+
+    refresh() {
+        const badge = this.ensureEl();
+        if (!badge) return;
+        badge.style.display = Store.isBackupReminderDue() ? "flex" : "none";
+    }
+};

@@ -162,8 +162,18 @@ const Store = (() => {
         plans: "ee_plans",
         measurements: "ee_measurements",
         measurementLogs: "ee_measurement_logs",
-        totalTimeLogs: "ee_total_time_logs"
+        totalTimeLogs: "ee_total_time_logs",
+        // App-level metadata — not part of AppData/getSnapshot(), since these
+        // track app usage rather than user data, and (correctly) never travel
+        // inside a JSON export or cloud backup.
+        lastJsonExportAt: "ee_last_json_export_at",
+        firstLaunchAt: "ee_first_launch_at"
     };
+
+    // How long to wait after the last successful JSON export before nagging
+    // the person to do another one. A Swift port should mirror this exact
+    // threshold so behavior stays identical across platforms.
+    const BACKUP_REMINDER_MS = 4 * 24 * 60 * 60 * 1000; // 4 days
 
     const Persistence = {
         get(key) {
@@ -269,6 +279,15 @@ const Store = (() => {
         return a || b;
     }
 
+    // Records the first time this app ever ran on this device — used as the
+    // reminder anchor for people who've never exported a JSON backup, so a
+    // brand-new install doesn't immediately nag on day one. Idempotent.
+    function ensureFirstLaunchRecorded() {
+        if (!Persistence.get(LS_KEYS.firstLaunchAt)) {
+            Persistence.set(LS_KEYS.firstLaunchAt, new Date().toISOString());
+        }
+    }
+
     // ============================================================
     // LOAD / REPLACE
     // ============================================================
@@ -287,6 +306,7 @@ const Store = (() => {
         if (!Array.isArray(state.measurementLogs)) state.measurementLogs = [];
         if (!Array.isArray(state.totalTimeLogs)) state.totalTimeLogs = [];
 
+        ensureFirstLaunchRecorded();
         runMigrations();
         persistAll();
     }
@@ -1001,6 +1021,32 @@ const Store = (() => {
     }
 
     // ============================================================
+    // BACKUP REMINDER
+    // Tracks when the person last did a manual JSON export and answers
+    // whether it's time to nag them again. Deliberately separate from the
+    // On Device auto-sync in backup.js — that's a background best-effort
+    // sync, this is "do you have a copy of your data somewhere you
+    // control," which matters even if On Device sync is working fine.
+    // ============================================================
+    function markJsonExported() {
+        Persistence.set(LS_KEYS.lastJsonExportAt, new Date().toISOString());
+    }
+
+    function getLastJsonExportAt() {
+        return Persistence.get(LS_KEYS.lastJsonExportAt);
+    }
+
+    function isBackupReminderDue() {
+        // Anchor on the last export; if there's never been one, fall back to
+        // first-launch date so a brand-new install isn't nagged immediately.
+        const anchor = getLastJsonExportAt() || Persistence.get(LS_KEYS.firstLaunchAt);
+        if (!anchor) return false;
+        const anchorMs = new Date(anchor).getTime();
+        if (!Number.isFinite(anchorMs)) return false;
+        return (Date.now() - anchorMs) >= BACKUP_REMINDER_MS;
+    }
+
+    // ============================================================
     // EXPORT: CSV content (pure string — app.js handles the file save)
     // ============================================================
     function buildCsvContent() {
@@ -1136,6 +1182,11 @@ const Store = (() => {
         computeTrackKpis,
         computeStatsKpis,
         computeProgressOverview,
+
+        // backup reminder
+        markJsonExported,
+        getLastJsonExportAt,
+        isBackupReminderDue,
 
         // export
         buildCsvContent

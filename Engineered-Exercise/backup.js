@@ -1,52 +1,30 @@
 // =============================================================================
 // Engineered Exercise — Backup & Sync Module
 // =============================================================================
-// Handles automatic backup of state (ee_exercises, ee_history, ee_plans,
-// ee_measurements, ee_measurement_logs) to one of three providers: On Device
-// (File System Access API), Google Drive (appDataFolder), or Dropbox
-// (app-folder scope).
+// Handles automatic backup of app data (see store.js) to an on-device file
+// via the File System Access API. This is the only backup provider — no
+// cloud accounts, no OAuth, no external services involved.
 //
 // Public surface used by app.js / index.html:
 //   - BackupSync.init()                 call once on DOMContentLoaded
 //   - BackupSync.notifyStateChanged()   call after every saveState()
 //   - BackupSync.openSettingsPanel()    "Change Backup Location" button target
 //
-// Everything here is additive — if a user never sets up a backup target, this
+// Everything here is additive — if a user never sets up a backup file, this
 // module is a no-op and the app behaves exactly as it did before.
 // =============================================================================
 
 const BackupSync = (() => {
 
-    // --- CONFIG: fill these in with your own registered app credentials ----
-    // Google Cloud Console > APIs & Services > Credentials > OAuth Client ID
-    // (type: Web application). Add your GitHub Pages origin to "Authorized
-    // JavaScript origins" and oauth-callback.html's full URL to "Authorized
-    // redirect URIs".
-    const GOOGLE_CLIENT_ID = "36630807511-gt7hamltvic0l9lslrov9q998r56f4c0.apps.googleusercontent.com";
-
-    // Dropbox App Console > Create App > Scoped access > App folder.
-    // Add oauth-callback.html's full URL under "Redirect URIs".
-    const DROPBOX_APP_KEY = "YOUR_DROPBOX_APP_KEY_HERE";
-
-    // Must exactly match what's registered in both consoles above.
-    const OAUTH_REDIRECT_URI = new URL("oauth-callback.html", window.location.href).toString();
-
-    const DRIVE_BACKUP_FILENAME = "engineered_exercise_backup.json";
-    const DROPBOX_BACKUP_PATH = "/backup.json"; // relative to the app folder
-
     // --- INTERNAL STATE ------------------------------------------------------
     const LS_KEYS = {
-        provider: "ee_backup_provider",       // "ondevice" | "drive" | "dropbox" | null
-        driveFileId: "ee_backup_drive_file_id",
-        dropboxToken: "ee_backup_dropbox_token",       // {access_token, refresh_token, expires_at}
-        googleToken: "ee_backup_google_token",         // {access_token, expires_at}
+        provider: "ee_backup_provider",       // "ondevice" | null
         lastSyncedAt: "ee_backup_last_synced_at",      // ISO timestamp of last successful sync
         setupComplete: "ee_backup_setup_complete"      // "1" once the user has chosen (even if "skip")
     };
 
     let dbPromise = null;        // IndexedDB handle, used to store the on-device FileSystemFileHandle
     let pendingSaveTimer = null; // debounce timer for auto-save
-    let syncBadgeEl = null;
     let isSyncing = false;
     let dirtySinceLastSync = false;
 
@@ -136,41 +114,7 @@ const BackupSync = (() => {
     }
 
     // -------------------------------------------------------------------------
-    // Sync status badge (small persistent indicator shown only while unsynced)
-    // -------------------------------------------------------------------------
-    function ensureBadge() {
-        if (syncBadgeEl) return syncBadgeEl;
-        const header = document.querySelector("header");
-        if (!header) return null;
-        const badge = document.createElement("div");
-        badge.id = "backup-sync-badge";
-        badge.style.cssText = `
-            position: fixed; bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
-            right: 1rem; z-index: 400; background: #dc2626; color: #fff;
-            font-size: 0.72rem; font-weight: 600; padding: 0.4rem 0.7rem;
-            border-radius: 999px; box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-            display: none; align-items: center; gap: 0.35rem; cursor: pointer;
-        `;
-        badge.innerHTML = `<span>⚠️</span><span id="backup-sync-badge-text">Not synced</span>`;
-        badge.onclick = () => { trySync(true); };
-        document.body.appendChild(badge);
-        syncBadgeEl = badge;
-        return badge;
-    }
-
-    function showBadge(text) {
-        const badge = ensureBadge();
-        if (!badge) return;
-        document.getElementById("backup-sync-badge-text").textContent = text;
-        badge.style.display = "flex";
-    }
-
-    function hideBadge() {
-        if (syncBadgeEl) syncBadgeEl.style.display = "none";
-    }
-
-    // -------------------------------------------------------------------------
-    // PROVIDER: On Device (File System Access API)
+    // PROVIDER: On Device (File System Access API) — the only provider.
     // -------------------------------------------------------------------------
     const OnDevice = {
         async chooseNewFile() {
@@ -226,282 +170,23 @@ const BackupSync = (() => {
     };
 
     // -------------------------------------------------------------------------
-    // PROVIDER: Google Drive (appDataFolder, hidden from normal Drive UI)
-    // -------------------------------------------------------------------------
-    const GoogleDrive = {
-        SCOPE: "https://www.googleapis.com/auth/drive.appdata",
-
-        loadGis() {
-            return new Promise((resolve, reject) => {
-                if (window.google && window.google.accounts) return resolve();
-                const script = document.createElement("script");
-                script.src = "https://accounts.google.com/gsi/client";
-                script.onload = resolve;
-                script.onerror = () => reject(new Error("Failed to load Google Identity Services."));
-                document.head.appendChild(script);
-            });
-        },
-
-        getStoredToken() {
-            const raw = localStorage.getItem(LS_KEYS.googleToken);
-            if (!raw) return null;
-            const token = JSON.parse(raw);
-            if (token.expires_at && Date.now() > token.expires_at - 60000) return null; // expired/expiring
-            return token;
-        },
-
-        async getAccessToken(interactive) {
-            const existing = this.getStoredToken();
-            if (existing) return existing.access_token;
-            if (!interactive) throw new Error("No valid token and not allowed to prompt interactively.");
-
-            await this.loadGis();
-            return new Promise((resolve, reject) => {
-                const client = google.accounts.oauth2.initTokenClient({
-                    client_id: GOOGLE_CLIENT_ID,
-                    scope: this.SCOPE,
-                    callback: (resp) => {
-                        if (resp.error) return reject(new Error(resp.error));
-                        const token = {
-                            access_token: resp.access_token,
-                            expires_at: Date.now() + (resp.expires_in * 1000)
-                        };
-                        localStorage.setItem(LS_KEYS.googleToken, JSON.stringify(token));
-                        resolve(resp.access_token);
-                    }
-                });
-                client.requestAccessToken();
-            });
-        },
-
-        async findExistingFileId(accessToken) {
-            const res = await fetch(
-                `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&fields=files(id,name,modifiedTime)`,
-                { headers: { Authorization: `Bearer ${accessToken}` } }
-            );
-            if (!res.ok) throw new Error(`Drive list failed: ${res.status}`);
-            const data = await res.json();
-            const match = (data.files || []).find(f => f.name === DRIVE_BACKUP_FILENAME);
-            return match ? match.id : null;
-        },
-
-        async readBackup() {
-            const accessToken = await this.getAccessToken(false);
-            let fileId = localStorage.getItem(LS_KEYS.driveFileId);
-            if (!fileId) {
-                fileId = await this.findExistingFileId(accessToken);
-                if (fileId) localStorage.setItem(LS_KEYS.driveFileId, fileId);
-            }
-            if (!fileId) return null;
-
-            const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-                headers: { Authorization: `Bearer ${accessToken}` }
-            });
-            if (res.status === 404) { localStorage.removeItem(LS_KEYS.driveFileId); return null; }
-            if (!res.ok) throw new Error(`Drive read failed: ${res.status}`);
-            const text = await res.text();
-            return text.trim() ? JSON.parse(text) : null;
-        },
-
-        async writeBackup(snapshot) {
-            const accessToken = await this.getAccessToken(false);
-            let fileId = localStorage.getItem(LS_KEYS.driveFileId);
-            if (!fileId) fileId = await this.findExistingFileId(accessToken);
-
-            const body = JSON.stringify(snapshot, null, 2);
-            const metadata = { name: DRIVE_BACKUP_FILENAME, parents: ["appDataFolder"] };
-
-            if (fileId) {
-                const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
-                    method: "PATCH",
-                    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-                    body
-                });
-                if (!res.ok) throw new Error(`Drive write failed: ${res.status}`);
-            } else {
-                const form = new FormData();
-                form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
-                form.append("file", new Blob([body], { type: "application/json" }));
-                const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id`, {
-                    method: "POST",
-                    headers: { Authorization: `Bearer ${accessToken}` },
-                    body: form
-                });
-                if (!res.ok) throw new Error(`Drive create failed: ${res.status}`);
-                const data = await res.json();
-                localStorage.setItem(LS_KEYS.driveFileId, data.id);
-            }
-        },
-
-        async setupInteractive() {
-            await this.getAccessToken(true); // forces the consent prompt
-        },
-
-        clear() {
-            localStorage.removeItem(LS_KEYS.googleToken);
-            localStorage.removeItem(LS_KEYS.driveFileId);
-        }
-    };
-
-    // -------------------------------------------------------------------------
-    // PROVIDER: Dropbox (PKCE OAuth, app-folder scope)
-    // -------------------------------------------------------------------------
-    const Dropbox = {
-        async sha256Base64Url(input) {
-            const data = new TextEncoder().encode(input);
-            const digest = await crypto.subtle.digest("SHA-256", data);
-            const bytes = new Uint8Array(digest);
-            let str = "";
-            bytes.forEach(b => str += String.fromCharCode(b));
-            return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-        },
-
-        randomVerifier() {
-            const arr = new Uint8Array(32);
-            crypto.getRandomValues(arr);
-            return Array.from(arr, b => ("0" + b.toString(16)).slice(-2)).join("");
-        },
-
-        async beginAuth() {
-            const verifier = this.randomVerifier();
-            const challenge = await this.sha256Base64Url(verifier);
-            sessionStorage.setItem("ee_dropbox_pkce_verifier", verifier);
-
-            const params = new URLSearchParams({
-                client_id: DROPBOX_APP_KEY,
-                response_type: "code",
-                code_challenge: challenge,
-                code_challenge_method: "S256",
-                redirect_uri: OAUTH_REDIRECT_URI,
-                token_access_type: "offline",
-                state: "dropbox"
-            });
-            window.location.href = `https://www.dropbox.com/oauth2/authorize?${params.toString()}`;
-        },
-
-        async exchangeCodeForToken(code) {
-            const verifier = sessionStorage.getItem("ee_dropbox_pkce_verifier");
-            const params = new URLSearchParams({
-                code,
-                grant_type: "authorization_code",
-                client_id: DROPBOX_APP_KEY,
-                code_verifier: verifier,
-                redirect_uri: OAUTH_REDIRECT_URI
-            });
-            const res = await fetch("https://api.dropboxapi.com/oauth2/token", {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: params.toString()
-            });
-            if (!res.ok) throw new Error(`Dropbox token exchange failed: ${res.status}`);
-            const data = await res.json();
-            this.storeToken(data);
-        },
-
-        storeToken(data) {
-            const token = {
-                access_token: data.access_token,
-                refresh_token: data.refresh_token || (this.getStoredToken() || {}).refresh_token,
-                expires_at: Date.now() + (data.expires_in * 1000)
-            };
-            localStorage.setItem(LS_KEYS.dropboxToken, JSON.stringify(token));
-        },
-
-        getStoredToken() {
-            const raw = localStorage.getItem(LS_KEYS.dropboxToken);
-            return raw ? JSON.parse(raw) : null;
-        },
-
-        async refreshAccessToken() {
-            const stored = this.getStoredToken();
-            if (!stored || !stored.refresh_token) throw new Error("No Dropbox refresh token available.");
-            const params = new URLSearchParams({
-                grant_type: "refresh_token",
-                refresh_token: stored.refresh_token,
-                client_id: DROPBOX_APP_KEY
-            });
-            const res = await fetch("https://api.dropboxapi.com/oauth2/token", {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: params.toString()
-            });
-            if (!res.ok) throw new Error(`Dropbox refresh failed: ${res.status}`);
-            const data = await res.json();
-            this.storeToken(data);
-            return this.getStoredToken().access_token;
-        },
-
-        async getAccessToken() {
-            const stored = this.getStoredToken();
-            if (!stored) throw new Error("Not authenticated with Dropbox.");
-            if (stored.expires_at && Date.now() > stored.expires_at - 60000) {
-                return await this.refreshAccessToken();
-            }
-            return stored.access_token;
-        },
-
-        async readBackup() {
-            const accessToken = await this.getAccessToken();
-            const res = await fetch("https://content.dropboxapi.com/2/files/download", {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    "Dropbox-API-Arg": JSON.stringify({ path: DROPBOX_BACKUP_PATH })
-                }
-            });
-            if (res.status === 409) return null; // path not found yet
-            if (!res.ok) throw new Error(`Dropbox read failed: ${res.status}`);
-            const text = await res.text();
-            return text.trim() ? JSON.parse(text) : null;
-        },
-
-        async writeBackup(snapshot) {
-            const accessToken = await this.getAccessToken();
-            const body = JSON.stringify(snapshot, null, 2);
-            const res = await fetch("https://content.dropboxapi.com/2/files/upload", {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    "Content-Type": "application/octet-stream",
-                    "Dropbox-API-Arg": JSON.stringify({
-                        path: DROPBOX_BACKUP_PATH,
-                        mode: "overwrite",
-                        mute: true
-                    })
-                },
-                body
-            });
-            if (!res.ok) throw new Error(`Dropbox write failed: ${res.status}`);
-        },
-
-        clear() {
-            localStorage.removeItem(LS_KEYS.dropboxToken);
-        }
-    };
-
-    // -------------------------------------------------------------------------
-    // Provider dispatch
+    // Provider dispatch — trivial now, but kept as a seam in case another
+    // on-device-style provider (e.g. a native file API in a Capacitor wrap)
+    // is added later without reworking trySync/init/etc.
     // -------------------------------------------------------------------------
     function providerFor(name) {
         if (name === "ondevice") return OnDevice;
-        if (name === "drive") return GoogleDrive;
-        if (name === "dropbox") return Dropbox;
         return null;
     }
 
     // -------------------------------------------------------------------------
     // Core sync routine
     // -------------------------------------------------------------------------
-    async function trySync(isManualRetry) {
+    async function trySync() {
         const providerName = getProvider();
         if (!providerName) return;
         const provider = providerFor(providerName);
         if (!provider || isSyncing) return;
-
-        if (!navigator.onLine && providerName !== "ondevice") {
-            showBadge("Not synced — offline");
-            return;
-        }
 
         isSyncing = true;
         try {
@@ -509,10 +194,13 @@ const BackupSync = (() => {
             await provider.writeBackup(localSnapshot);
             localStorage.setItem(LS_KEYS.lastSyncedAt, new Date().toISOString());
             dirtySinceLastSync = false;
-            hideBadge();
         } catch (err) {
             console.warn("Backup sync failed:", err);
-            showBadge(isManualRetry ? "Retry failed — tap to retry" : "Not synced — tap to retry");
+            // No UI badge for this anymore — the On Device sync status is
+            // still visible via "Last synced" in the Backup & Data settings
+            // panel. The one nag badge in this app is the JSON-export
+            // reminder (see app.js's BackupReminder), which isn't tied to
+            // whether On Device sync succeeded.
         } finally {
             isSyncing = false;
         }
@@ -523,12 +211,8 @@ const BackupSync = (() => {
         dirtySinceLastSync = true;
         if (pendingSaveTimer) clearTimeout(pendingSaveTimer);
         // Small debounce so rapid-fire edits (e.g. typing) don't spam the API.
-        pendingSaveTimer = setTimeout(() => trySync(false), 1200);
+        pendingSaveTimer = setTimeout(() => trySync(), 1200);
     }
-
-    window.addEventListener("online", () => {
-        if (dirtySinceLastSync) trySync(false);
-    });
 
     // -------------------------------------------------------------------------
     // First-load / reconnection setup flow
@@ -543,8 +227,9 @@ const BackupSync = (() => {
             <div class="modal-box">
                 <h2 class="modal-title">Back Up Your Data</h2>
                 <p class="text-muted" style="margin-bottom:1.25rem; font-size:0.9rem; line-height:1.5;">
-                    Choose where Engineered Exercise should automatically keep a backup of your
-                    exercises, history, and schedule. You can change this later in the Data Tab.
+                    Save an on-device backup file of your exercises, history, and schedule.
+                    Engineered Exercise will keep it updated automatically. You can change
+                    the file later in the Data Tab.
                 </p>
                 <div id="backup-provider-choices" class="form-action-row" style="gap:0.6rem;"></div>
                 <button id="backup-setup-skip" class="btn btn-secondary" style="margin-top:1rem;">Not Now</button>
@@ -559,25 +244,23 @@ const BackupSync = (() => {
     }
 
     function showSetupModal() {
+        // On Device backup relies on the File System Access API, which is
+        // Chromium-only (no Safari/Firefox support as of writing). Rather
+        // than showing a modal with nothing usable in it, just skip setup
+        // entirely on unsupported browsers — the app works fully without a
+        // configured backup, same as any other optional feature.
+        if (!supportsFileSystemAccess()) return;
+
         buildSetupModal();
         const overlay = document.getElementById("backup-setup-modal");
         const choicesEl = document.getElementById("backup-provider-choices");
         choicesEl.innerHTML = "";
 
-        const options = [];
-        options.push({ id: "drive", label: "📁 Google Drive" });
-        options.push({ id: "dropbox", label: "📦 Dropbox" });
-        if (supportsFileSystemAccess()) {
-            options.push({ id: "ondevice", label: "💾 On Device" });
-        }
-
-        options.forEach(opt => {
-            const btn = document.createElement("button");
-            btn.className = "btn btn-primary";
-            btn.textContent = opt.label;
-            btn.onclick = () => handleProviderChosen(opt.id);
-            choicesEl.appendChild(btn);
-        });
+        const btn = document.createElement("button");
+        btn.className = "btn btn-primary";
+        btn.textContent = "💾 On Device";
+        btn.onclick = () => handleProviderChosen("ondevice");
+        choicesEl.appendChild(btn);
 
         overlay.classList.remove("hidden");
     }
@@ -593,18 +276,6 @@ const BackupSync = (() => {
                 await showOnDeviceChoiceModal();
                 return; // showOnDeviceChoiceModal completes setup itself
             }
-            if (providerId === "drive") {
-                await GoogleDrive.setupInteractive();
-            }
-            if (providerId === "dropbox") {
-                // Dropbox requires a full page redirect — store intent and go.
-                localStorage.setItem("ee_backup_pending_provider", "dropbox");
-                await Dropbox.beginAuth();
-                return; // page is navigating away
-            }
-
-            setProvider(providerId);
-            await finishSetupWithRemoteCheck(providerId);
         } catch (err) {
             console.error("Backup provider setup failed:", err);
             alert("Couldn't connect to that provider. Please try again.");
@@ -680,7 +351,7 @@ const BackupSync = (() => {
 
         if (!hasRemote) {
             // Nothing remote yet — just push current local state up.
-            await trySync(false);
+            await trySync();
             localStorage.setItem(LS_KEYS.setupComplete, "1");
             return;
         }
@@ -696,7 +367,7 @@ const BackupSync = (() => {
             },
             async () => {
                 // Cancel = Start Fresh (keep local, overwrite remote)
-                await trySync(false);
+                await trySync();
                 localStorage.setItem(LS_KEYS.setupComplete, "1");
             },
             "Load Backup",
@@ -737,6 +408,10 @@ const BackupSync = (() => {
     // Settings panel: "Change Backup Location"
     // -------------------------------------------------------------------------
     function openSettingsPanel() {
+        if (!supportsFileSystemAccess()) {
+            alert("On-device backup isn't supported in this browser. Try Chrome or Edge, or use Export Backup (JSON) from the Data tab instead.");
+            return;
+        }
         // Disconnect from whatever's currently configured, then show the same
         // chooser used on first load.
         const current = getProvider();
@@ -745,43 +420,13 @@ const BackupSync = (() => {
             if (provider && provider.clear) provider.clear();
         }
         setProvider(null);
-        hideBadge();
         showSetupModal();
-    }
-
-    // -------------------------------------------------------------------------
-    // OAuth callback handling (for Dropbox; Google's token client doesn't
-    // need a page redirect since it uses a popup).
-    // -------------------------------------------------------------------------
-    async function handleOAuthReturnIfApplicable() {
-        const params = new URLSearchParams(window.location.search);
-        const code = params.get("code");
-        const state = params.get("state");
-        if (!code || state !== "dropbox") return;
-
-        try {
-            await Dropbox.exchangeCodeForToken(code);
-            setProvider("dropbox");
-            await finishSetupWithRemoteCheck("dropbox");
-        } catch (err) {
-            console.error("Dropbox OAuth completion failed:", err);
-            alert("Dropbox connection failed. Please try again from Settings.");
-        }
-        // Clean the OAuth params out of the URL.
-        const cleanUrl = window.location.origin + window.location.pathname;
-        window.history.replaceState({}, document.title, cleanUrl);
     }
 
     // -------------------------------------------------------------------------
     // Init
     // -------------------------------------------------------------------------
     async function init() {
-        ensureBadge();
-
-        // If we just landed back from oauth-callback.html (it forwards here
-        // with ?code=...&state=dropbox attached), finish that flow first.
-        await handleOAuthReturnIfApplicable();
-
         const provider = getProvider();
         if (!provider) {
             if (!localStorage.getItem(LS_KEYS.setupComplete)) {
@@ -792,22 +437,18 @@ const BackupSync = (() => {
 
         // Provider is configured — verify the save location is still valid.
         // If it's gone (e.g. on-device handle permission revoked, or the
-        // user cleared site data on one provider but not another), fall back
-        // to the setup popup rather than silently failing forever.
+        // user cleared site data), fall back to the setup popup rather than
+        // silently failing forever.
         try {
             if (provider === "ondevice") {
                 const handle = await OnDevice.getHandle();
                 if (!handle) throw new Error("Stored file handle missing.");
                 // Don't force a permission prompt on load — just confirm it exists.
                 // Permission will be (re)requested on the next actual sync.
-            } else if (provider === "drive") {
-                // Nothing to eagerly verify — token refresh happens on demand.
-            } else if (provider === "dropbox") {
-                if (!Dropbox.getStoredToken()) throw new Error("Dropbox token missing.");
             }
             // Location still looks valid — sync silently if anything changed
             // since last successful sync (e.g. closed mid-edit last session).
-            await trySync(false);
+            await trySync();
         } catch (err) {
             console.warn("Backup location no longer valid, reopening setup:", err);
             setProvider(null);
