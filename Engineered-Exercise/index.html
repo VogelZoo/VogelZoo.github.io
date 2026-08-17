@@ -385,21 +385,8 @@
             <!-- ===== BACKUP & DATA section ===== -->
             <div id="drawer-section-data" class="drawer-section hidden">
                 <div class="card">
-                    <h2>Automatic Backup</h2>
-                    <div class="backup-status-row">
-                        <span class="backup-status-label">Backup location</span>
-                        <span class="backup-status-value" id="backup-status-provider">Not set up</span>
-                    </div>
-                    <div class="backup-status-row">
-                        <span class="backup-status-label">Last synced</span>
-                        <span class="backup-status-value" id="backup-status-last-synced">—</span>
-                    </div>
-                    <button onclick="BackupSync.openSettingsPanel()" class="btn btn-secondary">Change Backup Location</button>
-                </div>
-
-                <div class="card">
                     <h2>Manage App Data</h2>
-                    <p class="text-muted">Backup your data or import history from another device.</p>
+                    <p class="text-muted">Export your data to keep a copy outside the app, or import a backup from another device.</p>
                     <div class="form-row" style="grid-template-columns:1fr; gap:0.5rem; margin-bottom:0.5rem;">
                         <button onclick="exportCSV()" class="btn btn-success">Export History Log (CSV)</button>
                     </div>
@@ -618,32 +605,8 @@
     </nav>
 
     <script src="store.js"></script>
-    <script src="backup.js"></script>
     <script src="app.js"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            BackupSync.init();
-        });
-
-        function refreshBackupStatusDisplay() {
-            const providerEl = document.getElementById("backup-status-provider");
-            const lastSyncedEl = document.getElementById("backup-status-last-synced");
-            if (!providerEl || !lastSyncedEl) return;
-
-            const providerNames = { ondevice: "On Device", drive: "Google Drive", dropbox: "Dropbox" };
-            const provider = localStorage.getItem("ee_backup_provider");
-            providerEl.textContent = provider ? (providerNames[provider] || provider) : "Not set up";
-
-            const lastSynced = localStorage.getItem("ee_backup_last_synced_at");
-            if (lastSynced) {
-                const d = new Date(lastSynced);
-                lastSyncedEl.textContent = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
-                    ", " + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-            } else {
-                lastSyncedEl.textContent = "—";
-            }
-        }
-
         function togglePlanRestMode() {
             if (typeof haptic === "function") haptic('light');
             const isRest = document.getElementById("plan-rest-toggle").checked;

@@ -2188,7 +2188,6 @@ const SettingsDrawer = {
         if (section === "plan") renderPlanList();
         if (section === "exercises") renderManageExercises();
         if (section === "measurements") renderManageMeasurements();
-        if (section === "data" && typeof refreshBackupStatusDisplay === "function") refreshBackupStatusDisplay();
     }
 };
 
@@ -2245,12 +2244,18 @@ function importData(event) {
                 Store.replaceAll(importedState);
                 initApp();
                 alert("Data configuration imported successfully!");
+            } else {
+                alert("That file doesn't look like a valid Engineered Exercise backup.");
             }
         } catch (err) {
             alert("Error parsing configuration json backup file structure templates.");
         }
     };
     reader.readAsText(file);
+    // Allow re-selecting the same file consecutively (e.g. retry after a
+    // parse error) — without this, onchange won't fire a second time for
+    // an identical path since the input's value never changed.
+    event.target.value = "";
 }
 
 function exportCSV() {

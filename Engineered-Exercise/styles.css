@@ -620,34 +620,9 @@ select:focus, input:focus {
     max-width: 400px;
 }
 
-/* ===== BACKUP & SYNC ===== */
-#backup-provider-choices .btn {
-    text-align: center;
-}
-
+/* ===== BACKUP REMINDER ===== */
 #backup-reminder-badge {
     transition: opacity 0.2s ease;
-}
-
-.backup-status-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: var(--bg-primary);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.75rem;
-    margin-bottom: 0.75rem;
-    font-size: 0.85rem;
-}
-
-.backup-status-row .backup-status-label {
-    color: var(--text-muted);
-}
-
-.backup-status-row .backup-status-value {
-    color: var(--text-main);
-    font-weight: 600;
 }
 
 /* ===== MODAL HEADER (shared by timer/tracking) ===== */

@@ -222,7 +222,6 @@ const Store = (() => {
         Persistence.set(LS_KEYS.measurements, state.measurements);
         Persistence.set(LS_KEYS.measurementLogs, state.measurementLogs);
         Persistence.set(LS_KEYS.totalTimeLogs, state.totalTimeLogs);
-        if (typeof BackupSync !== "undefined") BackupSync.notifyStateChanged();
         notify();
     }
 
@@ -1022,11 +1021,12 @@ const Store = (() => {
 
     // ============================================================
     // BACKUP REMINDER
+    // BACKUP REMINDER
     // Tracks when the person last did a manual JSON export and answers
-    // whether it's time to nag them again. Deliberately separate from the
-    // On Device auto-sync in backup.js — that's a background best-effort
-    // sync, this is "do you have a copy of your data somewhere you
-    // control," which matters even if On Device sync is working fine.
+    // whether it's time to nag them again. There's no automatic backup in
+    // this app — Export CSV and Export Backup (JSON) are the only ways
+    // data ever leaves the device, so this reminder is the one nudge that
+    // encourages people to actually do that periodically.
     // ============================================================
     function markJsonExported() {
         Persistence.set(LS_KEYS.lastJsonExportAt, new Date().toISOString());

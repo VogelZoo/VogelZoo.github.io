@@ -1,14 +1,13 @@
 // Engineered Exercise — Service Worker
 // Bump CACHE_VERSION whenever app.js/index.html/styles.css change so clients
 // pick up the new files instead of serving stale cached ones.
-const CACHE_VERSION = "ee-v12";
+const CACHE_VERSION = "ee-v14";
 const APP_SHELL = [
     "./",
     "./index.html",
     "./styles.css",
     "./store.js",
     "./app.js",
-    "./backup.js",
     "./manifest.json",
     "./icon-192.png",
     "./icon-512.png",
