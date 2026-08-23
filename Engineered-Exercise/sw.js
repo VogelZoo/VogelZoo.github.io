@@ -1,7 +1,10 @@
 // Engineered Exercise — Service Worker
-// Bump CACHE_VERSION whenever app.js/index.html/styles.css change so clients
-// pick up the new files instead of serving stale cached ones.
-const CACHE_VERSION = "ee-v14";
+// Bump CACHE_VERSION whenever any file in APP_SHELL changes so clients pick
+// up the new files instead of serving stale cached ones. store.js/app.js
+// are temporarily consolidated (each internally organized into sections
+// that map 1:1 to the fuller multi-file split we'll return to ahead of the
+// Xcode/Swift port) — bump this whenever either one changes.
+const CACHE_VERSION = "ee-v16";
 const APP_SHELL = [
     "./",
     "./index.html",

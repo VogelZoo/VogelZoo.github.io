@@ -27,7 +27,9 @@
          and reopen, hard refresh) always shows it for 2s. Returning to an
          already-running session after the app was backgrounded (switched apps,
          locked the screen, etc.) shows it again for just 0.5s, detected via
-         the Page Visibility API since that doesn't trigger a script reload. -->
+         the Page Visibility API since that doesn't trigger a script reload.
+         Kept inline (rather than in scripts/) since it must run before any
+         other script loads, with zero dependency on the rest of the app. -->
     <div id="splash-screen">
         <img src="icon-512.png" alt="Engineered Exercise" class="splash-logo">
     </div>
@@ -80,20 +82,18 @@
         </div>
     </div>
 
-    <!-- Tracking modal (measurements) — invoked from the Log modal's Measurement path -->
+    <!-- Tracking modal — edit-only: reached solely from an existing
+         measurement log's "Edit" action in History. Creating NEW
+         measurement logs goes through the Log modal's Measurement kind
+         (the global "+" flow) instead, so there's no picker step here. -->
     <div id="tracking-modal" class="modal-overlay hidden">
         <div class="modal-box">
             <div class="timer-modal-header">
-                <h2 id="tracking-modal-title">Tracking</h2>
+                <h2 id="tracking-modal-title">Edit Measurement</h2>
                 <button class="modal-close-x" aria-label="Close" onclick="TrackingModal.close()">&times;</button>
             </div>
 
-            <div id="tracking-picker-step">
-                <p class="text-muted" style="margin-bottom:0.85rem;">Select a measurement to log.</p>
-                <div id="tracking-measurement-list" class="tracking-measurement-list"></div>
-            </div>
-
-            <form id="tracking-log-form" class="hidden">
+            <form id="tracking-log-form">
                 <input type="hidden" id="tracking-log-measurement-key" value="">
                 <input type="hidden" id="tracking-log-edit-id" value="">
                 <div class="form-group">
@@ -109,8 +109,8 @@
                     <input type="date" id="tracking-log-date" required>
                 </div>
                 <div class="form-action-row" style="grid-template-columns:1fr 1fr;">
-                    <button type="button" class="btn btn-secondary" onclick="TrackingModal.backToPicker()">Back</button>
-                    <button type="submit" class="btn btn-primary" id="tracking-log-submit-btn">Save</button>
+                    <button type="button" class="btn btn-secondary" onclick="TrackingModal.close()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="tracking-log-submit-btn">Update</button>
                 </div>
             </form>
         </div>
@@ -119,8 +119,9 @@
     <!-- ===== LOG MODAL (global "+" entry point) =====
          3-step flow: choose Exercise/Measurement -> choose the specific
          exercise or measurement -> entry fields. Reuses the same underlying
-         submit logic as the inline Track-tab form and the Tracking modal so
-         there is exactly one source of truth for what happens on save. -->
+         submit logic as the inline Track-tab form and History's edit
+         actions so there is exactly one source of truth for what happens
+         on save. -->
     <div id="log-modal" class="modal-overlay hidden">
         <div class="modal-box">
             <div class="timer-modal-header">
@@ -604,40 +605,18 @@
         </button>
     </nav>
 
+    <!-- ============================================================
+         Scripts — temporarily consolidated to two files (store.js =
+         backend, app.js = frontend) to minimize file count during
+         active development. Each is internally organized into the
+         same clearly-delimited sections as the fuller multi-file
+         split (search either file for "// Engineered Exercise —" to
+         jump between sections) — that split is what we'll go back to
+         ahead of the Xcode/Swift port, and each section is already
+         written to be lifted out as its own file at that point.
+         store.js has zero dependency on app.js, so it loads first.
+         ============================================================ -->
     <script src="store.js"></script>
     <script src="app.js"></script>
-    <script>
-        function togglePlanRestMode() {
-            if (typeof haptic === "function") haptic('light');
-            const isRest = document.getElementById("plan-rest-toggle").checked;
-            const exGroup = document.getElementById("plan-exercise-group");
-            exGroup.style.opacity = isRest ? "0.35" : "1";
-            exGroup.style.pointerEvents = isRest ? "none" : "auto";
-        }
-
-        // --- PWA: service worker registration (enables install + offline) ---
-        if ("serviceWorker" in navigator) {
-            window.addEventListener("load", () => {
-                navigator.serviceWorker.register("sw.js").catch((err) => {
-                    console.warn("Service worker registration failed:", err);
-                });
-            });
-        }
-
-        // --- Orientation lock (best-effort) ---
-        // Only Android Chrome honors this, and only once the app is running
-        // standalone/fullscreen (installed PWA) — it throws everywhere else,
-        // including iOS Safari, so it's wrapped defensively. The CSS rotate
-        // overlay is the real cross-platform fix; this is a bonus on top.
-        function attemptOrientationLock() {
-            if (screen.orientation && screen.orientation.lock) {
-                screen.orientation.lock("portrait-primary").catch(() => {});
-            }
-        }
-        window.addEventListener("load", attemptOrientationLock);
-        document.addEventListener("visibilitychange", () => {
-            if (!document.hidden) attemptOrientationLock();
-        });
-    </script>
 </body>
 </html>

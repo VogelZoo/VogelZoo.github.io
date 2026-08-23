@@ -476,12 +476,18 @@ select:focus, input:focus {
     cursor: pointer;
 }
 
-/* ===== MODALS ===== */
+/* ===== MODALS =====
+   Single canonical definition — an earlier version of this file had two
+   conflicting .modal-overlay/.modal-box rule blocks (one here, one further
+   down), which meant z-index/background/max-width silently came from
+   whichever block happened to be declared last in the cascade. Consolidated
+   into one block covering every modal in the app (confirmation, tracking,
+   log, and the older inline confirm dialog). */
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.65);
-    z-index: 500;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -491,6 +497,7 @@ select:focus, input:focus {
 .modal-box {
     background: var(--bg-surface);
     border: 1px solid var(--border);
+    border-top: 4px solid var(--accent);
     border-radius: var(--radius);
     padding: 1.5rem;
     width: 100%;
@@ -595,34 +602,32 @@ select:focus, input:focus {
     }
 }
 
-.modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.7);
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem;
-}
-
-.modal-overlay.hidden {
-    display: none !important;
-}
-
-.modal-box {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-top: 4px solid var(--accent);
-    border-radius: var(--radius);
-    padding: 1.5rem;
-    width: 100%;
-    max-width: 400px;
-}
-
-/* ===== BACKUP REMINDER ===== */
+/* ===== BACKUP REMINDER =====
+   Small persistent pill, bottom-right, that nags for a JSON export once
+   it's overdue (see BackupService.isBackupReminderDue). Visibility is
+   toggled via the .visible class from view-backup.js — all positioning/
+   appearance lives here rather than as inline styles set from JS. */
 #backup-reminder-badge {
+    position: fixed;
+    bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+    right: 1rem;
+    z-index: 400;
+    background: #dc2626;
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.4rem 0.7rem;
+    border-radius: 999px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    display: none;
+    align-items: center;
+    gap: 0.35rem;
+    cursor: pointer;
     transition: opacity 0.2s ease;
+}
+
+#backup-reminder-badge.visible {
+    display: flex;
 }
 
 /* ===== MODAL HEADER (shared by timer/tracking) ===== */

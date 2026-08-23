@@ -1,37 +1,39 @@
 // =============================================================================
-// Engineered Exercise — Store (the "backend")
+// Engineered Exercise — store.js (BACKEND)
 // =============================================================================
-// This module owns ALL persisted data and ALL business logic: models,
-// persistence, migrations, CRUD, scheduling, streaks, and chart math. It
-// never touches the DOM — no `document`, no `window` except for reading
-// `localStorage`, which is isolated behind the small Persistence adapter
-// at the bottom of this comment block. That isolation is deliberate: it's
-// the one seam a native port would replace (e.g. with UserDefaults or a
-// JSON file via FileManager) without touching anything else in this file.
-//
-// Porting guide (JS -> Swift), for whoever does that port:
-//   - Every @typedef below            -> a Codable struct
-//   - `state` (one object, 6 arrays)  -> an ObservableObject with @Published arrays
-//   - `Persistence.get/set`           -> a small protocol (UserDefaults or file-backed)
-//   - Every exported function here    -> a method on that ObservableObject
-//   - `onChange(fn)`                  -> @Published already gives you this for free
-//   - Nothing in this file depends on execution order beyond `Store.load()`
-//     being called once before anything else runs.
-//
-// app.js (the "frontend") holds `state` by reference and never reassigns
-// it — only Store mutates it, always through the methods below, always
-// followed by persistAll(). That's what keeps the UI and storage in sync
-// without a heavier framework.
+// Temporarily consolidated for fewer files during active development.
+// Internally this is still the same modular structure — each section below
+// keeps its own banner header and is a drop-in-ready standalone file for
+// when we split back out ahead of the Xcode/Swift port. Sections, in order:
+//   Models -> DateUtil -> PersistenceService -> MigrationService ->
+//   SchedulingService -> StatsService -> FormattingService ->
+//   BackupService -> Store
+// Search for "// Engineered Exercise —" to jump between sections.
 // =============================================================================
 
-const Store = (() => {
+// =============================================================================
+// Engineered Exercise — Models
+// =============================================================================
+// Pure data shapes and constants only. No logic, no DOM, no localStorage.
+// This is the file with the most direct 1:1 mapping to a Swift port: every
+// @typedef below becomes a `Codable struct`, and every constant becomes a
+// `static let` on the corresponding type (or a top-level enum of constants).
+//
+// Porting guide:
+//   Exercise            -> struct Exercise: Codable, Identifiable
+//   HistoryEntry         -> struct HistoryEntry: Codable, Identifiable
+//   Measurement           -> struct Measurement: Codable, Identifiable
+//   MeasurementLog         -> struct MeasurementLog: Codable, Identifiable
+//   TotalTimeLog             -> struct TotalTimeLog: Codable, Identifiable
+//   Plan                       -> struct Plan: Codable, Identifiable
+//   AppData                      -> struct AppData: Codable  (the backup payload)
+//   FIELD_LABELS                   -> enum ExerciseMetric: String, CaseIterable
+//   INTENSITY_COLORS                 -> extension Int { var color: Color }
+// =============================================================================
+
+const Models = (() => {
     "use strict";
 
-    // ============================================================
-    // MODELS
-    // (JSDoc typedefs only — plain object shapes, no classes/behavior.
-    // These are exactly what a Swift `Codable struct` should mirror.)
-    // ============================================================
     /**
      * @typedef {Object} Exercise
      * @property {string} name
@@ -79,8 +81,8 @@ const Store = (() => {
      */
     /**
      * @typedef {Object} AppData - the full persisted shape; this is exactly
-     * what getSnapshot()/JSON export/cloud backup carry. Never includes any
-     * transient UI-only field.
+     * what getSnapshot()/JSON export carry (inside a versioned envelope —
+     * see BackupService). Never includes any transient UI-only field.
      * @property {Exercise[]} exercises
      * @property {HistoryEntry[]} history
      * @property {Plan[]} plans
@@ -89,9 +91,6 @@ const Store = (() => {
      * @property {TotalTimeLog[]} totalTimeLogs
      */
 
-    // ============================================================
-    // DEFAULTS & CONSTANTS
-    // ============================================================
     const DEFAULT_EXERCISES = [
         { name: "Goblet Squat", category: "Strength", metrics: ["sets", "reps", "weight"] },
         { name: "Bench Press", category: "Strength", metrics: ["sets", "reps", "weight"] },
@@ -126,7 +125,7 @@ const Store = (() => {
     // Total Time is its own record category (state.totalTimeLogs), not an
     // exercise — TOTAL_TIME_EXERCISE_NAME/DEF exist only so history-entry
     // rendering (which resolves exercise defs by name) has an icon/label to
-    // show for legacy data still mid-migration.
+    // show for any legacy data a migration hasn't touched yet.
     const TOTAL_TIME_EXERCISE_NAME = "Total Exercise Time";
     const TOTAL_TIME_EXERCISE_DEF = { name: TOTAL_TIME_EXERCISE_NAME, category: null, emoji: "⏱️", metrics: ["timeMinutes"] };
 
@@ -151,11 +150,70 @@ const Store = (() => {
     const MAX_CHART_POINTS = 50;
     const SETPOINT_FORMAT_ORDER = ["sets", "reps", "weight", "distance", "timeMinutes", "timeSeconds"];
 
-    // ============================================================
-    // PERSISTENCE ADAPTER
-    // The only part of this file that touches a platform storage API.
-    // Swap this out (UserDefaults/FileManager) and nothing else changes.
-    // ============================================================
+    // How long to wait after the last successful JSON export before nagging
+    // the person to do another one. A Swift port should mirror this exact
+    // threshold so behavior stays identical across platforms.
+    const BACKUP_REMINDER_MS = 4 * 24 * 60 * 60 * 1000; // 4 days
+
+    // Envelope version for JSON backup files (BackupService). Bump whenever
+    // the *shape* of the exported envelope changes — independent of the
+    // internal state migrations in MigrationService, which handle changes
+    // to the shape of individual records instead.
+    const BACKUP_SCHEMA_VERSION = 2;
+
+    return {
+        DEFAULT_EXERCISES,
+        DEFAULT_MEASUREMENTS,
+        BLOOD_PRESSURE_KEY,
+        TOTAL_TIME_EXERCISE_NAME,
+        TOTAL_TIME_EXERCISE_DEF,
+        FIELD_LABELS,
+        INTENSITY_COLORS,
+        MAX_CHART_POINTS,
+        SETPOINT_FORMAT_ORDER,
+        BACKUP_REMINDER_MS,
+        BACKUP_SCHEMA_VERSION
+    };
+})();
+// =============================================================================
+// Engineered Exercise — Date helpers
+// =============================================================================
+// Porting guide: -> a `Date` extension with a `localDateString` computed
+// property using a cached DateFormatter (yyyy-MM-dd, current locale/timezone).
+// =============================================================================
+
+const DateUtil = (() => {
+    "use strict";
+
+    // Local-date (not UTC) "YYYY-MM-DD" formatter — avoids the day rolling
+    // over early/late depending on the user's timezone offset from UTC.
+    function getLocalDateString(date) {
+        const d = (date instanceof Date) ? date : new Date(date);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    return { getLocalDateString };
+})();
+// =============================================================================
+// Engineered Exercise — PersistenceService
+// =============================================================================
+// The ONLY file that touches a platform storage API (localStorage here).
+// Everything else in the app reads/writes through this module. That
+// isolation is deliberate: it's the one seam a native port would replace
+// (e.g. with UserDefaults or a JSON file via FileManager) without touching
+// anything else.
+//
+// Porting guide: -> a small `PersistenceServiceProtocol` with get/set,
+// backed by UserDefaults for the small scalar keys and a JSON file (or
+// SwiftData/Core Data) for the six main collections.
+// =============================================================================
+
+const PersistenceService = (() => {
+    "use strict";
+
     const LS_KEYS = {
         exercises: "ee_exercises",
         history: "ee_history",
@@ -163,73 +221,65 @@ const Store = (() => {
         measurements: "ee_measurements",
         measurementLogs: "ee_measurement_logs",
         totalTimeLogs: "ee_total_time_logs",
-        // App-level metadata — not part of AppData/getSnapshot(), since these
-        // track app usage rather than user data, and (correctly) never travel
-        // inside a JSON export or cloud backup.
+        // App-level metadata — tracks app usage rather than user data, so it
+        // deliberately never travels inside a JSON backup.
         lastJsonExportAt: "ee_last_json_export_at",
         firstLaunchAt: "ee_first_launch_at"
     };
 
-    // How long to wait after the last successful JSON export before nagging
-    // the person to do another one. A Swift port should mirror this exact
-    // threshold so behavior stays identical across platforms.
-    const BACKUP_REMINDER_MS = 4 * 24 * 60 * 60 * 1000; // 4 days
-
-    const Persistence = {
-        get(key) {
-            try {
-                const raw = localStorage.getItem(key);
-                return raw ? JSON.parse(raw) : null;
-            } catch (e) {
-                console.warn("Store: failed to read", key, e);
-                return null;
-            }
-        },
-        set(key, value) {
-            try {
-                localStorage.setItem(key, JSON.stringify(value));
-            } catch (e) {
-                console.warn("Store: failed to write", key, e);
-            }
+    function get(key) {
+        try {
+            const raw = localStorage.getItem(key);
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+            console.warn("PersistenceService: failed to read", key, e);
+            return null;
         }
-    };
-
-    // ============================================================
-    // STATE
-    // One stable container object. app.js holds a reference to this same
-    // object and reads its properties directly for rendering; only Store
-    // ever reassigns those properties (never the container itself), so
-    // app.js's reference never goes stale.
-    // ============================================================
-    /** @type {AppData} */
-    const state = {
-        exercises: [],
-        history: [],
-        plans: [],
-        measurements: [],
-        measurementLogs: [],
-        totalTimeLogs: []
-    };
-
-    const listeners = new Set();
-    function onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
-    function notify() { listeners.forEach(fn => { try { fn(); } catch (e) { console.error(e); } }); }
-
-    function persistAll() {
-        Persistence.set(LS_KEYS.exercises, state.exercises);
-        Persistence.set(LS_KEYS.history, state.history);
-        Persistence.set(LS_KEYS.plans, state.plans);
-        Persistence.set(LS_KEYS.measurements, state.measurements);
-        Persistence.set(LS_KEYS.measurementLogs, state.measurementLogs);
-        Persistence.set(LS_KEYS.totalTimeLogs, state.totalTimeLogs);
-        notify();
     }
 
-    // ============================================================
-    // MIGRATIONS
-    // Each one is idempotent — safe to run on every load.
-    // ============================================================
-    function migrateIntensityData() {
+    function set(key, value) {
+        try {
+            localStorage.setItem(key, JSON.stringify(value));
+        } catch (e) {
+            console.warn("PersistenceService: failed to write", key, e);
+        }
+    }
+
+    // Records the first time this app ever ran on this device — used as the
+    // backup-reminder anchor for people who've never exported a JSON backup,
+    // so a brand-new install isn't nagged on day one. Idempotent.
+    function ensureFirstLaunchRecorded() {
+        if (!get(LS_KEYS.firstLaunchAt)) {
+            set(LS_KEYS.firstLaunchAt, new Date().toISOString());
+        }
+    }
+
+    return {
+        LS_KEYS,
+        get,
+        set,
+        ensureFirstLaunchRecorded
+    };
+})();
+// =============================================================================
+// Engineered Exercise — MigrationService
+// =============================================================================
+// Idempotent, in-place migrations of already-loaded state. Safe to run on
+// every app launch and after every import — each migration checks whether
+// its condition still applies before doing anything. This is the file that
+// changes shape most often as the app evolves; it's kept separate from
+// AppStore so a Swift port can drop in a `MigrationService.run(on:)` step
+// right after decoding, without touching the store itself.
+//
+// Porting guide: -> a `MigrationService` enum/struct with one static method
+// per migration, each taking `inout AppData` (or the ObservableObject) and
+// returning whether it changed anything.
+// =============================================================================
+
+const MigrationService = (() => {
+    "use strict";
+
+    function migrateIntensityData(state) {
         const legacyMap = { "Low": 1, "Medium": 3, "High": 5 };
         let changed = false;
         state.history.forEach(h => {
@@ -256,8 +306,8 @@ const Store = (() => {
     // polluted exercise-only stats like "Most Logged Exercise". This pulls
     // any such entries out into state.totalTimeLogs and strips them from
     // history.
-    function migrateTotalTimeEntries() {
-        const embedded = state.history.filter(h => h.exerciseName === TOTAL_TIME_EXERCISE_NAME);
+    function migrateTotalTimeEntries(state) {
+        const embedded = state.history.filter(h => h.exerciseName === Models.TOTAL_TIME_EXERCISE_NAME);
         if (embedded.length === 0) return false;
 
         embedded.forEach(entry => {
@@ -267,167 +317,452 @@ const Store = (() => {
                 minutes: (entry.data && entry.data.timeMinutes) || 0
             });
         });
-        state.history = state.history.filter(h => h.exerciseName !== TOTAL_TIME_EXERCISE_NAME);
+        state.history = state.history.filter(h => h.exerciseName !== Models.TOTAL_TIME_EXERCISE_NAME);
         state.totalTimeLogs.sort((a, b) => new Date(b.date) - new Date(a.date));
         return true;
     }
 
-    function runMigrations() {
-        const a = migrateIntensityData();
-        const b = migrateTotalTimeEntries();
+    // Runs every registered migration, in order, against already-loaded
+    // state. Returns true if anything changed (callers use this to decide
+    // whether a fresh persist is needed).
+    function runAll(state) {
+        const a = migrateIntensityData(state);
+        const b = migrateTotalTimeEntries(state);
         return a || b;
     }
 
-    // Records the first time this app ever ran on this device — used as the
-    // reminder anchor for people who've never exported a JSON backup, so a
-    // brand-new install doesn't immediately nag on day one. Idempotent.
-    function ensureFirstLaunchRecorded() {
-        if (!Persistence.get(LS_KEYS.firstLaunchAt)) {
-            Persistence.set(LS_KEYS.firstLaunchAt, new Date().toISOString());
+    return {
+        migrateIntensityData,
+        migrateTotalTimeEntries,
+        runAll
+    };
+})();
+// =============================================================================
+// Engineered Exercise — SchedulingService
+// =============================================================================
+// Pure query functions over Plan[] + HistoryEntry[]: "what's scheduled on
+// this date", "is this an explicit rest day", "what's the current streak".
+// No mutation, no persistence — every function here takes state as a plain
+// argument, which is exactly the shape a Swift `SchedulingService` would
+// take (a struct/enum of static methods over an `AppData` value).
+// =============================================================================
+
+const SchedulingService = (() => {
+    "use strict";
+
+    const getLocalDateString = DateUtil.getLocalDateString;
+
+    function isRestDayExplicitlyScheduled(state, targetDate) {
+        const d = new Date(targetDate);
+        d.setHours(0, 0, 0, 0);
+        const dayOfWeek = d.getDay();
+
+        return state.plans.some(plan => {
+            if (plan.exercise !== '__rest__') return false;
+            if (plan.type === 'weekly') return parseInt(plan.day) === dayOfWeek;
+            if (plan.type === 'interval' && plan.startDate) {
+                const start = new Date(plan.startDate + 'T00:00:00');
+                start.setHours(0, 0, 0, 0);
+                const diff = Math.round((d - start) / 86400000);
+                return diff >= 0 && diff % parseInt(plan.interval) === 0;
+            }
+            return false;
+        });
+    }
+
+    function getPlannedExercisesForDate(state, targetDate) {
+        let matches = [];
+        let queryDate = new Date(targetDate);
+        queryDate.setHours(0, 0, 0, 0);
+
+        // 1. Weekly scheduled routines — sorted by the plan's `order` field
+        // (drag-reorder) so downstream consumers (7-Day Horizon tags,
+        // Today's Exercises card, chart dropdown stars) share one ordering.
+        let weeklyMatchesForDay = state.plans.filter(plan =>
+            plan.type === 'weekly' && plan.exercise !== "__rest__" && parseInt(plan.day) === queryDate.getDay()
+        );
+        weeklyMatchesForDay.sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id));
+        weeklyMatchesForDay.forEach(plan => matches.push(plan.exercise));
+
+        // 2. Interval-based routines with rest-day adjustments
+        state.plans.forEach(plan => {
+            if (plan.type === 'interval') {
+                let start = new Date(plan.startDate + "T00:00:00");
+                start.setHours(0, 0, 0, 0);
+
+                if (queryDate < start) return;
+
+                let workingDate = new Date(start);
+                let intervalDayCounter = 0;
+
+                while (workingDate <= queryDate) {
+                    let isWorkingRestDay = isRestDayExplicitlyScheduled(state, workingDate);
+
+                    if (isWorkingRestDay) {
+                        if (workingDate.getTime() === queryDate.getTime()) {
+                            return; // rest day — nothing scheduled
+                        }
+                    } else {
+                        if (intervalDayCounter % parseInt(plan.interval) === 0) {
+                            if (workingDate.getTime() === queryDate.getTime()) {
+                                matches.push(plan.exercise);
+                            }
+                        }
+                        intervalDayCounter++;
+                    }
+                    workingDate.setDate(workingDate.getDate() + 1);
+                }
+            }
+        });
+
+        return matches;
+    }
+
+    function calculateStreak(state) {
+        let todayStr = getLocalDateString(new Date());
+        let checkDate = new Date(todayStr + "T00:00:00");
+        let streak = 0;
+
+        let historyDates = new Set(state.history.map(h => h.date));
+
+        let yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        let yesterdayStr = getLocalDateString(yesterday);
+
+        if (!historyDates.has(todayStr) && !historyDates.has(yesterdayStr)) {
+            let yesterdayPlan = getPlannedExercisesForDate(state, yesterday);
+            let yesterdayWasRest = (yesterdayPlan.length === 0 || isRestDayExplicitlyScheduled(state, yesterday));
+            if (!yesterdayWasRest) return 0;
         }
+
+        for (let i = 0; i < 365; i++) {
+            let loopDateStr = getLocalDateString(checkDate);
+            let isExplicitRest = isRestDayExplicitlyScheduled(state, new Date(checkDate));
+
+            if (historyDates.has(loopDateStr) || isExplicitRest) {
+                streak++;
+            } else {
+                if (i === 0 && loopDateStr === todayStr) {
+                    // today hasn't been logged yet, but the day isn't over — don't break yet
+                } else {
+                    break;
+                }
+            }
+            checkDate.setDate(checkDate.getDate() - 1);
+        }
+        return streak;
+    }
+
+    return {
+        isRestDayExplicitlyScheduled,
+        getPlannedExercisesForDate,
+        calculateStreak
+    };
+})();
+// =============================================================================
+// Engineered Exercise — StatsService
+// =============================================================================
+// Pure aggregation/computation over state: chart bucketing, KPI numbers,
+// the Progress Overview rows, and the small "most recent entry" lookups
+// that both Stats and the Track tab's "Today's Exercises" card rely on.
+// Nothing here touches the DOM — every function returns plain
+// numbers/strings/arrays that a view layer (JS today, SwiftUI later) just
+// paints. This is the file that would become a SwiftUI ViewModel's
+// @Published computed properties / a StatsService struct.
+// =============================================================================
+
+const StatsService = (() => {
+    "use strict";
+
+    const getLocalDateString = DateUtil.getLocalDateString;
+
+    // ============================================================
+    // Exercise history lookups
+    // ============================================================
+
+    // Finds the entry for a given exercise whose `date` is chronologically
+    // most recent — compares actual date values, not array/insertion order
+    // (backfilled/imported entries can break that assumption).
+    function getMostRecentEntryForExercise(state, exerciseName, requireIntensity = false) {
+        let best = null;
+        state.history.forEach(entry => {
+            if (entry.exerciseName !== exerciseName) return;
+            if (requireIntensity && (!entry.intensity || entry.intensity <= 0)) return;
+            if (!best || new Date(entry.date) > new Date(best.date)) {
+                best = entry;
+            }
+        });
+        return best;
+    }
+
+    function getPreviousEntry(state, exerciseName) {
+        return getMostRecentEntryForExercise(state, exerciseName, false);
+    }
+
+    function getMostRecentIntensityForExercise(state, exerciseName) {
+        const entry = getMostRecentEntryForExercise(state, exerciseName, true);
+        return entry ? entry.intensity : null;
+    }
+
+    // Compact "prev setpoint" string for an exercise, e.g.
+    // "3 sets × 10 reps × @135lbs", built from whichever metrics that
+    // exercise tracks, using its most recent logged entry.
+    function formatPrevSetpoint(state, exerciseName) {
+        const entry = getPreviousEntry(state, exerciseName);
+        if (!entry || !entry.data) return "";
+
+        const parts = [];
+        Models.SETPOINT_FORMAT_ORDER.forEach(key => {
+            const val = entry.data[key];
+            if (val === undefined || val === null) return;
+            if (key === "sets") parts.push(`${val} sets`);
+            else if (key === "reps") parts.push(`${val} reps`);
+            else if (key === "weight") parts.push(`@${val}lbs`);
+            else if (key === "distance") parts.push(`${val}mi`);
+            else if (key === "timeMinutes") parts.push(`${val}min`);
+            else if (key === "timeSeconds") parts.push(`${val}s`);
+        });
+
+        return parts.join(" × ");
     }
 
     // ============================================================
-    // LOAD / REPLACE
+    // Chart aggregation (pure)
     // ============================================================
-    function load() {
-        state.exercises = Persistence.get(LS_KEYS.exercises) || DEFAULT_EXERCISES.slice();
-        state.history = Persistence.get(LS_KEYS.history) || [];
-        state.plans = Persistence.get(LS_KEYS.plans) || [];
-        state.measurements = Persistence.get(LS_KEYS.measurements) || DEFAULT_MEASUREMENTS.slice();
-        state.measurementLogs = Persistence.get(LS_KEYS.measurementLogs) || [];
-        state.totalTimeLogs = Persistence.get(LS_KEYS.totalTimeLogs) || [];
 
-        if (!Array.isArray(state.exercises) || state.exercises.length === 0) state.exercises = DEFAULT_EXERCISES.slice();
-        if (!Array.isArray(state.history)) state.history = [];
-        if (!Array.isArray(state.plans)) state.plans = [];
-        if (!Array.isArray(state.measurements) || state.measurements.length === 0) state.measurements = DEFAULT_MEASUREMENTS.slice();
-        if (!Array.isArray(state.measurementLogs)) state.measurementLogs = [];
-        if (!Array.isArray(state.totalTimeLogs)) state.totalTimeLogs = [];
+    // Returns a stable bucket key + a representative "anchor" date (used for
+    // chart x-axis labels and chronological sorting) for a given YYYY-MM-DD
+    // date string and granularity.
+    function getPeriodBucket(dateStr, granularity) {
+        if (granularity === "daily") {
+            return { key: dateStr, anchorDate: dateStr };
+        }
 
-        ensureFirstLaunchRecorded();
-        runMigrations();
-        persistAll();
+        const d = new Date(dateStr + "T00:00:00");
+
+        if (granularity === "weekly") {
+            const dayOfWeek = d.getDay();
+            const diffToMonday = (dayOfWeek === 0) ? -6 : (1 - dayOfWeek);
+            const monday = new Date(d);
+            monday.setDate(d.getDate() + diffToMonday);
+            const key = getLocalDateString(monday);
+            return { key, anchorDate: key };
+        }
+
+        if (granularity === "monthly") {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const key = `${year}-${month}`;
+            const anchorDate = `${year}-${month}-01`;
+            return { key, anchorDate };
+        }
+
+        return { key: dateStr, anchorDate: dateStr };
     }
 
-    // Wholesale replace — used by JSON import and "Load Backup" during cloud
-    // restore. Deliberately rebuilds every field (rather than trusting the
-    // incoming object's shape) so an old/partial backup can't leave stale
-    // data behind.
-    function replaceAll(newData) {
-        state.exercises = (newData && Array.isArray(newData.exercises)) ? newData.exercises : DEFAULT_EXERCISES.slice();
-        state.history = (newData && Array.isArray(newData.history)) ? newData.history : [];
-        state.plans = (newData && Array.isArray(newData.plans)) ? newData.plans : [];
-        state.measurements = (newData && Array.isArray(newData.measurements) && newData.measurements.length > 0) ? newData.measurements : DEFAULT_MEASUREMENTS.slice();
-        state.measurementLogs = (newData && Array.isArray(newData.measurementLogs)) ? newData.measurementLogs : [];
-        state.totalTimeLogs = (newData && Array.isArray(newData.totalTimeLogs)) ? newData.totalTimeLogs : [];
+    // Generic aggregator: groups `entries` into period buckets by
+    // `dateField`, averages every key returned by `numericFieldsFn`, and
+    // returns buckets sorted chronologically, capped to the most recent
+    // MAX_CHART_POINTS.
+    function aggregateByPeriod(entries, granularity, dateField, numericFieldsFn, extraFieldsFn) {
+        const buckets = new Map();
 
-        runMigrations();
-        persistAll();
+        entries.forEach(entry => {
+            const { key, anchorDate } = getPeriodBucket(entry[dateField], granularity);
+            if (!buckets.has(key)) buckets.set(key, { anchorDate, items: [] });
+            buckets.get(key).items.push(entry);
+        });
+
+        let result = Array.from(buckets.entries()).map(([key, bucket]) => {
+            const fieldSums = {};
+            const fieldCounts = {};
+
+            bucket.items.forEach(entry => {
+                const fields = numericFieldsFn(entry);
+                Object.entries(fields).forEach(([fieldName, val]) => {
+                    if (!Number.isFinite(val)) return;
+                    fieldSums[fieldName] = (fieldSums[fieldName] || 0) + val;
+                    fieldCounts[fieldName] = (fieldCounts[fieldName] || 0) + 1;
+                });
+            });
+
+            const averaged = {};
+            Object.keys(fieldSums).forEach(fieldName => {
+                averaged[fieldName] = fieldSums[fieldName] / fieldCounts[fieldName];
+            });
+
+            const extra = extraFieldsFn ? extraFieldsFn(bucket.items) : {};
+
+            return {
+                periodKey: key,
+                date: bucket.anchorDate,
+                count: bucket.items.length,
+                ...averaged,
+                ...extra
+            };
+        });
+
+        result.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        if (result.length > Models.MAX_CHART_POINTS) {
+            result = result.slice(result.length - Models.MAX_CHART_POINTS);
+        }
+
+        return result;
+    }
+
+    // Human-friendly x-axis label for a bucket anchor date, tuned per granularity.
+    function formatPeriodLabel(anchorDate, granularity) {
+        const d = new Date(anchorDate + "T00:00:00");
+        if (granularity === "monthly") {
+            return d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+        }
+        if (granularity === "weekly") {
+            return `${d.getMonth() + 1}/${d.getDate()}`;
+        }
+        return anchorDate.substring(5);
     }
 
     // ============================================================
-    // SNAPSHOT (cloud backup + JSON export)
-    // Always exactly the AppData shape — never a transient UI field.
+    // Computed view data (KPIs, progress overview)
     // ============================================================
-    function getSnapshot() {
+    function computeTrackKpis(state) {
+        const today = new Date();
+        const sevenDaysAgo = new Date(today);
+        sevenDaysAgo.setDate(today.getDate() - 6);
+        sevenDaysAgo.setHours(0, 0, 0, 0);
+
+        const recentEntries = state.history.filter(h => new Date(h.date + "T00:00:00") >= sevenDaysAgo);
+        const weekCount = recentEntries.length;
+
+        const ratedRecent = recentEntries.filter(h => h.intensity && h.intensity > 0);
+        const avgIntensity = ratedRecent.length > 0
+            ? (ratedRecent.reduce((sum, h) => sum + h.intensity, 0) / ratedRecent.length)
+            : null;
+
+        const weightLogs = state.measurementLogs.filter(l => l.measurementKey === "weight");
+        const latestWeight = weightLogs.length > 0
+            ? [...weightLogs].sort((a, b) => new Date(b.date) - new Date(a.date))[0]
+            : null;
+        let weightText = "—";
+        if (latestWeight) {
+            const m = state.measurements.find(x => x.key === "weight");
+            weightText = `${latestWeight.value}${m ? m.unit : ''}`;
+        }
+
+        return { weekCount, avgIntensity, weightText };
+    }
+
+    function computeStatsKpis(state) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const dayBuckets = [];
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date(today);
+            d.setDate(today.getDate() - i);
+            dayBuckets.push(getLocalDateString(d));
+        }
+
+        const intensityByDay = dayBuckets.map(dateStr => {
+            const entries = state.history.filter(h => h.date === dateStr && h.intensity && h.intensity > 0);
+            if (entries.length === 0) return 0;
+            return entries.reduce((sum, h) => sum + h.intensity, 0) / entries.length;
+        });
+        const ratedDayValues = intensityByDay.filter(v => v > 0);
+        const avgIntensity7d = ratedDayValues.length > 0
+            ? (ratedDayValues.reduce((a, b) => a + b, 0) / ratedDayValues.length)
+            : null;
+
+        const loggedDateSet = new Set(state.history.map(h => h.date));
+        const streakDots = dayBuckets.map(dateStr => loggedDateSet.has(dateStr));
+
+        const weightLogsSorted = [...state.measurementLogs]
+            .filter(l => l.measurementKey === "weight")
+            .sort((a, b) => new Date(a.date) - new Date(b.date));
+        const weightMeas = state.measurements.find(m => m.key === "weight");
+        const latestW = weightLogsSorted[weightLogsSorted.length - 1];
+        const weightText = latestW ? `${latestW.value}${weightMeas ? weightMeas.unit : ''}` : "—";
+
+        const twoWeeksAgo = new Date(today);
+        twoWeeksAgo.setDate(today.getDate() - 14);
+        const recentWeights = weightLogsSorted
+            .filter(l => new Date(l.date + "T00:00:00") >= twoWeeksAgo)
+            .map(l => l.value);
+
+        const workoutCountByDay = dayBuckets.map(dateStr => state.history.filter(h => h.date === dateStr).length);
+        const workoutsThisWeek = workoutCountByDay.reduce((a, b) => a + b, 0);
+
         return {
-            exercises: state.exercises,
-            history: state.history,
-            plans: state.plans,
-            measurements: state.measurements,
-            measurementLogs: state.measurementLogs,
-            totalTimeLogs: state.totalTimeLogs
+            dayBuckets, intensityByDay, avgIntensity7d, streakDots,
+            weightText, recentWeights, workoutCountByDay, workoutsThisWeek
         };
     }
 
-    function applySnapshot(snapshot) {
-        if (!snapshot || !snapshot.history || !snapshot.exercises) return false;
-        replaceAll(snapshot);
-        return true;
+    function computeProgressOverview(state) {
+        const rows = [];
+
+        rows.push({ label: "Total Workouts Logged", value: state.history.length });
+
+        if (state.history.length > 0) {
+            const counts = {};
+            state.history.forEach(h => { counts[h.exerciseName] = (counts[h.exerciseName] || 0) + 1; });
+            const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+            rows.push({ label: "Most Logged Exercise", value: `${top[0]} (${top[1]}x)` });
+        }
+
+        const weightLogsSorted = [...state.measurementLogs]
+            .filter(l => l.measurementKey === "weight")
+            .sort((a, b) => new Date(a.date) - new Date(b.date));
+        if (weightLogsSorted.length >= 2) {
+            const today = new Date();
+            const thirtyDaysAgo = new Date(today);
+            thirtyDaysAgo.setDate(today.getDate() - 30);
+            const inWindow = weightLogsSorted.filter(l => new Date(l.date + "T00:00:00") >= thirtyDaysAgo);
+            const baseline = inWindow.length >= 2 ? inWindow[0] : weightLogsSorted[0];
+            const latest = weightLogsSorted[weightLogsSorted.length - 1];
+            const delta = latest.value - baseline.value;
+            const meas = state.measurements.find(m => m.key === "weight");
+            const unit = meas ? meas.unit : "";
+            const sign = delta > 0 ? "+" : "";
+            const trendClass = delta > 0 ? "po-up" : (delta < 0 ? "po-down" : "");
+            rows.push({ label: "Weight Change (30d)", value: `${sign}${delta.toFixed(1)}${unit}`, cls: trendClass });
+        }
+
+        rows.push({ label: "Current Streak", value: `${SchedulingService.calculateStreak(state)} days` });
+
+        return rows;
     }
 
-    // Merge logic: union of log entries by id, newest-wins on exercises/plans/
-    // measurements. "Newest" for exercises/plans/measurements is approximated
-    // by which snapshot is considered more recently synced (remoteIsNewer),
-    // since none of those carry a reliable per-record timestamp.
-    function mergeSnapshots(local, remote, remoteIsNewer) {
-        const historyById = new Map();
-        const olderHistory = remoteIsNewer ? local.history : remote.history;
-        const newerHistory = remoteIsNewer ? remote.history : local.history;
-        (olderHistory || []).forEach(h => historyById.set(h.id, h));
-        (newerHistory || []).forEach(h => historyById.set(h.id, h));
-        const mergedHistory = Array.from(historyById.values()).sort((a, b) => {
-            if (a.date !== b.date) return a.date < b.date ? -1 : 1;
-            return (a.id || 0) - (b.id || 0);
-        });
+    return {
+        getMostRecentEntryForExercise,
+        getPreviousEntry,
+        getMostRecentIntensityForExercise,
+        formatPrevSetpoint,
+        getPeriodBucket,
+        aggregateByPeriod,
+        formatPeriodLabel,
+        computeTrackKpis,
+        computeStatsKpis,
+        computeProgressOverview
+    };
+})();
+// =============================================================================
+// Engineered Exercise — FormattingService
+// =============================================================================
+// Small pure display-formatting helpers shared by several views. Kept
+// separate from StatsService because these aren't computations over the
+// whole dataset — they're per-record formatting rules a Swift port would
+// most likely express as computed properties on the model types themselves
+// (e.g. `HistoryEntry.intensityColor`, `MeasurementLog.formattedValue`).
+// =============================================================================
 
-        const exByName = new Map();
-        const olderEx = remoteIsNewer ? local.exercises : remote.exercises;
-        const newerEx = remoteIsNewer ? remote.exercises : local.exercises;
-        (olderEx || []).forEach(e => exByName.set(e.name.toLowerCase(), e));
-        (newerEx || []).forEach(e => exByName.set(e.name.toLowerCase(), e));
-        const mergedExercises = Array.from(exByName.values());
+const FormattingService = (() => {
+    "use strict";
 
-        const plansById = new Map();
-        const olderPlans = remoteIsNewer ? local.plans : remote.plans;
-        const newerPlans = remoteIsNewer ? remote.plans : local.plans;
-        (olderPlans || []).forEach(p => plansById.set(p.id, p));
-        (newerPlans || []).forEach(p => plansById.set(p.id, p));
-        const mergedPlans = Array.from(plansById.values());
-
-        const measByKey = new Map();
-        const olderMeas = remoteIsNewer ? local.measurements : remote.measurements;
-        const newerMeas = remoteIsNewer ? remote.measurements : local.measurements;
-        (olderMeas || []).forEach(m => measByKey.set(m.key, m));
-        (newerMeas || []).forEach(m => measByKey.set(m.key, m));
-        const mergedMeasurements = Array.from(measByKey.values());
-
-        const measLogsById = new Map();
-        const olderMeasLogs = remoteIsNewer ? local.measurementLogs : remote.measurementLogs;
-        const newerMeasLogs = remoteIsNewer ? remote.measurementLogs : local.measurementLogs;
-        (olderMeasLogs || []).forEach(l => measLogsById.set(l.id, l));
-        (newerMeasLogs || []).forEach(l => measLogsById.set(l.id, l));
-        const mergedMeasurementLogs = Array.from(measLogsById.values()).sort((a, b) => {
-            if (a.date !== b.date) return a.date < b.date ? -1 : 1;
-            return (a.id || 0) - (b.id || 0);
-        });
-
-        const totalTimeById = new Map();
-        const olderTotalTime = remoteIsNewer ? local.totalTimeLogs : remote.totalTimeLogs;
-        const newerTotalTime = remoteIsNewer ? remote.totalTimeLogs : local.totalTimeLogs;
-        (olderTotalTime || []).forEach(t => totalTimeById.set(t.id, t));
-        (newerTotalTime || []).forEach(t => totalTimeById.set(t.id, t));
-        const mergedTotalTimeLogs = Array.from(totalTimeById.values()).sort((a, b) => {
-            if (a.date !== b.date) return a.date < b.date ? -1 : 1;
-            return (a.id || 0) - (b.id || 0);
-        });
-
-        return {
-            exercises: mergedExercises,
-            history: mergedHistory,
-            plans: mergedPlans,
-            measurements: mergedMeasurements,
-            measurementLogs: mergedMeasurementLogs,
-            totalTimeLogs: mergedTotalTimeLogs
-        };
+    function isBloodPressureKey(key) {
+        return key === Models.BLOOD_PRESSURE_KEY;
     }
-
-    // ============================================================
-    // SHARED HELPERS
-    // ============================================================
-
-    // Local-date (not UTC) "YYYY-MM-DD" formatter — avoids the day rolling
-    // over early/late depending on the user's timezone offset from UTC.
-    function getLocalDateString(date) {
-        const d = (date instanceof Date) ? date : new Date(date);
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    }
-
-    function isBloodPressureKey(key) { return key === BLOOD_PRESSURE_KEY; }
 
     function formatMeasurementValue(log, unit) {
         if (isBloodPressureKey(log.measurementKey) && log.diastolic !== undefined && log.diastolic !== null) {
@@ -440,14 +775,299 @@ const Store = (() => {
     // Exercise Time entry — use this instead of state.exercises.find(...)
     // anywhere a name might be the virtual one (e.g. legacy history rows
     // mid-migration).
-    function findExerciseDef(name) {
-        if (name === TOTAL_TIME_EXERCISE_NAME) return TOTAL_TIME_EXERCISE_DEF;
+    function findExerciseDef(state, name) {
+        if (name === Models.TOTAL_TIME_EXERCISE_NAME) return Models.TOTAL_TIME_EXERCISE_DEF;
         return state.exercises.find(e => e.name === name);
     }
 
     function getIntensityColor(value) {
-        if (!value || value < 1) return INTENSITY_COLORS["Default"];
-        return INTENSITY_COLORS[Math.round(value)] || INTENSITY_COLORS["Default"];
+        if (!value || value < 1) return Models.INTENSITY_COLORS["Default"];
+        return Models.INTENSITY_COLORS[Math.round(value)] || Models.INTENSITY_COLORS["Default"];
+    }
+
+    // Slug-ify a display name into a stable storage key, ensuring uniqueness
+    // against existing measurement keys (appends -2, -3, ... on collision).
+    function slugifyMeasurementName(state, name, excludeKey = null) {
+        let base = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "measurement";
+        let candidate = base;
+        let n = 2;
+        while (state.measurements.some(m => m.key === candidate && m.key !== excludeKey)) {
+            candidate = `${base}-${n}`;
+            n++;
+        }
+        return candidate;
+    }
+
+    return {
+        isBloodPressureKey,
+        formatMeasurementValue,
+        findExerciseDef,
+        getIntensityColor,
+        slugifyMeasurementName
+    };
+})();
+// =============================================================================
+// Engineered Exercise — BackupService
+// =============================================================================
+// Owns the shape of data leaving/entering the app: the JSON backup envelope
+// and the CSV history export. There is no automatic/cloud backup in this
+// app — Export CSV and Export Backup (JSON) are the only ways data ever
+// leaves the device, so this file is also home to the "time to back up"
+// reminder timing logic.
+//
+// JSON BACKUP ENVELOPE (schemaVersion 2+):
+//   { schemaVersion: 2, exportedAt: "<ISO8601>", data: <AppData> }
+// Versions prior to this file existing shipped the raw AppData object with
+// no envelope at all (implicitly "schemaVersion 1"). `parseBackupFile`
+// detects and upgrades those transparently on import — see
+// `migrateEnvelope`. Bump BACKUP_SCHEMA_VERSION (models.js) whenever the
+// *envelope* shape changes; changes to individual record shapes belong in
+// MigrationService instead, since those apply to state already in
+// localStorage too, not just imported files.
+//
+// Porting guide: -> a `BackupEnvelope: Codable` struct with a
+// `schemaVersion: Int`, `exportedAt: Date`, and `data: AppData`, decoded
+// with a version-aware `JSONDecoder` strategy mirroring `migrateEnvelope`.
+// =============================================================================
+
+const BackupService = (() => {
+    "use strict";
+
+    const LS_KEYS = PersistenceService.LS_KEYS;
+
+    // ============================================================
+    // Snapshot (plain AppData, no envelope)
+    // ============================================================
+    function getSnapshot(state) {
+        return {
+            exercises: state.exercises,
+            history: state.history,
+            plans: state.plans,
+            measurements: state.measurements,
+            measurementLogs: state.measurementLogs,
+            totalTimeLogs: state.totalTimeLogs
+        };
+    }
+
+    // ============================================================
+    // Export: JSON backup envelope
+    // ============================================================
+    function buildBackupEnvelope(state) {
+        return {
+            schemaVersion: Models.BACKUP_SCHEMA_VERSION,
+            exportedAt: new Date().toISOString(),
+            data: getSnapshot(state)
+        };
+    }
+
+    // ============================================================
+    // Import: parse + migrate any backup file (current or legacy shape)
+    // into { schemaVersion, data } at the CURRENT schema version.
+    // Returns null if the file doesn't look like a valid backup at all.
+    // ============================================================
+    function looksLikeAppData(obj) {
+        return !!obj && Array.isArray(obj.exercises) && Array.isArray(obj.history);
+    }
+
+    function migrateEnvelope(envelope) {
+        // Nothing to do yet beyond wrapping — schemaVersion 1 -> 2 was
+        // purely "add the envelope", the inner AppData shape didn't change.
+        // Future envelope migrations get an `if (envelope.schemaVersion < N)`
+        // step added here, each one bumping schemaVersion as it goes.
+        return envelope;
+    }
+
+    function parseBackupFile(rawText) {
+        let parsed;
+        try {
+            parsed = JSON.parse(rawText);
+        } catch (e) {
+            return { ok: false, error: "not-json" };
+        }
+
+        let envelope;
+        if (parsed && typeof parsed.schemaVersion === "number" && looksLikeAppData(parsed.data)) {
+            // Current (or future) envelope shape.
+            envelope = parsed;
+        } else if (looksLikeAppData(parsed)) {
+            // Legacy schemaVersion-1 file: the raw AppData object itself,
+            // no envelope. Wrap it so downstream code only ever deals with
+            // one shape.
+            envelope = { schemaVersion: 1, exportedAt: null, data: parsed };
+        } else {
+            return { ok: false, error: "not-a-backup" };
+        }
+
+        envelope = migrateEnvelope(envelope);
+        return { ok: true, envelope };
+    }
+
+    // ============================================================
+    // Export: CSV content (pure string — the view layer handles the file save)
+    // ============================================================
+    function buildCsvContent(state) {
+        const hasHistory = state.history.length > 0;
+        const hasTotalTime = state.totalTimeLogs.length > 0;
+        if (!hasHistory && !hasTotalTime) return null;
+
+        const allMetricKeys = new Set();
+        state.history.forEach(entry => {
+            if (entry.data) Object.keys(entry.data).forEach(key => allMetricKeys.add(key));
+        });
+        if (hasTotalTime) allMetricKeys.add("timeMinutes");
+        const metricKeysArray = Array.from(allMetricKeys).sort();
+
+        const baseHeaders = ["ID", "Date", "Exercise Name", "Intensity"];
+        const fullHeaders = [...baseHeaders, ...metricKeysArray];
+
+        const quote = (val) => `"${String(val).replace(/"/g, '""')}"`;
+
+        const csvRows = [];
+        csvRows.push(fullHeaders.map(quote).join(","));
+
+        state.history.forEach(entry => {
+            const rowData = [entry.id, entry.date, entry.exerciseName, entry.intensity || ""];
+            metricKeysArray.forEach(key => {
+                rowData.push(entry.data && entry.data[key] !== undefined ? entry.data[key] : "");
+            });
+            csvRows.push(rowData.map(quote).join(","));
+        });
+
+        // Total Time is its own record category, but the CSV export stays a
+        // single flat timeline — appended here under the same label it's
+        // always shown with.
+        state.totalTimeLogs.forEach(entry => {
+            const rowData = [entry.id, entry.date, Models.TOTAL_TIME_EXERCISE_NAME, ""];
+            metricKeysArray.forEach(key => {
+                rowData.push(key === "timeMinutes" ? entry.minutes : "");
+            });
+            csvRows.push(rowData.map(quote).join(","));
+        });
+
+        return "\uFEFF" + csvRows.join("\n");
+    }
+
+    // ============================================================
+    // Backup reminder timing
+    // ============================================================
+    function markJsonExported() {
+        PersistenceService.set(LS_KEYS.lastJsonExportAt, new Date().toISOString());
+    }
+
+    function getLastJsonExportAt() {
+        return PersistenceService.get(LS_KEYS.lastJsonExportAt);
+    }
+
+    function isBackupReminderDue() {
+        // Anchor on the last export; if there's never been one, fall back to
+        // first-launch date so a brand-new install isn't nagged immediately.
+        const anchor = getLastJsonExportAt() || PersistenceService.get(LS_KEYS.firstLaunchAt);
+        if (!anchor) return false;
+        const anchorMs = new Date(anchor).getTime();
+        if (!Number.isFinite(anchorMs)) return false;
+        return (Date.now() - anchorMs) >= Models.BACKUP_REMINDER_MS;
+    }
+
+    return {
+        getSnapshot,
+        buildBackupEnvelope,
+        parseBackupFile,
+        buildCsvContent,
+        markJsonExported,
+        getLastJsonExportAt,
+        isBackupReminderDue
+    };
+})();
+// =============================================================================
+// Engineered Exercise — Store (the "backend")
+// =============================================================================
+// Owns the one persisted state object and every mutation of it. Business
+// logic that doesn't need to *own* state (scheduling math, chart
+// aggregation, formatting, backup shape) lives in the services this file
+// composes — Store itself is deliberately thin: load state, expose CRUD,
+// persist, notify. That split is what makes the services portable almost
+// verbatim to Swift while Store maps to a single `AppStore: ObservableObject`.
+//
+// Porting guide (JS -> Swift):
+//   `state` (one object, 6 arrays)  -> an ObservableObject with @Published arrays
+//   PersistenceService.get/set      -> a small protocol (UserDefaults or file-backed)
+//   MigrationService.runAll         -> called once right after decoding, same as here
+//   Every exported function here    -> a method on that ObservableObject
+//   `onChange(fn)`                  -> @Published already gives you this for free
+//   Nothing in this file depends on execution order beyond `Store.load()`
+//   being called once before anything else runs.
+//
+// Views hold `state` by reference and never reassign it — only Store
+// mutates it, always through the methods below, always followed by
+// persistAll(). That's what keeps the UI and storage in sync without a
+// heavier framework.
+// =============================================================================
+
+const Store = (() => {
+    "use strict";
+
+    const LS_KEYS = PersistenceService.LS_KEYS;
+
+    /** @type {import('../models/models.js').AppData} */
+    const state = {
+        exercises: [],
+        history: [],
+        plans: [],
+        measurements: [],
+        measurementLogs: [],
+        totalTimeLogs: []
+    };
+
+    const listeners = new Set();
+    function onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
+    function notify() { listeners.forEach(fn => { try { fn(); } catch (e) { console.error(e); } }); }
+
+    function persistAll() {
+        PersistenceService.set(LS_KEYS.exercises, state.exercises);
+        PersistenceService.set(LS_KEYS.history, state.history);
+        PersistenceService.set(LS_KEYS.plans, state.plans);
+        PersistenceService.set(LS_KEYS.measurements, state.measurements);
+        PersistenceService.set(LS_KEYS.measurementLogs, state.measurementLogs);
+        PersistenceService.set(LS_KEYS.totalTimeLogs, state.totalTimeLogs);
+        notify();
+    }
+
+    // ============================================================
+    // LOAD / REPLACE
+    // ============================================================
+    function load() {
+        state.exercises = PersistenceService.get(LS_KEYS.exercises) || Models.DEFAULT_EXERCISES.slice();
+        state.history = PersistenceService.get(LS_KEYS.history) || [];
+        state.plans = PersistenceService.get(LS_KEYS.plans) || [];
+        state.measurements = PersistenceService.get(LS_KEYS.measurements) || Models.DEFAULT_MEASUREMENTS.slice();
+        state.measurementLogs = PersistenceService.get(LS_KEYS.measurementLogs) || [];
+        state.totalTimeLogs = PersistenceService.get(LS_KEYS.totalTimeLogs) || [];
+
+        if (!Array.isArray(state.exercises) || state.exercises.length === 0) state.exercises = Models.DEFAULT_EXERCISES.slice();
+        if (!Array.isArray(state.history)) state.history = [];
+        if (!Array.isArray(state.plans)) state.plans = [];
+        if (!Array.isArray(state.measurements) || state.measurements.length === 0) state.measurements = Models.DEFAULT_MEASUREMENTS.slice();
+        if (!Array.isArray(state.measurementLogs)) state.measurementLogs = [];
+        if (!Array.isArray(state.totalTimeLogs)) state.totalTimeLogs = [];
+
+        PersistenceService.ensureFirstLaunchRecorded();
+        MigrationService.runAll(state);
+        persistAll();
+    }
+
+    // Wholesale replace — used by JSON import. Deliberately rebuilds every
+    // field (rather than trusting the incoming object's shape) so an
+    // old/partial backup can't leave stale data behind.
+    function replaceAll(newData) {
+        state.exercises = (newData && Array.isArray(newData.exercises)) ? newData.exercises : Models.DEFAULT_EXERCISES.slice();
+        state.history = (newData && Array.isArray(newData.history)) ? newData.history : [];
+        state.plans = (newData && Array.isArray(newData.plans)) ? newData.plans : [];
+        state.measurements = (newData && Array.isArray(newData.measurements) && newData.measurements.length > 0) ? newData.measurements : Models.DEFAULT_MEASUREMENTS.slice();
+        state.measurementLogs = (newData && Array.isArray(newData.measurementLogs)) ? newData.measurementLogs : [];
+        state.totalTimeLogs = (newData && Array.isArray(newData.totalTimeLogs)) ? newData.totalTimeLogs : [];
+
+        MigrationService.runAll(state);
+        persistAll();
     }
 
     // ============================================================
@@ -489,27 +1109,13 @@ const Store = (() => {
     // ============================================================
     // CRUD: Measurements
     // ============================================================
-
-    // Slug-ify a display name into a stable storage key, ensuring uniqueness
-    // against existing measurement keys (appends -2, -3, ... on collision).
-    function slugifyMeasurementName(name, excludeKey = null) {
-        let base = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "measurement";
-        let candidate = base;
-        let n = 2;
-        while (state.measurements.some(m => m.key === candidate && m.key !== excludeKey)) {
-            candidate = `${base}-${n}`;
-            n++;
-        }
-        return candidate;
-    }
-
     function measurementNameExists(name, excludeKey = null) {
         return state.measurements.some(m => m.key !== excludeKey && m.name.toLowerCase() === name.toLowerCase());
     }
 
     /** @returns {string} the newly-generated key */
     function addMeasurement(name, unit) {
-        const key = slugifyMeasurementName(name);
+        const key = FormattingService.slugifyMeasurementName(state, name);
         state.measurements.push({ key, name, unit });
         persistAll();
         return key;
@@ -655,444 +1261,10 @@ const Store = (() => {
     }
 
     // ============================================================
-    // QUERIES: scheduling & streaks
-    // ============================================================
-    function isRestDayExplicitlyScheduled(targetDate) {
-        const d = new Date(targetDate);
-        d.setHours(0, 0, 0, 0);
-        const dayOfWeek = d.getDay();
-
-        return state.plans.some(plan => {
-            if (plan.exercise !== '__rest__') return false;
-            if (plan.type === 'weekly') return parseInt(plan.day) === dayOfWeek;
-            if (plan.type === 'interval' && plan.startDate) {
-                const start = new Date(plan.startDate + 'T00:00:00');
-                start.setHours(0, 0, 0, 0);
-                const diff = Math.round((d - start) / 86400000);
-                return diff >= 0 && diff % parseInt(plan.interval) === 0;
-            }
-            return false;
-        });
-    }
-
-    function getPlannedExercisesForDate(targetDate) {
-        let matches = [];
-        let queryDate = new Date(targetDate);
-        queryDate.setHours(0, 0, 0, 0);
-
-        // 1. Weekly scheduled routines — sorted by the plan's `order` field
-        // (drag-reorder) so downstream consumers (7-Day Horizon tags,
-        // Today's Exercises card, chart dropdown stars) share one ordering.
-        let weeklyMatchesForDay = state.plans.filter(plan =>
-            plan.type === 'weekly' && plan.exercise !== "__rest__" && parseInt(plan.day) === queryDate.getDay()
-        );
-        weeklyMatchesForDay.sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id));
-        weeklyMatchesForDay.forEach(plan => matches.push(plan.exercise));
-
-        // 2. Interval-based routines with rest-day adjustments
-        state.plans.forEach(plan => {
-            if (plan.type === 'interval') {
-                let start = new Date(plan.startDate + "T00:00:00");
-                start.setHours(0, 0, 0, 0);
-
-                if (queryDate < start) return;
-
-                let workingDate = new Date(start);
-                let intervalDayCounter = 0;
-
-                while (workingDate <= queryDate) {
-                    let isWorkingRestDay = isRestDayExplicitlyScheduled(workingDate);
-
-                    if (isWorkingRestDay) {
-                        if (workingDate.getTime() === queryDate.getTime()) {
-                            return; // rest day — nothing scheduled
-                        }
-                    } else {
-                        if (intervalDayCounter % parseInt(plan.interval) === 0) {
-                            if (workingDate.getTime() === queryDate.getTime()) {
-                                matches.push(plan.exercise);
-                            }
-                        }
-                        intervalDayCounter++;
-                    }
-                    workingDate.setDate(workingDate.getDate() + 1);
-                }
-            }
-        });
-
-        return matches;
-    }
-
-    function calculateStreak() {
-        let todayStr = getLocalDateString(new Date());
-        let checkDate = new Date(todayStr + "T00:00:00");
-        let streak = 0;
-
-        let historyDates = new Set(state.history.map(h => h.date));
-
-        let yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        let yesterdayStr = getLocalDateString(yesterday);
-
-        if (!historyDates.has(todayStr) && !historyDates.has(yesterdayStr)) {
-            let yesterdayPlan = getPlannedExercisesForDate(yesterday);
-            let yesterdayWasRest = (yesterdayPlan.length === 0 || isRestDayExplicitlyScheduled(yesterday));
-            if (!yesterdayWasRest) return 0;
-        }
-
-        for (let i = 0; i < 365; i++) {
-            let loopDateStr = getLocalDateString(checkDate);
-            let isExplicitRest = isRestDayExplicitlyScheduled(new Date(checkDate));
-
-            if (historyDates.has(loopDateStr) || isExplicitRest) {
-                streak++;
-            } else {
-                if (i === 0 && loopDateStr === todayStr) {
-                    // today hasn't been logged yet, but the day isn't over — don't break yet
-                } else {
-                    break;
-                }
-            }
-            checkDate.setDate(checkDate.getDate() - 1);
-        }
-        return streak;
-    }
-
-    // ============================================================
-    // QUERIES: exercise history lookups
-    // ============================================================
-
-    // Finds the entry for a given exercise whose `date` is chronologically
-    // most recent — compares actual date values, not array/insertion order
-    // (backfilled/imported entries can break that assumption).
-    function getMostRecentEntryForExercise(exerciseName, requireIntensity = false) {
-        let best = null;
-        state.history.forEach(entry => {
-            if (entry.exerciseName !== exerciseName) return;
-            if (requireIntensity && (!entry.intensity || entry.intensity <= 0)) return;
-            if (!best || new Date(entry.date) > new Date(best.date)) {
-                best = entry;
-            }
-        });
-        return best;
-    }
-
-    function getPreviousEntry(exerciseName) {
-        return getMostRecentEntryForExercise(exerciseName, false);
-    }
-
-    function getMostRecentIntensityForExercise(exerciseName) {
-        const entry = getMostRecentEntryForExercise(exerciseName, true);
-        return entry ? entry.intensity : null;
-    }
-
-    // Compact "prev setpoint" string for an exercise, e.g.
-    // "3 sets × 10 reps × @135lbs", built from whichever metrics that
-    // exercise tracks, using its most recent logged entry.
-    function formatPrevSetpoint(exerciseName) {
-        const entry = getPreviousEntry(exerciseName);
-        if (!entry || !entry.data) return "";
-
-        const parts = [];
-        SETPOINT_FORMAT_ORDER.forEach(key => {
-            const val = entry.data[key];
-            if (val === undefined || val === null) return;
-            if (key === "sets") parts.push(`${val} sets`);
-            else if (key === "reps") parts.push(`${val} reps`);
-            else if (key === "weight") parts.push(`@${val}lbs`);
-            else if (key === "distance") parts.push(`${val}mi`);
-            else if (key === "timeMinutes") parts.push(`${val}min`);
-            else if (key === "timeSeconds") parts.push(`${val}s`);
-        });
-
-        return parts.join(" × ");
-    }
-
-    // ============================================================
-    // CHART AGGREGATION (pure)
-    // ============================================================
-
-    // Returns a stable bucket key + a representative "anchor" date (used for
-    // chart x-axis labels and chronological sorting) for a given YYYY-MM-DD
-    // date string and granularity.
-    function getPeriodBucket(dateStr, granularity) {
-        if (granularity === "daily") {
-            return { key: dateStr, anchorDate: dateStr };
-        }
-
-        const d = new Date(dateStr + "T00:00:00");
-
-        if (granularity === "weekly") {
-            const dayOfWeek = d.getDay();
-            const diffToMonday = (dayOfWeek === 0) ? -6 : (1 - dayOfWeek);
-            const monday = new Date(d);
-            monday.setDate(d.getDate() + diffToMonday);
-            const key = getLocalDateString(monday);
-            return { key, anchorDate: key };
-        }
-
-        if (granularity === "monthly") {
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const key = `${year}-${month}`;
-            const anchorDate = `${year}-${month}-01`;
-            return { key, anchorDate };
-        }
-
-        return { key: dateStr, anchorDate: dateStr };
-    }
-
-    // Generic aggregator: groups `entries` into period buckets by
-    // `dateField`, averages every key returned by `numericFieldsFn`, and
-    // returns buckets sorted chronologically, capped to the most recent
-    // MAX_CHART_POINTS.
-    function aggregateByPeriod(entries, granularity, dateField, numericFieldsFn, extraFieldsFn) {
-        const buckets = new Map();
-
-        entries.forEach(entry => {
-            const { key, anchorDate } = getPeriodBucket(entry[dateField], granularity);
-            if (!buckets.has(key)) buckets.set(key, { anchorDate, items: [] });
-            buckets.get(key).items.push(entry);
-        });
-
-        let result = Array.from(buckets.entries()).map(([key, bucket]) => {
-            const fieldSums = {};
-            const fieldCounts = {};
-
-            bucket.items.forEach(entry => {
-                const fields = numericFieldsFn(entry);
-                Object.entries(fields).forEach(([fieldName, val]) => {
-                    if (!Number.isFinite(val)) return;
-                    fieldSums[fieldName] = (fieldSums[fieldName] || 0) + val;
-                    fieldCounts[fieldName] = (fieldCounts[fieldName] || 0) + 1;
-                });
-            });
-
-            const averaged = {};
-            Object.keys(fieldSums).forEach(fieldName => {
-                averaged[fieldName] = fieldSums[fieldName] / fieldCounts[fieldName];
-            });
-
-            const extra = extraFieldsFn ? extraFieldsFn(bucket.items) : {};
-
-            return {
-                periodKey: key,
-                date: bucket.anchorDate,
-                count: bucket.items.length,
-                ...averaged,
-                ...extra
-            };
-        });
-
-        result.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-        if (result.length > MAX_CHART_POINTS) {
-            result = result.slice(result.length - MAX_CHART_POINTS);
-        }
-
-        return result;
-    }
-
-    // Human-friendly x-axis label for a bucket anchor date, tuned per granularity.
-    function formatPeriodLabel(anchorDate, granularity) {
-        const d = new Date(anchorDate + "T00:00:00");
-        if (granularity === "monthly") {
-            return d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
-        }
-        if (granularity === "weekly") {
-            return `${d.getMonth() + 1}/${d.getDate()}`;
-        }
-        return anchorDate.substring(5);
-    }
-
-    // ============================================================
-    // COMPUTED VIEW DATA
-    // Plain numbers/strings/arrays — app.js just paints these. This is the
-    // layer that would become a SwiftUI ViewModel's @Published computed
-    // properties.
-    // ============================================================
-    function computeTrackKpis() {
-        const today = new Date();
-        const sevenDaysAgo = new Date(today);
-        sevenDaysAgo.setDate(today.getDate() - 6);
-        sevenDaysAgo.setHours(0, 0, 0, 0);
-
-        const recentEntries = state.history.filter(h => new Date(h.date + "T00:00:00") >= sevenDaysAgo);
-        const weekCount = recentEntries.length;
-
-        const ratedRecent = recentEntries.filter(h => h.intensity && h.intensity > 0);
-        const avgIntensity = ratedRecent.length > 0
-            ? (ratedRecent.reduce((sum, h) => sum + h.intensity, 0) / ratedRecent.length)
-            : null;
-
-        const weightLogs = state.measurementLogs.filter(l => l.measurementKey === "weight");
-        const latestWeight = weightLogs.length > 0
-            ? [...weightLogs].sort((a, b) => new Date(b.date) - new Date(a.date))[0]
-            : null;
-        let weightText = "—";
-        if (latestWeight) {
-            const m = state.measurements.find(x => x.key === "weight");
-            weightText = `${latestWeight.value}${m ? m.unit : ''}`;
-        }
-
-        return { weekCount, avgIntensity, weightText };
-    }
-
-    function computeStatsKpis() {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const dayBuckets = [];
-        for (let i = 6; i >= 0; i--) {
-            const d = new Date(today);
-            d.setDate(today.getDate() - i);
-            dayBuckets.push(getLocalDateString(d));
-        }
-
-        const intensityByDay = dayBuckets.map(dateStr => {
-            const entries = state.history.filter(h => h.date === dateStr && h.intensity && h.intensity > 0);
-            if (entries.length === 0) return 0;
-            return entries.reduce((sum, h) => sum + h.intensity, 0) / entries.length;
-        });
-        const ratedDayValues = intensityByDay.filter(v => v > 0);
-        const avgIntensity7d = ratedDayValues.length > 0
-            ? (ratedDayValues.reduce((a, b) => a + b, 0) / ratedDayValues.length)
-            : null;
-
-        const loggedDateSet = new Set(state.history.map(h => h.date));
-        const streakDots = dayBuckets.map(dateStr => loggedDateSet.has(dateStr));
-
-        const weightLogsSorted = [...state.measurementLogs]
-            .filter(l => l.measurementKey === "weight")
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
-        const weightMeas = state.measurements.find(m => m.key === "weight");
-        const latestW = weightLogsSorted[weightLogsSorted.length - 1];
-        const weightText = latestW ? `${latestW.value}${weightMeas ? weightMeas.unit : ''}` : "—";
-
-        const twoWeeksAgo = new Date(today);
-        twoWeeksAgo.setDate(today.getDate() - 14);
-        const recentWeights = weightLogsSorted
-            .filter(l => new Date(l.date + "T00:00:00") >= twoWeeksAgo)
-            .map(l => l.value);
-
-        const workoutCountByDay = dayBuckets.map(dateStr => state.history.filter(h => h.date === dateStr).length);
-        const workoutsThisWeek = workoutCountByDay.reduce((a, b) => a + b, 0);
-
-        return {
-            dayBuckets, intensityByDay, avgIntensity7d, streakDots,
-            weightText, recentWeights, workoutCountByDay, workoutsThisWeek
-        };
-    }
-
-    function computeProgressOverview() {
-        const rows = [];
-
-        rows.push({ label: "Total Workouts Logged", value: state.history.length });
-
-        if (state.history.length > 0) {
-            const counts = {};
-            state.history.forEach(h => { counts[h.exerciseName] = (counts[h.exerciseName] || 0) + 1; });
-            const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-            rows.push({ label: "Most Logged Exercise", value: `${top[0]} (${top[1]}x)` });
-        }
-
-        const weightLogsSorted = [...state.measurementLogs]
-            .filter(l => l.measurementKey === "weight")
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
-        if (weightLogsSorted.length >= 2) {
-            const today = new Date();
-            const thirtyDaysAgo = new Date(today);
-            thirtyDaysAgo.setDate(today.getDate() - 30);
-            const inWindow = weightLogsSorted.filter(l => new Date(l.date + "T00:00:00") >= thirtyDaysAgo);
-            const baseline = inWindow.length >= 2 ? inWindow[0] : weightLogsSorted[0];
-            const latest = weightLogsSorted[weightLogsSorted.length - 1];
-            const delta = latest.value - baseline.value;
-            const meas = state.measurements.find(m => m.key === "weight");
-            const unit = meas ? meas.unit : "";
-            const sign = delta > 0 ? "+" : "";
-            const trendClass = delta > 0 ? "po-up" : (delta < 0 ? "po-down" : "");
-            rows.push({ label: "Weight Change (30d)", value: `${sign}${delta.toFixed(1)}${unit}`, cls: trendClass });
-        }
-
-        rows.push({ label: "Current Streak", value: `${calculateStreak()} days` });
-
-        return rows;
-    }
-
-    // ============================================================
-    // BACKUP REMINDER
-    // BACKUP REMINDER
-    // Tracks when the person last did a manual JSON export and answers
-    // whether it's time to nag them again. There's no automatic backup in
-    // this app — Export CSV and Export Backup (JSON) are the only ways
-    // data ever leaves the device, so this reminder is the one nudge that
-    // encourages people to actually do that periodically.
-    // ============================================================
-    function markJsonExported() {
-        Persistence.set(LS_KEYS.lastJsonExportAt, new Date().toISOString());
-    }
-
-    function getLastJsonExportAt() {
-        return Persistence.get(LS_KEYS.lastJsonExportAt);
-    }
-
-    function isBackupReminderDue() {
-        // Anchor on the last export; if there's never been one, fall back to
-        // first-launch date so a brand-new install isn't nagged immediately.
-        const anchor = getLastJsonExportAt() || Persistence.get(LS_KEYS.firstLaunchAt);
-        if (!anchor) return false;
-        const anchorMs = new Date(anchor).getTime();
-        if (!Number.isFinite(anchorMs)) return false;
-        return (Date.now() - anchorMs) >= BACKUP_REMINDER_MS;
-    }
-
-    // ============================================================
-    // EXPORT: CSV content (pure string — app.js handles the file save)
-    // ============================================================
-    function buildCsvContent() {
-        const hasHistory = state.history.length > 0;
-        const hasTotalTime = state.totalTimeLogs.length > 0;
-        if (!hasHistory && !hasTotalTime) return null;
-
-        const allMetricKeys = new Set();
-        state.history.forEach(entry => {
-            if (entry.data) Object.keys(entry.data).forEach(key => allMetricKeys.add(key));
-        });
-        if (hasTotalTime) allMetricKeys.add("timeMinutes");
-        const metricKeysArray = Array.from(allMetricKeys).sort();
-
-        const baseHeaders = ["ID", "Date", "Exercise Name", "Intensity"];
-        const fullHeaders = [...baseHeaders, ...metricKeysArray];
-
-        const quote = (val) => `"${String(val).replace(/"/g, '""')}"`;
-
-        const csvRows = [];
-        csvRows.push(fullHeaders.map(quote).join(","));
-
-        state.history.forEach(entry => {
-            const rowData = [entry.id, entry.date, entry.exerciseName, entry.intensity || ""];
-            metricKeysArray.forEach(key => {
-                rowData.push(entry.data && entry.data[key] !== undefined ? entry.data[key] : "");
-            });
-            csvRows.push(rowData.map(quote).join(","));
-        });
-
-        // Total Time is its own record category, but the CSV export stays a
-        // single flat timeline — appended here under the same label it's
-        // always shown with.
-        state.totalTimeLogs.forEach(entry => {
-            const rowData = [entry.id, entry.date, TOTAL_TIME_EXERCISE_NAME, ""];
-            metricKeysArray.forEach(key => {
-                rowData.push(key === "timeMinutes" ? entry.minutes : "");
-            });
-            csvRows.push(rowData.map(quote).join(","));
-        });
-
-        return "\uFEFF" + csvRows.join("\n");
-    }
-
-    // ============================================================
     // PUBLIC API
+    // Query/formatting/backup methods delegate to the relevant service,
+    // passing `state` explicitly — Store is the only thing that knows
+    // which state object is "current".
     // ============================================================
     return {
         // state + lifecycle
@@ -1102,25 +1274,20 @@ const Store = (() => {
         replaceAll,
 
         // constants a Swift port should mirror verbatim
-        DEFAULT_EXERCISES,
-        DEFAULT_MEASUREMENTS,
-        BLOOD_PRESSURE_KEY,
-        TOTAL_TIME_EXERCISE_NAME,
-        TOTAL_TIME_EXERCISE_DEF,
-        FIELD_LABELS,
-        INTENSITY_COLORS,
+        DEFAULT_EXERCISES: Models.DEFAULT_EXERCISES,
+        DEFAULT_MEASUREMENTS: Models.DEFAULT_MEASUREMENTS,
+        BLOOD_PRESSURE_KEY: Models.BLOOD_PRESSURE_KEY,
+        TOTAL_TIME_EXERCISE_NAME: Models.TOTAL_TIME_EXERCISE_NAME,
+        TOTAL_TIME_EXERCISE_DEF: Models.TOTAL_TIME_EXERCISE_DEF,
+        FIELD_LABELS: Models.FIELD_LABELS,
+        INTENSITY_COLORS: Models.INTENSITY_COLORS,
 
-        // snapshot (cloud backup / JSON export)
-        getSnapshot,
-        applySnapshot,
-        mergeSnapshots,
-
-        // shared helpers
-        getLocalDateString,
-        isBloodPressureKey,
-        formatMeasurementValue,
-        findExerciseDef,
-        getIntensityColor,
+        // shared helpers (FormattingService)
+        getLocalDateString: DateUtil.getLocalDateString,
+        isBloodPressureKey: FormattingService.isBloodPressureKey,
+        formatMeasurementValue: FormattingService.formatMeasurementValue,
+        findExerciseDef: (name) => FormattingService.findExerciseDef(state, name),
+        getIntensityColor: FormattingService.getIntensityColor,
 
         // CRUD: exercises
         exerciseNameExists,
@@ -1130,7 +1297,6 @@ const Store = (() => {
         countHistoryForExercise,
 
         // CRUD: measurements
-        slugifyMeasurementName,
         measurementNameExists,
         addMeasurement,
         updateMeasurement,
@@ -1162,33 +1328,34 @@ const Store = (() => {
         deleteTotalTimeLog,
         getTotalTimeLog,
 
-        // queries: scheduling & streaks
-        isRestDayExplicitlyScheduled,
-        getPlannedExercisesForDate,
-        calculateStreak,
+        // queries: scheduling & streaks (SchedulingService)
+        isRestDayExplicitlyScheduled: (targetDate) => SchedulingService.isRestDayExplicitlyScheduled(state, targetDate),
+        getPlannedExercisesForDate: (targetDate) => SchedulingService.getPlannedExercisesForDate(state, targetDate),
+        calculateStreak: () => SchedulingService.calculateStreak(state),
 
-        // queries: exercise history lookups
-        getMostRecentEntryForExercise,
-        getPreviousEntry,
-        getMostRecentIntensityForExercise,
-        formatPrevSetpoint,
+        // queries: exercise history lookups (StatsService)
+        getMostRecentEntryForExercise: (name, requireIntensity) => StatsService.getMostRecentEntryForExercise(state, name, requireIntensity),
+        getPreviousEntry: (name) => StatsService.getPreviousEntry(state, name),
+        getMostRecentIntensityForExercise: (name) => StatsService.getMostRecentIntensityForExercise(state, name),
+        formatPrevSetpoint: (name) => StatsService.formatPrevSetpoint(state, name),
 
-        // chart aggregation
-        getPeriodBucket,
-        aggregateByPeriod,
-        formatPeriodLabel,
+        // chart aggregation (StatsService)
+        getPeriodBucket: StatsService.getPeriodBucket,
+        aggregateByPeriod: StatsService.aggregateByPeriod,
+        formatPeriodLabel: StatsService.formatPeriodLabel,
 
-        // computed view data
-        computeTrackKpis,
-        computeStatsKpis,
-        computeProgressOverview,
+        // computed view data (StatsService)
+        computeTrackKpis: () => StatsService.computeTrackKpis(state),
+        computeStatsKpis: () => StatsService.computeStatsKpis(state),
+        computeProgressOverview: () => StatsService.computeProgressOverview(state),
 
-        // backup reminder
-        markJsonExported,
-        getLastJsonExportAt,
-        isBackupReminderDue,
-
-        // export
-        buildCsvContent
+        // backup (BackupService)
+        getSnapshot: () => BackupService.getSnapshot(state),
+        buildBackupEnvelope: () => BackupService.buildBackupEnvelope(state),
+        parseBackupFile: BackupService.parseBackupFile,
+        buildCsvContent: () => BackupService.buildCsvContent(state),
+        markJsonExported: BackupService.markJsonExported,
+        getLastJsonExportAt: BackupService.getLastJsonExportAt,
+        isBackupReminderDue: BackupService.isBackupReminderDue
     };
 })();
