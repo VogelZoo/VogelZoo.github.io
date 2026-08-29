@@ -496,13 +496,13 @@ const TrackView = (() => {
     // Store.state).
     let selectedHorizonDate = getLocalDateString(new Date());
 
-    // --- Streak (feeds both the Track KPI row and the Stats KPI card) ---
+    // --- Streak (feeds the Track tab's KPI row; the Stats tab's streak
+    // cards are rendered by StatsView.renderStatsKpis() instead, since
+    // they're scope-aware) ---
     function renderStreakWidget() {
         let currentStreak = Store.calculateStreak();
         const trackEl = document.getElementById("kpi-streak-value");
         if (trackEl) trackEl.textContent = currentStreak;
-        const statsEl = document.getElementById("kpi2-streak-value");
-        if (statsEl) statsEl.innerHTML = `${currentStreak} <span class="kpi-card-unit">days</span>`;
         return currentStreak;
     }
 
@@ -679,21 +679,32 @@ const TrackView = (() => {
 const StatsView = (() => {
     "use strict";
 
-    let chartGranularity = "daily"; // "daily" | "weekly" | "monthly" — not persisted
+    let chartGranularity = "daily"; // "daily" | "weekly" | "monthly" — governs the charts only, not persisted
+    let statsScope = "7d";          // "7d" | "30d" | "90d" | "all" — governs the KPI cards only, not persisted
 
     function setGranularity(granularity) {
         chartGranularity = granularity;
         render();
     }
 
+    function setScope(scope) {
+        statsScope = scope;
+        document.querySelectorAll('#stats-scope-group .pill-radio-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.scope === scope);
+        });
+        renderStatsKpis();
+    }
+
+    // Renders every card in the KPI section: Avg Intensity and Weight are
+    // untouched by `statsScope` (always a fixed 7-day window); Visual
+    // Streak, Days Logged, Streak Compare, and Active Time are all scoped.
     function renderStatsKpis() {
-        TrackView.renderStreakWidget();
-
         const kpis = Store.computeStatsKpis();
+        const dashboard = Store.computeStatsDashboard(statsScope);
 
+        // --- Avg Intensity (unchanged) ---
         const intensityValueEl = document.getElementById("kpi2-intensity-value");
         if (intensityValueEl) intensityValueEl.textContent = kpis.avgIntensity7d !== null ? kpis.avgIntensity7d.toFixed(1) : "—";
-
         const intensityBarsEl = document.getElementById("kpi2-intensity-bars");
         if (intensityBarsEl) {
             intensityBarsEl.innerHTML = kpis.intensityByDay.map(v => {
@@ -703,26 +714,54 @@ const StatsView = (() => {
             }).join("");
         }
 
-        const streakDotsEl = document.getElementById("kpi2-streak-dots");
-        if (streakDotsEl) {
-            streakDotsEl.innerHTML = kpis.streakDots.map(active => `<span class="ksd-dot${active ? ' ksd-active' : ''}"></span>`).join("");
+        // --- Visual Streak: grey = explicit rest day, blue = logged, red = missed.
+        // A 7-wide grid — a single row for the 7-day scope (which is what
+        // the old design looked like), wrapping into a heatmap for 30d/90d/all. ---
+        const streakLabelEl = document.getElementById("kpi-streak-visual-label");
+        if (streakLabelEl) {
+            const scopeLabel = { '7d': '7 Days', '30d': '30 Days', '90d': '90 Days', 'all': 'All Time' }[statsScope];
+            streakLabelEl.textContent = `Streak (${scopeLabel})`;
+        }
+        const streakGridEl = document.getElementById("kpi-streak-visual-grid");
+        if (streakGridEl) {
+            if (dashboard.dayStatuses.length === 0) {
+                streakGridEl.innerHTML = `<span class="text-muted" style="font-size:0.7rem;">No logs yet</span>`;
+            } else {
+                streakGridEl.innerHTML = dashboard.dayStatuses.map(d =>
+                    `<span class="sv-cell sv-${d.status}" title="${d.date}: ${d.status}"></span>`
+                ).join("");
+            }
         }
 
+        // --- Weight (unchanged) ---
         const weightValueEl = document.getElementById("kpi2-weight-value");
         if (weightValueEl) weightValueEl.textContent = kpis.weightText;
         const weightGraphEl = document.getElementById("kpi2-weight-graph");
         if (weightGraphEl) weightGraphEl.innerHTML = ChartRenderer.renderMiniLineSvg(kpis.recentWeights);
 
-        const workoutsValueEl = document.getElementById("kpi2-workouts-value");
-        if (workoutsValueEl) workoutsValueEl.textContent = kpis.workoutsThisWeek;
-        const workoutsBarsEl = document.getElementById("kpi2-workouts-bars");
-        if (workoutsBarsEl) {
-            const maxCount = Math.max(1, ...kpis.workoutCountByDay);
-            workoutsBarsEl.innerHTML = kpis.workoutCountByDay.map(c => {
-                const heightPct = c > 0 ? Math.max(12, (c / maxCount) * 100) : 4;
-                return `<div class="kmb-bar" style="height:${heightPct}%; background-color:${c > 0 ? '#2563eb' : '#374151'};"></div>`;
-            }).join("");
+        // --- Days Logged: daysLogged / totalDaysInScopeSinceFirstLog (+ percent) ---
+        const daysLoggedValueEl = document.getElementById("kpi-days-logged-value");
+        const daysLoggedSubEl = document.getElementById("kpi-days-logged-sub");
+        if (daysLoggedValueEl) {
+            const r = dashboard.daysLoggedRatio;
+            daysLoggedValueEl.textContent = r.total > 0 ? `${r.logged}/${r.total}` : "—";
+            if (daysLoggedSubEl) daysLoggedSubEl.textContent = r.percent !== null ? `${r.percent}%` : "No logs yet";
         }
+
+        // --- Streak: Current vs Longest (not scope-limited — "longest" is inherently all-time) ---
+        const streakCompareEl = document.getElementById("kpi-streak-compare-value");
+        if (streakCompareEl) {
+            streakCompareEl.innerHTML = `${dashboard.currentStreak} <span class="kpi-card-unit">/ ${dashboard.longestStreak} best</span>`;
+        }
+
+        // --- Active Time: the "one more interesting stat" ---
+        const activeLabelEl = document.getElementById("kpi-active-minutes-label");
+        if (activeLabelEl) {
+            const scopeLabel = { '7d': '7d', '30d': '30d', '90d': '90d', 'all': 'All Time' }[statsScope];
+            activeLabelEl.textContent = `Active Time (${scopeLabel})`;
+        }
+        const activeValueEl = document.getElementById("kpi-active-minutes-value");
+        if (activeValueEl) activeValueEl.textContent = dashboard.activeMinutesLabel;
 
         renderProgressOverview();
     }
@@ -903,17 +942,20 @@ const StatsView = (() => {
 
     return {
         setGranularity,
+        setScope,
         renderStatsKpis,
         renderProgressOverview,
         populateChartFilter,
         render,
-        getGranularity: () => chartGranularity
+        getGranularity: () => chartGranularity,
+        getScope: () => statsScope
     };
 })();
 
 // Global entry points referenced directly from index.html inline handlers.
 function renderStats() { StatsView.render(); }
 function setChartGranularity(granularity) { StatsView.setGranularity(granularity); }
+function setStatsScope(scope) { StatsView.setScope(scope); }
 // =============================================================================
 // Engineered Exercise — HistoryView
 // =============================================================================

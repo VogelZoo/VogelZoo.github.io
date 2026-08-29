@@ -653,6 +653,10 @@ const StatsService = (() => {
         return { weekCount, avgIntensity, weightText };
     }
 
+    // Avg Intensity (7d) and Weight cards are explicitly unchanged by the
+    // Stats-tab scope selector — always a fixed 7-day window, same as
+    // before. The old streak-dots/workouts-bars fields that used to live
+    // here were replaced by the scope-aware functions below.
     function computeStatsKpis(state) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -674,9 +678,6 @@ const StatsService = (() => {
             ? (ratedDayValues.reduce((a, b) => a + b, 0) / ratedDayValues.length)
             : null;
 
-        const loggedDateSet = new Set(state.history.map(h => h.date));
-        const streakDots = dayBuckets.map(dateStr => loggedDateSet.has(dateStr));
-
         const weightLogsSorted = [...state.measurementLogs]
             .filter(l => l.measurementKey === "weight")
             .sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -690,12 +691,181 @@ const StatsService = (() => {
             .filter(l => new Date(l.date + "T00:00:00") >= twoWeeksAgo)
             .map(l => l.value);
 
-        const workoutCountByDay = dayBuckets.map(dateStr => state.history.filter(h => h.date === dateStr).length);
-        const workoutsThisWeek = workoutCountByDay.reduce((a, b) => a + b, 0);
+        return { intensityByDay, avgIntensity7d, weightText, recentWeights };
+    }
+
+    // ============================================================
+    // Stats-tab scope selector (7d / 30d / 90d / all) — everything below
+    // is scoped to whichever window the person has selected, independent
+    // of the Avg Intensity/Weight cards above and independent of the
+    // chart granularity (daily/weekly/monthly) that governs the charts
+    // further down the tab. "Scope" and "granularity" are deliberately
+    // orthogonal controls.
+    // ============================================================
+
+    // A day counts as "logged" if it has an exercise entry OR a Total Time
+    // entry — either represents an actual workout that day.
+    function getLoggedDateSet(state) {
+        const set = new Set();
+        state.history.forEach(h => set.add(h.date));
+        state.totalTimeLogs.forEach(t => set.add(t.date));
+        return set;
+    }
+
+    // Earliest date the person ever logged anything, or null if they never have.
+    function getFirstLoggedDate(state) {
+        let earliest = null;
+        const consider = (dateStr) => {
+            const d = new Date(dateStr + "T00:00:00");
+            if (!earliest || d < earliest) earliest = d;
+        };
+        state.history.forEach(h => consider(h.date));
+        state.totalTimeLogs.forEach(t => consider(t.date));
+        return earliest;
+    }
+
+    // Lower bound implied by the scope selector alone, or null for "all"
+    // (no lower bound beyond the person's own history).
+    function getScopeStartDate(scope, today) {
+        const d = new Date(today);
+        d.setHours(0, 0, 0, 0);
+        if (scope === '30d') { d.setDate(d.getDate() - 29); return d; }
+        if (scope === '90d') { d.setDate(d.getDate() - 89); return d; }
+        if (scope === 'all') return null;
+        d.setDate(d.getDate() - 6); // default / '7d'
+        return d;
+    }
+
+    // The actual start of the scoped window: the later of the scope's own
+    // start date and the person's first-ever log — so "30 days" for someone
+    // who started 10 days ago covers exactly those 10 days, not a padded
+    // window of empty history, and "All Time" always starts at their first log.
+    function getEffectiveScopeStart(state, scope, today) {
+        const firstLogged = getFirstLoggedDate(state);
+        if (!firstLogged) return null; // no data at all yet
+        const scopeStart = getScopeStartDate(scope, today);
+        if (!scopeStart) return firstLogged;
+        return scopeStart > firstLogged ? scopeStart : firstLogged;
+    }
+
+    // Day-by-day status across the scoped window — the shared data source
+    // for both the Visual Streak card (rendered as circles) and the Days
+    // Logged ratio. 'logged' > 'rest' > 'missed'; today is included and,
+    // if not yet logged, reads as 'missed' until it is.
+    function computeDayStatuses(state, scope) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const start = getEffectiveScopeStart(state, scope, today);
+        if (!start) return [];
+
+        const loggedSet = getLoggedDateSet(state);
+        const statuses = [];
+        let cursor = new Date(start);
+        while (cursor <= today) {
+            const dateStr = getLocalDateString(cursor);
+            let status;
+            if (loggedSet.has(dateStr)) status = 'logged';
+            else if (SchedulingService.isRestDayExplicitlyScheduled(state, cursor)) status = 'rest';
+            else status = 'missed';
+            statuses.push({ date: dateStr, status });
+            cursor.setDate(cursor.getDate() + 1);
+        }
+        return statuses;
+    }
+
+    // "daysLogged / totalDaysInScopeSinceFirstLog", plus percent.
+    function computeDaysLoggedRatio(state, scope) {
+        const statuses = computeDayStatuses(state, scope);
+        if (statuses.length === 0) return { logged: 0, total: 0, percent: null };
+        const logged = statuses.filter(s => s.status === 'logged').length;
+        const total = statuses.length;
+        return { logged, total, percent: Math.round((logged / total) * 100) };
+    }
+
+    // Longest-ever run of consecutive days where each day is either logged
+    // or an explicit rest day — same "what counts as unbroken" rule as
+    // calculateStreak, just scanning the whole history instead of stopping
+    // at the first break. Not scope-limited: "longest" is inherently all-time.
+    function calculateLongestStreak(state) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const firstLogged = getFirstLoggedDate(state);
+        if (!firstLogged) return 0;
+
+        const loggedSet = getLoggedDateSet(state);
+        const todayStr = getLocalDateString(today);
+        let longest = 0, current = 0;
+        let cursor = new Date(firstLogged);
+        while (cursor <= today) {
+            const dateStr = getLocalDateString(cursor);
+            const counts = loggedSet.has(dateStr) || SchedulingService.isRestDayExplicitlyScheduled(state, cursor);
+            if (counts) {
+                current++;
+                if (current > longest) longest = current;
+            } else if (dateStr !== todayStr) {
+                // Today not being logged yet doesn't break the streak — the
+                // day isn't over. Any earlier gap does.
+                current = 0;
+            }
+            cursor.setDate(cursor.getDate() + 1);
+        }
+        return longest;
+    }
+
+    // "Active minutes" — the interesting/motivating stat: total time spent
+    // training in the scoped window, combining explicit Total Time entries
+    // with any timeMinutes/timeSeconds fields logged on individual
+    // exercises. Works across exercise types (cardio, holds, etc.) rather
+    // than requiring weight-tracked lifts.
+    function computeActiveMinutes(state, scope) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const scopeStart = getScopeStartDate(scope, today);
+        const inScope = (dateStr) => {
+            if (!scopeStart) return true;
+            const d = new Date(dateStr + "T00:00:00");
+            return d >= scopeStart && d <= today;
+        };
+
+        let minutes = 0;
+        state.history.forEach(h => {
+            if (!inScope(h.date) || !h.data) return;
+            if (typeof h.data.timeMinutes === 'number') minutes += h.data.timeMinutes;
+            if (typeof h.data.timeSeconds === 'number') minutes += h.data.timeSeconds / 60;
+        });
+        state.totalTimeLogs.forEach(t => {
+            if (!inScope(t.date)) return;
+            minutes += t.minutes || 0;
+        });
+
+        return Math.round(minutes);
+    }
+
+    function formatMinutesLabel(totalMinutes) {
+        if (!totalMinutes || totalMinutes <= 0) return "0 min";
+        const hours = Math.floor(totalMinutes / 60);
+        const mins = totalMinutes % 60;
+        if (hours === 0) return `${mins} min`;
+        return `${hours}h ${mins}m`;
+    }
+
+    // Everything the Stats tab's scope-aware section needs, bundled in one
+    // call: the Visual Streak circles, Days Logged ratio, current vs
+    // longest streak, and the Active Minutes stat.
+    function computeStatsDashboard(state, scope) {
+        const dayStatuses = computeDayStatuses(state, scope);
+        const daysLoggedRatio = computeDaysLoggedRatio(state, scope);
+        const currentStreak = SchedulingService.calculateStreak(state);
+        const longestStreak = calculateLongestStreak(state);
+        const activeMinutes = computeActiveMinutes(state, scope);
 
         return {
-            dayBuckets, intensityByDay, avgIntensity7d, streakDots,
-            weightText, recentWeights, workoutCountByDay, workoutsThisWeek
+            dayStatuses,
+            daysLoggedRatio,
+            currentStreak,
+            longestStreak,
+            activeMinutes,
+            activeMinutesLabel: formatMinutesLabel(activeMinutes)
         };
     }
 
@@ -744,7 +914,17 @@ const StatsService = (() => {
         formatPeriodLabel,
         computeTrackKpis,
         computeStatsKpis,
-        computeProgressOverview
+        computeProgressOverview,
+        getLoggedDateSet,
+        getFirstLoggedDate,
+        getScopeStartDate,
+        getEffectiveScopeStart,
+        computeDayStatuses,
+        computeDaysLoggedRatio,
+        calculateLongestStreak,
+        computeActiveMinutes,
+        formatMinutesLabel,
+        computeStatsDashboard
     };
 })();
 // =============================================================================
@@ -1348,6 +1528,7 @@ const Store = (() => {
         computeTrackKpis: () => StatsService.computeTrackKpis(state),
         computeStatsKpis: () => StatsService.computeStatsKpis(state),
         computeProgressOverview: () => StatsService.computeProgressOverview(state),
+        computeStatsDashboard: (scope) => StatsService.computeStatsDashboard(state, scope),
 
         // backup (BackupService)
         getSnapshot: () => BackupService.getSnapshot(state),

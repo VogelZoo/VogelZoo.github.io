@@ -1223,21 +1223,57 @@ select:focus, input:focus {
     height: 100%;
 }
 
-.kpi-streak-dots {
+/* ===== STATS: scope/granularity pill controls ===== */
+.pill-radio-group {
     display: flex;
-    gap: 5px;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    overflow-x: auto;
 }
 
-.kpi-streak-dots .ksd-dot {
-    width: 16px;
-    height: 16px;
+.pill-radio-btn {
+    flex: 1;
+    white-space: nowrap;
+    text-align: center;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.55rem 0.5rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+
+.pill-radio-btn.active {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+/* Visual Streak card: 7-wide grid of circles — a single row at the 7-day
+   scope (matching the old design's footprint), wrapping into a heatmap for
+   longer scopes. grey = explicit rest day, blue = logged, red = missed. */
+.streak-visual-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    max-height: 132px;
+    overflow-y: auto;
+    padding-top: 0.15rem;
+}
+
+.sv-cell {
+    width: 100%;
+    aspect-ratio: 1 / 1;
     border-radius: 50%;
     background-color: #374151;
 }
 
-.kpi-streak-dots .ksd-dot.ksd-active {
-    background-color: #ea580c;
-}
+.sv-cell.sv-rest { background-color: #6b7280; }
+.sv-cell.sv-logged { background-color: var(--accent); }
+.sv-cell.sv-missed { background-color: #dc2626; }
 
 /* ===== PROGRESS OVERVIEW ===== */
 .progress-overview-row {

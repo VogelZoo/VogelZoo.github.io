@@ -4,7 +4,7 @@
 // are temporarily consolidated (each internally organized into sections
 // that map 1:1 to the fuller multi-file split we'll return to ahead of the
 // Xcode/Swift port) — bump this whenever either one changes.
-const CACHE_VERSION = "ee-v16";
+const CACHE_VERSION = "ee-v17";
 const APP_SHELL = [
     "./",
     "./index.html",
