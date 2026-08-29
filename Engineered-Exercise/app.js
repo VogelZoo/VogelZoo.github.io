@@ -702,34 +702,60 @@ const StatsView = (() => {
         const kpis = Store.computeStatsKpis();
         const dashboard = Store.computeStatsDashboard(statsScope);
 
-        // --- Avg Intensity (unchanged) ---
+        // --- Avg Intensity: the numeric value stays a fixed 7-day average
+        // (unchanged). Below it, show the 7-day bar chart at 7d scope, or
+        // switch to a heatmap grid across the full scope window beyond that
+        // — same show/hide pattern as the Streak card. ---
         const intensityValueEl = document.getElementById("kpi2-intensity-value");
         if (intensityValueEl) intensityValueEl.textContent = kpis.avgIntensity7d !== null ? kpis.avgIntensity7d.toFixed(1) : "—";
+
+        const showIntensityHeatmap = statsScope !== '7d';
         const intensityBarsEl = document.getElementById("kpi2-intensity-bars");
         if (intensityBarsEl) {
-            intensityBarsEl.innerHTML = kpis.intensityByDay.map(v => {
-                const heightPct = Math.max(8, (v / 5) * 100);
-                const color = v > 0 ? FormattingService.getIntensityColor(Math.round(v)) : "#374151";
-                return `<div class="kmb-bar" style="height:${heightPct}%; background-color:${color};"></div>`;
-            }).join("");
+            intensityBarsEl.classList.toggle("hidden", showIntensityHeatmap);
+            if (!showIntensityHeatmap) {
+                intensityBarsEl.innerHTML = kpis.intensityByDay.map(v => {
+                    const heightPct = Math.max(8, (v / 5) * 100);
+                    const color = v > 0 ? FormattingService.getIntensityColor(Math.round(v)) : "#374151";
+                    return `<div class="kmb-bar" style="height:${heightPct}%; background-color:${color};"></div>`;
+                }).join("");
+            }
+        }
+        const intensityHeatmapEl = document.getElementById("kpi-intensity-heatmap-grid");
+        if (intensityHeatmapEl) {
+            intensityHeatmapEl.classList.toggle("hidden", !showIntensityHeatmap);
+            if (showIntensityHeatmap) {
+                intensityHeatmapEl.innerHTML = dashboard.intensityHeatmap.length === 0
+                    ? `<span class="text-muted" style="font-size:0.7rem;">No logs yet</span>`
+                    : dashboard.intensityHeatmap.map(c => {
+                        const color = c.avgIntensity > 0 ? FormattingService.getIntensityColor(Math.round(c.avgIntensity)) : "#374151";
+                        const label = c.avgIntensity > 0 ? c.avgIntensity.toFixed(1) : "no log";
+                        return `<span class="iv-cell" style="background-color:${color};" title="${c.date}: ${label}"></span>`;
+                    }).join("");
+            } else {
+                intensityHeatmapEl.innerHTML = "";
+            }
         }
 
-        // --- Visual Streak: grey = explicit rest day, blue = logged, red = missed.
-        // A 7-wide grid — a single row for the 7-day scope (which is what
-        // the old design looked like), wrapping into a heatmap for 30d/90d/all. ---
-        const streakLabelEl = document.getElementById("kpi-streak-visual-label");
-        if (streakLabelEl) {
-            const scopeLabel = { '7d': '7 Days', '30d': '30 Days', '90d': '90 Days', 'all': 'All Time' }[statsScope];
-            streakLabelEl.textContent = `Streak (${scopeLabel})`;
+        // --- Streak: current/best numbers always shown. The day-status
+        // heatmap (grey = explicit rest day, blue = logged, red = missed)
+        // only appears once the scope is greater than 7 days — a single
+        // row of 7 cells doesn't really read as a "heatmap", so at the 7d
+        // scope this card is just the numbers. ---
+        const streakCompareEl = document.getElementById("kpi-streak-compare-value");
+        if (streakCompareEl) {
+            streakCompareEl.innerHTML = `${dashboard.currentStreak} <span class="kpi-card-unit">/ ${dashboard.longestStreak} best</span>`;
         }
         const streakGridEl = document.getElementById("kpi-streak-visual-grid");
         if (streakGridEl) {
-            if (dashboard.dayStatuses.length === 0) {
-                streakGridEl.innerHTML = `<span class="text-muted" style="font-size:0.7rem;">No logs yet</span>`;
+            const showHeatmap = statsScope !== '7d';
+            streakGridEl.classList.toggle("hidden", !showHeatmap);
+            if (showHeatmap) {
+                streakGridEl.innerHTML = dashboard.dayStatuses.length === 0
+                    ? `<span class="text-muted" style="font-size:0.7rem;">No logs yet</span>`
+                    : dashboard.dayStatuses.map(d => `<span class="sv-cell sv-${d.status}" title="${d.date}: ${d.status}"></span>`).join("");
             } else {
-                streakGridEl.innerHTML = dashboard.dayStatuses.map(d =>
-                    `<span class="sv-cell sv-${d.status}" title="${d.date}: ${d.status}"></span>`
-                ).join("");
+                streakGridEl.innerHTML = "";
             }
         }
 
@@ -739,19 +765,14 @@ const StatsView = (() => {
         const weightGraphEl = document.getElementById("kpi2-weight-graph");
         if (weightGraphEl) weightGraphEl.innerHTML = ChartRenderer.renderMiniLineSvg(kpis.recentWeights);
 
-        // --- Days Logged: daysLogged / totalDaysInScopeSinceFirstLog (+ percent) ---
+        // --- Days Logged: daysLogged / totalDaysInScopeSinceFirstLog (+ percent).
+        // Explicit rest days count toward "logged" — see computeDaysLoggedRatio. ---
         const daysLoggedValueEl = document.getElementById("kpi-days-logged-value");
         const daysLoggedSubEl = document.getElementById("kpi-days-logged-sub");
         if (daysLoggedValueEl) {
             const r = dashboard.daysLoggedRatio;
             daysLoggedValueEl.textContent = r.total > 0 ? `${r.logged}/${r.total}` : "—";
             if (daysLoggedSubEl) daysLoggedSubEl.textContent = r.percent !== null ? `${r.percent}%` : "No logs yet";
-        }
-
-        // --- Streak: Current vs Longest (not scope-limited — "longest" is inherently all-time) ---
-        const streakCompareEl = document.getElementById("kpi-streak-compare-value");
-        if (streakCompareEl) {
-            streakCompareEl.innerHTML = `${dashboard.currentStreak} <span class="kpi-card-unit">/ ${dashboard.longestStreak} best</span>`;
         }
 
         // --- Active Time: the "one more interesting stat" ---

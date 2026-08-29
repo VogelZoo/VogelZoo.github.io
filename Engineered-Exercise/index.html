@@ -482,18 +482,25 @@
             </div>
 
             <div class="stats-kpi-grid" id="stats-kpi-grid">
-                <!-- Avg Intensity — unchanged, always a fixed 7-day window -->
+                <!-- Avg Intensity — value stays a fixed 7-day average (unchanged).
+                     The mini-visualization below switches from the 7-day bar
+                     chart to a heatmap grid once scope is greater than 7 days,
+                     mirroring the Streak card. -->
                 <div class="kpi-card">
                     <div class="kpi-card-label">Avg Intensity (7d)</div>
                     <div class="kpi-card-value" id="kpi2-intensity-value">—</div>
                     <div id="kpi2-intensity-bars" class="kpi-mini-bars"></div>
+                    <div id="kpi-intensity-heatmap-grid" class="intensity-heatmap-grid hidden"></div>
                 </div>
-                <!-- Visual Streak — grey = explicit rest day, blue = logged, red = missed.
-                     A single row at the 7-day scope; wraps into a 7-wide heatmap grid
-                     at 30/90/All Time (same markup, more cells). -->
+                <!-- Streak — current/best numbers always shown; the day-status
+                     heatmap (grey = explicit rest day, blue = logged, red =
+                     missed) only appears once the scope is greater than 7
+                     days, since a 7-cell single row doesn't really read as
+                     a "heatmap". -->
                 <div class="kpi-card">
-                    <div class="kpi-card-label" id="kpi-streak-visual-label">Streak (7 Days)</div>
-                    <div id="kpi-streak-visual-grid" class="streak-visual-grid"></div>
+                    <div class="kpi-card-label" id="kpi-streak-label">Streak</div>
+                    <div class="kpi-card-value" id="kpi-streak-compare-value">—</div>
+                    <div id="kpi-streak-visual-grid" class="streak-visual-grid hidden"></div>
                 </div>
                 <!-- Weight — unchanged -->
                 <div class="kpi-card">
@@ -501,16 +508,12 @@
                     <div class="kpi-card-value" id="kpi2-weight-value">—</div>
                     <div id="kpi2-weight-graph" class="kpi-mini-line"></div>
                 </div>
-                <!-- Days Logged — daysLogged / totalDaysInScopeSinceFirstLog, plus percent -->
+                <!-- Days Logged — daysLogged / totalDaysInScopeSinceFirstLog, plus percent.
+                     Explicit rest days count toward "logged" here. -->
                 <div class="kpi-card">
                     <div class="kpi-card-label">Days Logged</div>
                     <div class="kpi-card-value" id="kpi-days-logged-value">—</div>
                     <div class="kpi-card-unit" id="kpi-days-logged-sub"></div>
-                </div>
-                <!-- Streak: Current vs Longest — longest is inherently all-time, not scope-limited -->
-                <div class="kpi-card">
-                    <div class="kpi-card-label">Streak: Current / Best</div>
-                    <div class="kpi-card-value" id="kpi-streak-compare-value">—</div>
                 </div>
                 <!-- Active Time — the "one more interesting stat": total minutes training in scope -->
                 <div class="kpi-card">

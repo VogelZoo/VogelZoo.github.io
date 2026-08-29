@@ -773,11 +773,15 @@ const StatsService = (() => {
         return statuses;
     }
 
-    // "daysLogged / totalDaysInScopeSinceFirstLog", plus percent.
+    // "daysLogged / totalDaysInScopeSinceFirstLog", plus percent. Explicit
+    // rest days count toward the numerator here — they're a deliberate part
+    // of the plan, not a gap — even though the Streak card's heatmap still
+    // shows them in a visually distinct color (grey) since that's a
+    // different concern (pattern recognition, not adherence rate).
     function computeDaysLoggedRatio(state, scope) {
         const statuses = computeDayStatuses(state, scope);
         if (statuses.length === 0) return { logged: 0, total: 0, percent: null };
-        const logged = statuses.filter(s => s.status === 'logged').length;
+        const logged = statuses.filter(s => s.status === 'logged' || s.status === 'rest').length;
         const total = statuses.length;
         return { logged, total, percent: Math.round((logged / total) * 100) };
     }
@@ -849,11 +853,37 @@ const StatsService = (() => {
         return `${hours}h ${mins}m`;
     }
 
+    // Per-day average intensity across the scoped window — same effective
+    // day range as computeDayStatuses, so the Avg Intensity card's heatmap
+    // lines up with the Streak card's heatmap when both are showing. A day
+    // with no rated entries gets avgIntensity 0 (rendered as a neutral
+    // color, not "1 star").
+    function computeIntensityHeatmap(state, scope) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const start = getEffectiveScopeStart(state, scope, today);
+        if (!start) return [];
+
+        const cells = [];
+        let cursor = new Date(start);
+        while (cursor <= today) {
+            const dateStr = getLocalDateString(cursor);
+            const entries = state.history.filter(h => h.date === dateStr && h.intensity && h.intensity > 0);
+            const avgIntensity = entries.length > 0
+                ? entries.reduce((sum, h) => sum + h.intensity, 0) / entries.length
+                : 0;
+            cells.push({ date: dateStr, avgIntensity });
+            cursor.setDate(cursor.getDate() + 1);
+        }
+        return cells;
+    }
+
     // Everything the Stats tab's scope-aware section needs, bundled in one
-    // call: the Visual Streak circles, Days Logged ratio, current vs
-    // longest streak, and the Active Minutes stat.
+    // call: the Streak circles, Avg Intensity heatmap, Days Logged ratio,
+    // current vs longest streak, and the Active Minutes stat.
     function computeStatsDashboard(state, scope) {
         const dayStatuses = computeDayStatuses(state, scope);
+        const intensityHeatmap = computeIntensityHeatmap(state, scope);
         const daysLoggedRatio = computeDaysLoggedRatio(state, scope);
         const currentStreak = SchedulingService.calculateStreak(state);
         const longestStreak = calculateLongestStreak(state);
@@ -861,6 +891,7 @@ const StatsService = (() => {
 
         return {
             dayStatuses,
+            intensityHeatmap,
             daysLoggedRatio,
             currentStreak,
             longestStreak,
@@ -920,6 +951,7 @@ const StatsService = (() => {
         getScopeStartDate,
         getEffectiveScopeStart,
         computeDayStatuses,
+        computeIntensityHeatmap,
         computeDaysLoggedRatio,
         calculateLongestStreak,
         computeActiveMinutes,
