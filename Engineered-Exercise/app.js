@@ -419,12 +419,50 @@ const ChartRenderer = (() => {
         return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><path d="${path}" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     }
 
+    // Arranges a chronological list of {date: "YYYY-MM-DD", ...} entries
+    // into a standard calendar layout for a 7-wide CSS grid: Monday is the
+    // leftmost column, Sunday the rightmost, and every calendar month
+    // starts on a fresh row (a "line break") regardless of where the
+    // previous month's row left off. No weekday header labels — alignment
+    // alone carries the meaning. Returns the same entries interleaved with
+    // `{ blank: true }` placeholder cells wherever the grid needs an empty
+    // slot to keep that alignment.
+    function layoutCalendarCells(entries) {
+        const cells = [];
+        let currentMonthKey = null;
+
+        entries.forEach(entry => {
+            const d = new Date(entry.date + "T00:00:00");
+            const monthKey = `${d.getFullYear()}-${d.getMonth()}`;
+            const col = (d.getDay() + 6) % 7; // Sunday(0) -> 6 (rightmost), Monday(1) -> 0 (leftmost)
+
+            if (monthKey !== currentMonthKey) {
+                if (currentMonthKey !== null) {
+                    // Pad the previous month's final row out to a full week
+                    // so the new month is guaranteed to start at column 0.
+                    while (cells.length % 7 !== 0) cells.push({ blank: true });
+                }
+                // Leading blanks align this month's first visible day to
+                // its actual weekday column (matters for the very first
+                // month in the range, which may start mid-week if the
+                // scope window doesn't begin on the 1st).
+                for (let i = 0; i < col; i++) cells.push({ blank: true });
+                currentMonthKey = monthKey;
+            }
+
+            cells.push(entry);
+        });
+
+        return cells;
+    }
+
     return {
         renderIntensityChart,
         renderMeasurementChart,
         renderTotalTimeChart,
         renderExerciseChart,
-        renderMiniLineSvg
+        renderMiniLineSvg,
+        layoutCalendarCells
     };
 })();
 // =============================================================================
@@ -695,25 +733,36 @@ const StatsView = (() => {
         renderStatsKpis();
     }
 
-    // Renders every card in the KPI section: Avg Intensity and Weight are
-    // untouched by `statsScope` (always a fixed 7-day window); Visual
-    // Streak, Days Logged, Streak Compare, and Active Time are all scoped.
+    // Renders every card in the KPI section. Weight is the only card fully
+    // untouched by `statsScope`; Avg Intensity, Streak, and Days Logged all
+    // have labels/values that track the selected scope.
+    const SCOPE_LABELS = { '7d': '7 Days', '30d': '30 Days', '90d': '90 Days', 'all': 'All Time' };
+
     function renderStatsKpis() {
+        const scopeLabel = SCOPE_LABELS[statsScope];
         const kpis = Store.computeStatsKpis();
         const dashboard = Store.computeStatsDashboard(statsScope);
+        const showHeatmapMode = statsScope !== '7d';
 
-        // --- Avg Intensity: the numeric value stays a fixed 7-day average
-        // (unchanged). Below it, show the 7-day bar chart at 7d scope, or
-        // switch to a heatmap grid across the full scope window beyond that
-        // — same show/hide pattern as the Streak card. ---
+        // --- Avg Intensity: label AND value both track the selected scope.
+        // At 7d, reuses the always-exactly-7-day figure and renders as the
+        // original bar chart. Beyond 7d, the value is the mean of each
+        // in-scope day's average intensity, rendered as a calendar-aligned
+        // heatmap (Monday leftmost, Sunday rightmost, line break at each
+        // month boundary) instead of bars. ---
+        const intensityLabelEl = document.getElementById("kpi-intensity-label");
+        if (intensityLabelEl) intensityLabelEl.textContent = `Avg Intensity (${scopeLabel})`;
+
         const intensityValueEl = document.getElementById("kpi2-intensity-value");
-        if (intensityValueEl) intensityValueEl.textContent = kpis.avgIntensity7d !== null ? kpis.avgIntensity7d.toFixed(1) : "—";
+        if (intensityValueEl) {
+            const val = showHeatmapMode ? dashboard.avgIntensityInScope : kpis.avgIntensity7d;
+            intensityValueEl.textContent = val !== null ? val.toFixed(1) : "—";
+        }
 
-        const showIntensityHeatmap = statsScope !== '7d';
         const intensityBarsEl = document.getElementById("kpi2-intensity-bars");
         if (intensityBarsEl) {
-            intensityBarsEl.classList.toggle("hidden", showIntensityHeatmap);
-            if (!showIntensityHeatmap) {
+            intensityBarsEl.classList.toggle("hidden", showHeatmapMode);
+            if (!showHeatmapMode) {
                 intensityBarsEl.innerHTML = kpis.intensityByDay.map(v => {
                     const heightPct = Math.max(8, (v / 5) * 100);
                     const color = v > 0 ? FormattingService.getIntensityColor(Math.round(v)) : "#374151";
@@ -723,11 +772,13 @@ const StatsView = (() => {
         }
         const intensityHeatmapEl = document.getElementById("kpi-intensity-heatmap-grid");
         if (intensityHeatmapEl) {
-            intensityHeatmapEl.classList.toggle("hidden", !showIntensityHeatmap);
-            if (showIntensityHeatmap) {
-                intensityHeatmapEl.innerHTML = dashboard.intensityHeatmap.length === 0
+            intensityHeatmapEl.classList.toggle("hidden", !showHeatmapMode);
+            if (showHeatmapMode) {
+                const cells = ChartRenderer.layoutCalendarCells(dashboard.intensityHeatmap);
+                intensityHeatmapEl.innerHTML = cells.length === 0
                     ? `<span class="text-muted" style="font-size:0.7rem;">No logs yet</span>`
-                    : dashboard.intensityHeatmap.map(c => {
+                    : cells.map(c => {
+                        if (c.blank) return `<span class="iv-cell iv-blank"></span>`;
                         const color = c.avgIntensity > 0 ? FormattingService.getIntensityColor(Math.round(c.avgIntensity)) : "#374151";
                         const label = c.avgIntensity > 0 ? c.avgIntensity.toFixed(1) : "no log";
                         return `<span class="iv-cell" style="background-color:${color};" title="${c.date}: ${label}"></span>`;
@@ -737,25 +788,31 @@ const StatsView = (() => {
             }
         }
 
-        // --- Streak: current/best numbers always shown. The day-status
-        // heatmap (grey = explicit rest day, blue = logged, red = missed)
-        // only appears once the scope is greater than 7 days — a single
-        // row of 7 cells doesn't really read as a "heatmap", so at the 7d
-        // scope this card is just the numbers. ---
+        // --- Streak: circles are always shown now — a plain last-7-days row
+        // at the 7d scope, and a calendar-aligned heatmap (Monday leftmost,
+        // Sunday rightmost, line break at each month boundary) beyond that.
+        // Current/best numbers aren't scope-limited — "best" is inherently
+        // all-time — but the label still reflects the scope since that's
+        // what the circles below it represent. ---
+        const streakLabelEl = document.getElementById("kpi-streak-label");
+        if (streakLabelEl) streakLabelEl.textContent = `Streak (${scopeLabel})`;
+
         const streakCompareEl = document.getElementById("kpi-streak-compare-value");
         if (streakCompareEl) {
             streakCompareEl.innerHTML = `${dashboard.currentStreak} <span class="kpi-card-unit">/ ${dashboard.longestStreak} best</span>`;
         }
         const streakGridEl = document.getElementById("kpi-streak-visual-grid");
         if (streakGridEl) {
-            const showHeatmap = statsScope !== '7d';
-            streakGridEl.classList.toggle("hidden", !showHeatmap);
-            if (showHeatmap) {
-                streakGridEl.innerHTML = dashboard.dayStatuses.length === 0
-                    ? `<span class="text-muted" style="font-size:0.7rem;">No logs yet</span>`
-                    : dashboard.dayStatuses.map(d => `<span class="sv-cell sv-${d.status}" title="${d.date}: ${d.status}"></span>`).join("");
+            if (dashboard.dayStatuses.length === 0) {
+                streakGridEl.innerHTML = `<span class="text-muted" style="font-size:0.7rem;">No logs yet</span>`;
+            } else if (!showHeatmapMode) {
+                streakGridEl.innerHTML = dashboard.dayStatuses.map(d => `<span class="sv-cell sv-${d.status}" title="${d.date}: ${d.status}"></span>`).join("");
             } else {
-                streakGridEl.innerHTML = "";
+                const cells = ChartRenderer.layoutCalendarCells(dashboard.dayStatuses);
+                streakGridEl.innerHTML = cells.map(c => c.blank
+                    ? `<span class="sv-cell sv-blank"></span>`
+                    : `<span class="sv-cell sv-${c.status}" title="${c.date}: ${c.status}"></span>`
+                ).join("");
             }
         }
 
@@ -766,7 +823,11 @@ const StatsView = (() => {
         if (weightGraphEl) weightGraphEl.innerHTML = ChartRenderer.renderMiniLineSvg(kpis.recentWeights);
 
         // --- Days Logged: daysLogged / totalDaysInScopeSinceFirstLog (+ percent).
-        // Explicit rest days count toward "logged" — see computeDaysLoggedRatio. ---
+        // Explicit rest days count toward "logged" — see computeDaysLoggedRatio.
+        // Label tracks scope like the other scope-aware cards. ---
+        const daysLoggedLabelEl = document.getElementById("kpi-days-logged-label");
+        if (daysLoggedLabelEl) daysLoggedLabelEl.textContent = `Days Logged (${scopeLabel})`;
+
         const daysLoggedValueEl = document.getElementById("kpi-days-logged-value");
         const daysLoggedSubEl = document.getElementById("kpi-days-logged-sub");
         if (daysLoggedValueEl) {
@@ -774,15 +835,6 @@ const StatsView = (() => {
             daysLoggedValueEl.textContent = r.total > 0 ? `${r.logged}/${r.total}` : "—";
             if (daysLoggedSubEl) daysLoggedSubEl.textContent = r.percent !== null ? `${r.percent}%` : "No logs yet";
         }
-
-        // --- Active Time: the "one more interesting stat" ---
-        const activeLabelEl = document.getElementById("kpi-active-minutes-label");
-        if (activeLabelEl) {
-            const scopeLabel = { '7d': '7d', '30d': '30d', '90d': '90d', 'all': 'All Time' }[statsScope];
-            activeLabelEl.textContent = `Active Time (${scopeLabel})`;
-        }
-        const activeValueEl = document.getElementById("kpi-active-minutes-value");
-        if (activeValueEl) activeValueEl.textContent = dashboard.activeMinutesLabel;
 
         renderProgressOverview();
     }

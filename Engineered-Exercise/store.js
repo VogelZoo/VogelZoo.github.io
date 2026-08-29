@@ -816,43 +816,6 @@ const StatsService = (() => {
         return longest;
     }
 
-    // "Active minutes" — the interesting/motivating stat: total time spent
-    // training in the scoped window, combining explicit Total Time entries
-    // with any timeMinutes/timeSeconds fields logged on individual
-    // exercises. Works across exercise types (cardio, holds, etc.) rather
-    // than requiring weight-tracked lifts.
-    function computeActiveMinutes(state, scope) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const scopeStart = getScopeStartDate(scope, today);
-        const inScope = (dateStr) => {
-            if (!scopeStart) return true;
-            const d = new Date(dateStr + "T00:00:00");
-            return d >= scopeStart && d <= today;
-        };
-
-        let minutes = 0;
-        state.history.forEach(h => {
-            if (!inScope(h.date) || !h.data) return;
-            if (typeof h.data.timeMinutes === 'number') minutes += h.data.timeMinutes;
-            if (typeof h.data.timeSeconds === 'number') minutes += h.data.timeSeconds / 60;
-        });
-        state.totalTimeLogs.forEach(t => {
-            if (!inScope(t.date)) return;
-            minutes += t.minutes || 0;
-        });
-
-        return Math.round(minutes);
-    }
-
-    function formatMinutesLabel(totalMinutes) {
-        if (!totalMinutes || totalMinutes <= 0) return "0 min";
-        const hours = Math.floor(totalMinutes / 60);
-        const mins = totalMinutes % 60;
-        if (hours === 0) return `${mins} min`;
-        return `${hours}h ${mins}m`;
-    }
-
     // Per-day average intensity across the scoped window — same effective
     // day range as computeDayStatuses, so the Avg Intensity card's heatmap
     // lines up with the Streak card's heatmap when both are showing. A day
@@ -878,25 +841,33 @@ const StatsService = (() => {
         return cells;
     }
 
+    // Mean of each in-scope day's average intensity (only days with a
+    // rating count) — the scope-aware counterpart to computeStatsKpis'
+    // fixed 7-day avgIntensity7d, used once the scope is anything other
+    // than "7d" so the displayed number always matches the selected scope.
+    function computeAvgIntensityInScope(intensityHeatmapCells) {
+        const rated = intensityHeatmapCells.filter(c => c.avgIntensity > 0).map(c => c.avgIntensity);
+        if (rated.length === 0) return null;
+        return rated.reduce((a, b) => a + b, 0) / rated.length;
+    }
+
     // Everything the Stats tab's scope-aware section needs, bundled in one
-    // call: the Streak circles, Avg Intensity heatmap, Days Logged ratio,
-    // current vs longest streak, and the Active Minutes stat.
+    // call: the Streak circles, Avg Intensity heatmap + scope-matched
+    // average, Days Logged ratio, and current vs longest streak.
     function computeStatsDashboard(state, scope) {
         const dayStatuses = computeDayStatuses(state, scope);
         const intensityHeatmap = computeIntensityHeatmap(state, scope);
         const daysLoggedRatio = computeDaysLoggedRatio(state, scope);
         const currentStreak = SchedulingService.calculateStreak(state);
         const longestStreak = calculateLongestStreak(state);
-        const activeMinutes = computeActiveMinutes(state, scope);
 
         return {
             dayStatuses,
             intensityHeatmap,
+            avgIntensityInScope: computeAvgIntensityInScope(intensityHeatmap),
             daysLoggedRatio,
             currentStreak,
-            longestStreak,
-            activeMinutes,
-            activeMinutesLabel: formatMinutesLabel(activeMinutes)
+            longestStreak
         };
     }
 
@@ -952,10 +923,9 @@ const StatsService = (() => {
         getEffectiveScopeStart,
         computeDayStatuses,
         computeIntensityHeatmap,
+        computeAvgIntensityInScope,
         computeDaysLoggedRatio,
         calculateLongestStreak,
-        computeActiveMinutes,
-        formatMinutesLabel,
         computeStatsDashboard
     };
 })();

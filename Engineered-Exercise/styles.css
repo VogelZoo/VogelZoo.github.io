@@ -1274,6 +1274,7 @@ select:focus, input:focus {
 .sv-cell.sv-rest { background-color: #6b7280; }
 .sv-cell.sv-logged { background-color: var(--accent); }
 .sv-cell.sv-missed { background-color: #dc2626; }
+.sv-cell.sv-blank { background-color: transparent; }
 
 /* Avg Intensity card's heatmap mode (scope > 7 days) — same 7-wide grid
    layout as the streak heatmap; cell color is set inline per-cell via
@@ -1292,6 +1293,8 @@ select:focus, input:focus {
     aspect-ratio: 1 / 1;
     border-radius: 50%;
 }
+
+.iv-cell.iv-blank { background-color: transparent; }
 
 /* ===== PROGRESS OVERVIEW ===== */
 .progress-overview-row {
