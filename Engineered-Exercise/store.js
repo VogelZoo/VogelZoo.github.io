@@ -138,13 +138,19 @@ const Models = (() => {
         distance: { label: "Distance (miles)", type: "number", placeholder: "0.00", step: "0.01" }
     };
 
+    // Blue-red diverging scale: level 1 (lightest) is blue, level 5
+    // (heaviest) is red, interpolated through violet/fuchsia/pink rather
+    // than through green — i.e. hue travels the "long way" around from
+    // blue to red so it never passes through green or yellow-orange.
+    // "Default" (no intensity logged) is a neutral grey, kept distinct from
+    // level 1's blue so "rated 1★" and "unrated" never look the same.
     const INTENSITY_COLORS = {
-        1: "#4b5563",
-        2: "#65a30d",
-        3: "#d97706",
-        4: "#ea580c",
+        1: "#2563eb",
+        2: "#7c3aed",
+        3: "#c026d3",
+        4: "#db2777",
         5: "#dc2626",
-        "Default": "#2563eb"
+        "Default": "#4b5563"
     };
 
     const MAX_CHART_POINTS = 50;
