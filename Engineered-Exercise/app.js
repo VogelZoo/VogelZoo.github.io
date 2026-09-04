@@ -1800,6 +1800,10 @@ const PlanView = (() => {
     const dragHandleSvg = `<svg class="drag-handle-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="6" r="1.4" fill="currentColor"/><circle cx="15" cy="6" r="1.4" fill="currentColor"/><circle cx="9" cy="12" r="1.4" fill="currentColor"/><circle cx="15" cy="12" r="1.4" fill="currentColor"/><circle cx="9" cy="18" r="1.4" fill="currentColor"/><circle cx="15" cy="18" r="1.4" fill="currentColor"/></svg>`;
 
     let dragState = null;
+    let pendingDrag = null; // hold-to-confirm gate before a real drag starts
+
+    const DRAG_HOLD_MS = 120;   // how long a still touch must be held before it's treated as "grab the handle"
+    const DRAG_DEADZONE_PX = 6; // movement beyond this during the hold cancels the drag (reads as a scroll/tap instead)
 
     function renderExerciseSelector() {
         const selectPlan = document.getElementById("plan-exercise");
@@ -1870,6 +1874,30 @@ const PlanView = (() => {
         setupDragReorder();
     }
 
+    const linkIconSvg = `<svg class="link-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 12h6M8 8h1.5a3 3 0 1 1 0 6H8a3 3 0 1 1 0-6Zm8 0h-1.5a3 3 0 1 0 0 6H16a3 3 0 1 0 0-6Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    const GROUP_LETTERS = "ABCDEFGHIJ";
+
+    // Walks the day's ordered exercises and clusters contiguous runs that
+    // share a groupId — those runs are what render as one superset. Each
+    // item gets its position within its cluster so the caller knows whether
+    // to draw the top/bottom of a group's bracket.
+    function clusterSupersets(exPlans) {
+        const clusters = [];
+        let i = 0;
+        let letterIdx = 0;
+        while (i < exPlans.length) {
+            let j = i;
+            const gid = exPlans[i].groupId;
+            if (gid) {
+                while (j + 1 < exPlans.length && exPlans[j + 1].groupId === gid) j++;
+            }
+            const members = exPlans.slice(i, j + 1);
+            clusters.push({ members, letter: members.length > 1 ? GROUP_LETTERS[letterIdx++] || "?" : null });
+            i = j + 1;
+        }
+        return clusters;
+    }
+
     function renderDayBody(dayPlans) {
         const restPlan = dayPlans.find(p => p.exercise === "__rest__");
         const exPlans = dayPlans.filter(p => p.exercise !== "__rest__")
@@ -1883,17 +1911,42 @@ const PlanView = (() => {
             h += '<p class="text-muted" style="font-size:0.8rem;padding:0.25rem 0;">—</p>';
         }
         if (exPlans.length > 0) {
-            h += '<ul class="list-group plan-day-ul">' + exPlans.map(plan => `
-                <li class="list-group-item plan-order-item" data-plan-id="${plan.id}">
-                    <span class="plan-order-item-main">
-                        <span class="drag-handle" aria-label="Reorder">${dragHandleSvg}</span>
-                        <span>${plan.exercise}</span>
-                    </span>
-                    <button onclick="deletePlan(${plan.id})" class="badge" style="background:#dc2626;border:none;color:white;cursor:pointer;">X</button>
-                </li>
-            `).join("") + '</ul>';
+            const clusters = clusterSupersets(exPlans);
+            h += '<ul class="list-group plan-day-ul">';
+            clusters.forEach(cluster => {
+                const { members, letter } = cluster;
+                if (letter) {
+                    h += `<li class="superset-label-row" aria-hidden="true"><span class="superset-label">Superset ${letter}</span></li>`;
+                }
+                members.forEach((plan, m) => {
+                    const isFirst = m === 0;
+                    const isLast = m === members.length - 1;
+                    const posClass = !letter ? "" : isFirst && isLast ? "" : isFirst ? "superset-first" : isLast ? "superset-last" : "superset-middle";
+                    const groupClass = letter ? `superset-member ${posClass}` : "";
+                    const idx = exPlans.indexOf(plan);
+                    const nextPlan = exPlans[idx + 1];
+                    let linkBtn = "";
+                    if (nextPlan) {
+                        const isLinked = plan.groupId && plan.groupId === nextPlan.groupId;
+                        linkBtn = `<button type="button" onclick="toggleSupersetLink(${plan.id}, ${nextPlan.id})" class="link-toggle-btn${isLinked ? " linked" : ""}" aria-label="${isLinked ? "Unlink from superset" : "Link with next exercise as a superset"}">${linkIconSvg}</button>`;
+                    }
+                    h += `
+                        <li class="list-group-item plan-order-item ${groupClass}" data-plan-id="${plan.id}">
+                            <span class="plan-order-item-main">
+                                <span class="drag-handle" aria-label="Reorder">${dragHandleSvg}</span>
+                                <span>${plan.exercise}</span>
+                            </span>
+                            <span class="plan-order-item-actions">
+                                ${linkBtn}
+                                <button onclick="deletePlan(${plan.id})" class="badge" style="background:#dc2626;border:none;color:white;cursor:pointer;">X</button>
+                            </span>
+                        </li>
+                    `;
+                });
+            });
+            h += '</ul>';
             if (exPlans.length > 1) {
-                h += `<p class="text-muted" style="font-size:0.7rem;margin-top:0.35rem;">Drag to reorder — grouped exercises form a superset.</p>`;
+                h += `<p class="text-muted" style="font-size:0.7rem;margin-top:0.35rem;">Drag to reorder. Tap ${linkIconSvg} to group exercises into a superset.</p>`;
             }
         }
         return h;
@@ -1910,16 +1963,50 @@ const PlanView = (() => {
         });
     }
 
+    // A touch landing on the handle doesn't start reordering right away —
+    // it has to be held roughly still for DRAG_HOLD_MS first. A quick tap or
+    // a finger just passing through on its way to scrolling the list bails
+    // out via cancelPendingDrag() below instead of yanking an exercise out
+    // of place.
     function startDrag(e, li, ul) {
-        e.preventDefault();
-        haptic('light');
-        const items = Array.from(ul.querySelectorAll('.plan-order-item[data-plan-id]'));
-        dragState = { li, ul, items, startY: e.clientY };
-        li.classList.add('dragging');
-        try { li.setPointerCapture(e.pointerId); } catch (err) {}
-        li.addEventListener('pointermove', onDragMove);
-        li.addEventListener('pointerup', onDragEnd);
-        li.addEventListener('pointercancel', onDragEnd);
+        const pointerId = e.pointerId;
+        const startX = e.clientX;
+        const startY = e.clientY;
+
+        pendingDrag = {
+            li, ul, pointerId,
+            onMove(ev) {
+                if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > DRAG_DEADZONE_PX) {
+                    cancelPendingDrag();
+                }
+            },
+            onUp() { cancelPendingDrag(); },
+            timer: setTimeout(() => {
+                cancelPendingDrag(); // clears listeners/timer before activating
+                e.preventDefault();
+                haptic('light');
+                const items = Array.from(ul.querySelectorAll('.plan-order-item[data-plan-id]'));
+                dragState = { li, ul, items, startY };
+                li.classList.add('dragging');
+                try { li.setPointerCapture(pointerId); } catch (err) {}
+                li.addEventListener('pointermove', onDragMove);
+                li.addEventListener('pointerup', onDragEnd);
+                li.addEventListener('pointercancel', onDragEnd);
+            }, DRAG_HOLD_MS)
+        };
+
+        li.addEventListener('pointermove', pendingDrag.onMove);
+        li.addEventListener('pointerup', pendingDrag.onUp);
+        li.addEventListener('pointercancel', pendingDrag.onUp);
+    }
+
+    function cancelPendingDrag() {
+        if (!pendingDrag) return;
+        clearTimeout(pendingDrag.timer);
+        pendingDrag.li.removeEventListener('pointermove', pendingDrag.onMove);
+        pendingDrag.li.removeEventListener('pointerup', pendingDrag.onUp);
+        pendingDrag.li.removeEventListener('pointercancel', pendingDrag.onUp);
+        pendingDrag = null;
     }
 
     function onDragMove(e) {
@@ -2030,6 +2117,11 @@ function deletePlan(id) {
             initApp();
         }
     );
+}
+function toggleSupersetLink(planIdA, planIdB) {
+    haptic('light');
+    Store.toggleSupersetLink(planIdA, planIdB);
+    PlanView.renderList();
 }
 // =============================================================================
 // Engineered Exercise — ExercisesView

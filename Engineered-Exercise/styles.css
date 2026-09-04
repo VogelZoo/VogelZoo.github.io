@@ -380,10 +380,6 @@ select:focus, input:focus {
     margin-bottom: 0.5rem;
 }
 
-.plan-order-item {
-    touch-action: none;
-}
-
 .plan-order-item.dragging {
     background-color: rgba(37, 99, 235, 0.12);
     border-radius: 6px;
@@ -396,6 +392,18 @@ select:focus, input:focus {
     min-width: 0;
 }
 
+.plan-order-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+/* touch-action: none lives ONLY on the handle — it's what makes the handle
+   draggable without the page trying to scroll underneath your finger. Do
+   not move this back onto .plan-order-item: that killed scrolling for the
+   whole row (not just the handle), which read as the list "grabbing" you
+   any time you tried to scroll past an exercise. */
 .drag-handle {
     display: flex;
     align-items: center;
@@ -415,6 +423,68 @@ select:focus, input:focus {
 .drag-handle-icon {
     width: 18px;
     height: 18px;
+}
+
+.link-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.2rem;
+    flex-shrink: 0;
+}
+
+.link-toggle-btn.linked {
+    color: var(--accent);
+    border-color: var(--accent);
+    background-color: rgba(37, 99, 235, 0.12);
+}
+
+.link-icon {
+    width: 15px;
+    height: 15px;
+}
+
+/* Superset grouping: contiguous linked exercises are pulled visually
+   together (no gap, shared side border) instead of getting a separate
+   wrapper element, so the drag-reorder code can keep treating every
+   .plan-order-item as a plain sibling <li>. */
+.superset-label-row {
+    padding: 0.35rem 0 0.1rem;
+    display: block;
+}
+
+.superset-label {
+    font-size: 0.7rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--accent);
+}
+
+.plan-order-item.superset-member {
+    border-left: 2px solid var(--accent);
+    padding-left: 0.5rem;
+    margin-left: -0.1rem;
+}
+
+.plan-order-item.superset-first {
+    border-bottom: none;
+    padding-bottom: 0.4rem;
+}
+
+.plan-order-item.superset-middle {
+    border-bottom: none;
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+}
+
+.plan-order-item.superset-last {
+    padding-top: 0.4rem;
 }
 
 .history-item-actions {

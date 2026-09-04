@@ -77,7 +77,12 @@ const Models = (() => {
      * @property {string|null} day - "0".."6" (Sun-Sat), weekly only
      * @property {string|null} interval - integer string, interval only
      * @property {string|null} startDate - "YYYY-MM-DD", interval only
-     * @property {number} [order] - drag-reorder position among same-day plans (superset order)
+     * @property {number} [order] - drag-reorder position among same-day plans
+     * @property {string|null} [groupId] - shared id linking plans on the same
+     *   day into one superset; two plans are rendered as grouped only when
+     *   this id matches AND they sit next to each other by `order` (a group
+     *   of one, e.g. after a delete or drag, is normalized back to null —
+     *   see normalizeGroupIds/toggleSupersetLink below)
      */
     /**
      * @typedef {Object} AppData - the full persisted shape; this is exactly
@@ -1211,6 +1216,7 @@ const Store = (() => {
     function notify() { listeners.forEach(fn => { try { fn(); } catch (e) { console.error(e); } }); }
 
     function persistAll() {
+        normalizeGroupIds();
         PersistenceService.set(LS_KEYS.exercises, state.exercises);
         PersistenceService.set(LS_KEYS.history, state.history);
         PersistenceService.set(LS_KEYS.plans, state.plans);
@@ -1349,6 +1355,87 @@ const Store = (() => {
 
     function countWeeklyPlansOnDay(dayVal) {
         return state.plans.filter(p => p.type === 'weekly' && p.exercise !== "__rest__" && String(p.day) === String(dayVal)).length;
+    }
+
+    function genGroupId() {
+        return "sg" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    }
+
+    // Collapses any "group" that's shrunk down to a single member back to
+    // ungrouped (null) — a superset needs 2+ members to mean anything.
+    // Runs on every persist so deletes/drags/links can never leave a stray
+    // groupId sitting on a lone exercise.
+    function normalizeGroupIds() {
+        const dayKey = (p) => p.type === 'weekly' ? `w${p.day}` : `i${p.id}`;
+        const byDay = {};
+        state.plans.filter(p => p.exercise !== "__rest__").forEach(p => {
+            const key = dayKey(p);
+            (byDay[key] = byDay[key] || []).push(p);
+        });
+        Object.values(byDay).forEach(list => {
+            list.sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id));
+            let i = 0;
+            while (i < list.length) {
+                if (!list[i].groupId) { i++; continue; }
+                let j = i;
+                while (j + 1 < list.length && list[j + 1].groupId === list[i].groupId) j++;
+                if (j === i) list[i].groupId = null;
+                i = j + 1;
+            }
+        });
+    }
+
+    // Toggles whether two adjacent same-day exercises are combined into one
+    // superset. Handles merging two runs together, extending a run by one,
+    // and splitting a run apart — planIdA/planIdB must currently be next to
+    // each other in that day's order, or the call is a no-op.
+    function toggleSupersetLink(planIdA, planIdB) {
+        const planA = state.plans.find(p => p.id === planIdA);
+        const planB = state.plans.find(p => p.id === planIdB);
+        if (!planA || !planB || planA.type !== planB.type) return;
+        if (planA.type === 'weekly' && String(planA.day) !== String(planB.day)) return;
+
+        const list = state.plans.filter(p =>
+            p.exercise !== "__rest__" &&
+            p.type === planA.type &&
+            (planA.type !== 'weekly' || String(p.day) === String(planA.day))
+        ).sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id));
+
+        const i = list.findIndex(p => p.id === planA.id);
+        const j = list.findIndex(p => p.id === planB.id);
+        if (i === -1 || j === -1 || Math.abs(i - j) !== 1) return;
+        const idx = Math.min(i, j);
+
+        const linked = list[idx].groupId && list[idx].groupId === list[idx + 1].groupId;
+
+        if (linked) {
+            // Split the chain at this boundary into a left and right run.
+            const gid = list[idx].groupId;
+            let start = idx;
+            while (start - 1 >= 0 && list[start - 1].groupId === gid) start--;
+            let end = idx + 1;
+            while (end + 1 < list.length && list[end + 1].groupId === gid) end++;
+            const leftSeg = list.slice(start, idx + 1);
+            const rightSeg = list.slice(idx + 1, end + 1);
+            const leftId = leftSeg.length > 1 ? gid : null;
+            const rightId = rightSeg.length > 1 ? genGroupId() : null;
+            leftSeg.forEach(p => p.groupId = leftId);
+            rightSeg.forEach(p => p.groupId = rightId);
+        } else {
+            // Fuse the run ending at idx with the run starting at idx+1.
+            let start = idx;
+            if (list[idx].groupId) {
+                while (start - 1 >= 0 && list[start - 1].groupId === list[idx].groupId) start--;
+            }
+            let end = idx + 1;
+            if (list[idx + 1].groupId) {
+                while (end + 1 < list.length && list[end + 1].groupId === list[idx + 1].groupId) end++;
+            }
+            const newGid = list[idx].groupId || list[idx + 1].groupId || genGroupId();
+            for (let k = start; k <= end; k++) list[k].groupId = newGid;
+        }
+
+        persistAll();
     }
 
     // ============================================================
@@ -1496,6 +1583,7 @@ const Store = (() => {
         deletePlan,
         reorderPlans,
         countWeeklyPlansOnDay,
+        toggleSupersetLink,
 
         // CRUD: history
         addHistoryEntry,
