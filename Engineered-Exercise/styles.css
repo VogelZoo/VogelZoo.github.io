@@ -451,7 +451,10 @@ select:focus, input:focus {
 
 /* Superset grouping: contiguous linked exercises are pulled visually
    together (no gap, shared side border) instead of getting a separate
-   wrapper element, so the drag-reorder code can keep treating every
+   wrapper element. Shared by the Plan tab's drag list (.plan-order-item)
+   and the Track tab's Today's Exercises card (.today-exercise-row) so both
+   render the same grouping the same way. Kept off any dedicated wrapper
+   element so the Plan tab's drag-reorder code can keep treating every
    .plan-order-item as a plain sibling <li>. */
 .superset-label-row {
     padding: 0.35rem 0 0.1rem;
@@ -466,24 +469,28 @@ select:focus, input:focus {
     color: var(--accent);
 }
 
-.plan-order-item.superset-member {
+.plan-order-item.superset-member,
+.today-exercise-row.superset-member {
     border-left: 2px solid var(--accent);
     padding-left: 0.5rem;
     margin-left: -0.1rem;
 }
 
-.plan-order-item.superset-first {
+.plan-order-item.superset-first,
+.today-exercise-row.superset-first {
     border-bottom: none;
     padding-bottom: 0.4rem;
 }
 
-.plan-order-item.superset-middle {
+.plan-order-item.superset-middle,
+.today-exercise-row.superset-middle {
     border-bottom: none;
     padding-top: 0.4rem;
     padding-bottom: 0.4rem;
 }
 
-.plan-order-item.superset-last {
+.plan-order-item.superset-last,
+.today-exercise-row.superset-last {
     padding-top: 0.4rem;
 }
 

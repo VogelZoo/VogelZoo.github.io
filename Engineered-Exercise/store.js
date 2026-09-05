@@ -381,21 +381,20 @@ const SchedulingService = (() => {
         });
     }
 
-    function getPlannedExercisesForDate(state, targetDate) {
+    // Same matching/ordering as getPlannedExercisesForDate, but keeps each
+    // match's groupId (weekly plans only — interval plans aren't groupable)
+    // so callers can render superset clusters, not just a flat name list.
+    function getPlannedExerciseEntriesForDate(state, targetDate) {
         let matches = [];
         let queryDate = new Date(targetDate);
         queryDate.setHours(0, 0, 0, 0);
 
-        // 1. Weekly scheduled routines — sorted by the plan's `order` field
-        // (drag-reorder) so downstream consumers (7-Day Horizon tags,
-        // Today's Exercises card, chart dropdown stars) share one ordering.
         let weeklyMatchesForDay = state.plans.filter(plan =>
             plan.type === 'weekly' && plan.exercise !== "__rest__" && parseInt(plan.day) === queryDate.getDay()
         );
         weeklyMatchesForDay.sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id));
-        weeklyMatchesForDay.forEach(plan => matches.push(plan.exercise));
+        weeklyMatchesForDay.forEach(plan => matches.push({ name: plan.exercise, groupId: plan.groupId || null }));
 
-        // 2. Interval-based routines with rest-day adjustments
         state.plans.forEach(plan => {
             if (plan.type === 'interval') {
                 let start = new Date(plan.startDate + "T00:00:00");
@@ -416,7 +415,7 @@ const SchedulingService = (() => {
                     } else {
                         if (intervalDayCounter % parseInt(plan.interval) === 0) {
                             if (workingDate.getTime() === queryDate.getTime()) {
-                                matches.push(plan.exercise);
+                                matches.push({ name: plan.exercise, groupId: null });
                             }
                         }
                         intervalDayCounter++;
@@ -427,6 +426,10 @@ const SchedulingService = (() => {
         });
 
         return matches;
+    }
+
+    function getPlannedExercisesForDate(state, targetDate) {
+        return getPlannedExerciseEntriesForDate(state, targetDate).map(entry => entry.name);
     }
 
     function calculateStreak(state) {
@@ -467,6 +470,7 @@ const SchedulingService = (() => {
     return {
         isRestDayExplicitlyScheduled,
         getPlannedExercisesForDate,
+        getPlannedExerciseEntriesForDate,
         calculateStreak
     };
 })();
@@ -1607,6 +1611,7 @@ const Store = (() => {
         // queries: scheduling & streaks (SchedulingService)
         isRestDayExplicitlyScheduled: (targetDate) => SchedulingService.isRestDayExplicitlyScheduled(state, targetDate),
         getPlannedExercisesForDate: (targetDate) => SchedulingService.getPlannedExercisesForDate(state, targetDate),
+        getPlannedExerciseEntriesForDate: (targetDate) => SchedulingService.getPlannedExerciseEntriesForDate(state, targetDate),
         calculateStreak: () => SchedulingService.calculateStreak(state),
 
         // queries: exercise history lookups (StatsService)

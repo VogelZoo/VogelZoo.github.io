@@ -44,6 +44,43 @@ function haptic(type) {
     }
 }
 // =============================================================================
+// Engineered Exercise — superset clustering helper
+// =============================================================================
+// Shared by PlanView (the plan-editing list) and TrackView (Today's
+// Exercises), so both render the same "contiguous same-groupId run = one
+// superset" grouping and the same letter labels off of one implementation.
+// =============================================================================
+
+const SUPERSET_LETTERS = "ABCDEFGHIJ";
+
+// Splits `list` into arrays of contiguous items sharing the same truthy
+// key (via keyFn); items with a falsy key always start their own
+// single-item cluster.
+function groupConsecutiveByKey(list, keyFn) {
+    const clusters = [];
+    let i = 0;
+    while (i < list.length) {
+        const key = keyFn(list[i]);
+        let j = i;
+        if (key) {
+            while (j + 1 < list.length && keyFn(list[j + 1]) === key) j++;
+        }
+        clusters.push(list.slice(i, j + 1));
+        i = j + 1;
+    }
+    return clusters;
+}
+
+// Wraps groupConsecutiveByKey with the letter-labeling both views share:
+// only clusters with 2+ members are "real" supersets and get a letter.
+function clusterSupersetsByKey(list, keyFn) {
+    let letterIdx = 0;
+    return groupConsecutiveByKey(list, keyFn).map(members => ({
+        members,
+        letter: members.length > 1 ? (SUPERSET_LETTERS[letterIdx++] || "?") : null
+    }));
+}
+// =============================================================================
 // Engineered Exercise — Icons
 // =============================================================================
 // Fixed UI iconography (nav/drawer/modal chrome) as inline SVG strings, plus
@@ -578,6 +615,7 @@ const TrackView = (() => {
                 haptic('light');
                 selectedHorizonDate = dateString;
                 render7DayHorizon(new Date());
+                renderTodayExercisesCard(dateString);
             };
 
             let loggedCountsForDay = {};
@@ -609,69 +647,96 @@ const TrackView = (() => {
         });
     }
 
-    // Always reflects the actual calendar "today". Each instance of a
-    // scheduled exercise gets its own row — if scheduled 2x today, two rows
-    // render, and each flips to "Edit" independently as soon as its own
-    // instance is logged (matched oldest-logged-first against scheduled
-    // order).
-    function renderTodayExercisesCard() {
+    function formatSelectedDayTitle(dateObj) {
+        const weekday = dateObj.toLocaleDateString(undefined, { weekday: "long" });
+        return `${weekday} ${dateObj.getMonth() + 1}/${dateObj.getDate()} Exercises`;
+    }
+
+    // Renders the scheduled exercises for whichever day is selected in the
+    // 7-Day Horizon (defaults to the current selection, i.e. today on first
+    // load). Each instance of a scheduled exercise gets its own row — if
+    // scheduled 2x that day, two rows render, and each flips to "Edit"
+    // independently as soon as its own instance is logged (matched
+    // oldest-logged-first against scheduled order). Consecutive exercises
+    // sharing a superset groupId are visually bracketed together and
+    // labeled, same as the Plan tab.
+    function renderTodayExercisesCard(dateStr) {
         const container = document.getElementById("today-exercises-list");
         const card = document.getElementById("today-exercises-card");
+        const titleEl = document.getElementById("today-exercises-title");
         if (!container || !card) return;
 
-        const today = new Date();
-        const todayStr = getLocalDateString(today);
-        const scheduledToday = Store.getPlannedExercisesForDate(today).filter(name => name !== "__rest__");
+        const targetDateStr = dateStr || selectedHorizonDate;
+        const targetDate = new Date(targetDateStr + "T00:00:00");
+        const isToday = targetDateStr === getLocalDateString(new Date());
 
-        if (scheduledToday.length === 0) {
-            card.classList.add("hidden");
-            container.innerHTML = "";
-            return;
-        }
+        if (titleEl) titleEl.textContent = isToday ? "Today's Exercises" : formatSelectedDayTitle(targetDate);
+
+        const entries = Store.getPlannedExerciseEntriesForDate(targetDate).filter(e => e.name !== "__rest__");
+
         card.classList.remove("hidden");
 
-        let loggedTodayByName = {};
+        if (entries.length === 0) {
+            const isRest = Store.isRestDayExplicitlyScheduled(targetDate);
+            container.innerHTML = `<p class="text-muted" style="font-size:0.85rem;">${isRest ? "Rest day — nothing scheduled." : "Nothing scheduled for this day."}</p>`;
+            return;
+        }
+
+        let loggedByName = {};
         Store.state.history.forEach(entry => {
-            if (entry.date === todayStr) {
-                if (!loggedTodayByName[entry.exerciseName]) loggedTodayByName[entry.exerciseName] = [];
-                loggedTodayByName[entry.exerciseName].push(entry);
+            if (entry.date === targetDateStr) {
+                if (!loggedByName[entry.exerciseName]) loggedByName[entry.exerciseName] = [];
+                loggedByName[entry.exerciseName].push(entry);
             }
         });
-        Object.values(loggedTodayByName).forEach(list => list.sort((a, b) => a.id - b.id));
+        Object.values(loggedByName).forEach(list => list.sort((a, b) => a.id - b.id));
 
         let seenSoFar = {};
-        container.innerHTML = scheduledToday.map(name => {
-            const instanceIdx = (seenSoFar[name] = (seenSoFar[name] || 0) + 1);
-            const todaysLogs = loggedTodayByName[name] || [];
-            const matchedEntry = todaysLogs[instanceIdx - 1] || null;
-            const isDone = !!matchedEntry;
+        let rowsHtml = "";
+        clusterSupersetsByKey(entries, e => e.groupId).forEach(({ members, letter }) => {
+            if (letter) {
+                rowsHtml += `<div class="superset-label-row"><span class="superset-label">Superset ${letter}</span></div>`;
+            }
+            members.forEach((entry, m) => {
+                const name = entry.name;
+                const instanceIdx = (seenSoFar[name] = (seenSoFar[name] || 0) + 1);
+                const logsForName = loggedByName[name] || [];
+                const matchedEntry = logsForName[instanceIdx - 1] || null;
+                const isDone = !!matchedEntry;
 
-            const ex = Store.state.exercises.find(e => e.name === name);
-            const emoji = Icons.exerciseEmoji(ex);
-            const safeName = name.replace(/'/g, "\\'");
-            const prevSetpoint = Store.formatPrevSetpoint(name);
-            const prevIntensity = Store.getMostRecentIntensityForExercise(name);
-            const prevStarsHtml = prevIntensity
-                ? `<span class="te-prev-stars">${'★'.repeat(prevIntensity)}${'☆'.repeat(5 - prevIntensity)}</span>`
-                : "";
-            const prevLineHtml = (prevSetpoint || prevStarsHtml)
-                ? `<span class="te-prev-setpoint">${prevSetpoint}${prevStarsHtml}</span>`
-                : "";
+                const ex = Store.state.exercises.find(e => e.name === name);
+                const emoji = Icons.exerciseEmoji(ex);
+                const safeName = name.replace(/'/g, "\\'");
+                const prevSetpoint = Store.formatPrevSetpoint(name);
+                const prevIntensity = Store.getMostRecentIntensityForExercise(name);
+                const prevStarsHtml = prevIntensity
+                    ? `<span class="te-prev-stars">${'★'.repeat(prevIntensity)}${'☆'.repeat(5 - prevIntensity)}</span>`
+                    : "";
+                const prevLineHtml = (prevSetpoint || prevStarsHtml)
+                    ? `<span class="te-prev-setpoint">${prevSetpoint}${prevStarsHtml}</span>`
+                    : "";
 
-            const actionBtn = isDone
-                ? `<button type="button" class="te-log-btn te-log-done" onclick="initEditEntry(${matchedEntry.id})">Edit</button>`
-                : `<button type="button" class="te-log-btn" onclick="LogModal.quickLogExercise('${safeName}')">Log</button>`;
+                const actionBtn = isDone
+                    ? `<button type="button" class="te-log-btn te-log-done" onclick="initEditEntry(${matchedEntry.id})">Edit</button>`
+                    : `<button type="button" class="te-log-btn" onclick="LogModal.quickLogExercise('${safeName}', '${targetDateStr}')">Log</button>`;
 
-            return `
-                <div class="today-exercise-row${isDone ? ' te-done' : ''}">
-                    <span class="te-name-group">
-                        <span class="te-name">${emoji} ${name}</span>
-                        ${prevLineHtml}
-                    </span>
-                    ${actionBtn}
-                </div>
-            `;
-        }).join("");
+                const isFirst = m === 0;
+                const isLast = m === members.length - 1;
+                const posClass = !letter ? "" : isFirst ? "superset-first" : isLast ? "superset-last" : "superset-middle";
+                const groupClass = letter ? ` superset-member ${posClass}` : "";
+
+                rowsHtml += `
+                    <div class="today-exercise-row${isDone ? ' te-done' : ''}${groupClass}">
+                        <span class="te-name-group">
+                            <span class="te-name">${emoji} ${name}</span>
+                            ${prevLineHtml}
+                        </span>
+                        ${actionBtn}
+                    </div>
+                `;
+            });
+        });
+        container.innerHTML = rowsHtml;
     }
 
     function renderTrackKpis() {
@@ -690,10 +755,12 @@ const TrackView = (() => {
     }
 
     // Full re-evaluation used on load, on returning to the Track tab, and
-    // whenever a mutation could change what's scheduled/logged "today".
+    // whenever a mutation could change what's scheduled/logged for the
+    // currently selected horizon day (defaults to today on first load, but
+    // stays put on whatever day the person has selected).
     function refresh() {
         render7DayHorizon(new Date());
-        renderTodayExercisesCard();
+        renderTodayExercisesCard(selectedHorizonDate);
         renderTrackKpis();
     }
 
@@ -1589,12 +1656,13 @@ const LogModal = {
     },
 
     // Shortcut used by the Track tab's "Today's Exercises" card — opens
-    // straight to the entry form for a given exercise, pre-filled with
-    // today's date, skipping the kind/pick steps entirely.
-    quickLogExercise(exerciseName) {
+    // straight to the entry form for a given exercise, pre-filled with the
+    // card's currently selected day (today by default), skipping the
+    // kind/pick steps entirely.
+    quickLogExercise(exerciseName, dateStr) {
         haptic('light');
         document.getElementById("log-modal").classList.remove("hidden");
-        this.openExerciseForm(exerciseName, null, Store.getLocalDateString(new Date()));
+        this.openExerciseForm(exerciseName, null, dateStr || Store.getLocalDateString(new Date()));
     },
 
     submitExercise(e) {
@@ -1798,6 +1866,7 @@ const PlanView = (() => {
 
     const DAYS_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const dragHandleSvg = `<svg class="drag-handle-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="6" r="1.4" fill="currentColor"/><circle cx="15" cy="6" r="1.4" fill="currentColor"/><circle cx="9" cy="12" r="1.4" fill="currentColor"/><circle cx="15" cy="12" r="1.4" fill="currentColor"/><circle cx="9" cy="18" r="1.4" fill="currentColor"/><circle cx="15" cy="18" r="1.4" fill="currentColor"/></svg>`;
+    const linkIconSvg = `<svg class="link-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 12h6M8 8h1.5a3 3 0 1 1 0 6H8a3 3 0 1 1 0-6Zm8 0h-1.5a3 3 0 1 0 0 6H16a3 3 0 1 0 0-6Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
     let dragState = null;
     let pendingDrag = null; // hold-to-confirm gate before a real drag starts
@@ -1874,28 +1943,10 @@ const PlanView = (() => {
         setupDragReorder();
     }
 
-    const linkIconSvg = `<svg class="link-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 12h6M8 8h1.5a3 3 0 1 1 0 6H8a3 3 0 1 1 0-6Zm8 0h-1.5a3 3 0 1 0 0 6H16a3 3 0 1 0 0-6Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-    const GROUP_LETTERS = "ABCDEFGHIJ";
-
     // Walks the day's ordered exercises and clusters contiguous runs that
-    // share a groupId — those runs are what render as one superset. Each
-    // item gets its position within its cluster so the caller knows whether
-    // to draw the top/bottom of a group's bracket.
+    // share a groupId — those runs are what render as one superset.
     function clusterSupersets(exPlans) {
-        const clusters = [];
-        let i = 0;
-        let letterIdx = 0;
-        while (i < exPlans.length) {
-            let j = i;
-            const gid = exPlans[i].groupId;
-            if (gid) {
-                while (j + 1 < exPlans.length && exPlans[j + 1].groupId === gid) j++;
-            }
-            const members = exPlans.slice(i, j + 1);
-            clusters.push({ members, letter: members.length > 1 ? GROUP_LETTERS[letterIdx++] || "?" : null });
-            i = j + 1;
-        }
-        return clusters;
+        return clusterSupersetsByKey(exPlans, p => p.groupId);
     }
 
     function renderDayBody(dayPlans) {
