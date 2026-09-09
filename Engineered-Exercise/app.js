@@ -553,11 +553,13 @@ function triggerConfirmationModal(title, text, confirmCallback) {
 // =============================================================================
 // Engineered Exercise — TrackView
 // =============================================================================
-// Renders the Track tab: the 7-Day Horizon strip, "Today's Exercises" card,
-// and the top 4-up KPI row. Also owns `selectedHorizonDate`, purely visual
-// UI-only state (which day is ring-highlighted in the horizon strip) that
-// deliberately never touches Store — it's not app data, just a transient
-// selection, the same way a SwiftUI View's own `@State` would hold it.
+// Renders the Track tab: the scrollable Horizon strip (3 days back through
+// 6 days ahead of today, defaulting to today pinned at the left edge),
+// "Today's Exercises" card, and the top 4-up KPI row. Also owns
+// `selectedHorizonDate`, purely visual UI-only state (which day is
+// ring-highlighted in the horizon strip) that deliberately never touches
+// Store — it's not app data, just a transient selection, the same way a
+// SwiftUI View's own `@State` would hold it.
 // =============================================================================
 
 const TrackView = (() => {
@@ -565,6 +567,13 @@ const TrackView = (() => {
 
     const getLocalDateString = Store.getLocalDateString;
     const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    // Horizon window: 3 days before today through 6 days after today (10
+    // cards total). Today defaults to the leftmost *visible* card — the
+    // lookback days are scrolled off to the left until the person swipes
+    // there — rather than the leftmost card in the strip.
+    const HORIZON_LOOKBACK_DAYS = 3;
+    const HORIZON_LOOKAHEAD_DAYS = 6;
 
     // UI-only selection — NOT part of Store's persisted state, and never
     // included in JSON backups (see BackupService — it only ever sees
@@ -581,32 +590,41 @@ const TrackView = (() => {
         return currentStreak;
     }
 
-    function render7DayHorizon(baseDate) {
+    // `keepScrollPosition`: false (default) snaps the strip back to its
+    // default scroll position (today pinned left) — used on initial load
+    // and whenever the Track tab is (re)entered. true preserves wherever
+    // the person has scrolled to — used when a day-card tap triggers a
+    // re-render (to refresh done/not-done tags), so picking a lookback day
+    // doesn't yank the strip back to today out from under them.
+    function render7DayHorizon(baseDate, keepScrollPosition = false) {
         const container = document.getElementById("calendar-horizon-view");
         if (!container) return;
+        const preservedScrollLeft = keepScrollPosition ? container.scrollLeft : null;
         container.innerHTML = "";
         const activeLogDate = selectedHorizonDate;
 
         let daysData = [];
         let maxItemCount = 1;
-        for (let i = 0; i < 7; i++) {
-            let futureDate = new Date(baseDate);
-            futureDate.setDate(baseDate.getDate() + i);
+        for (let offset = -HORIZON_LOOKBACK_DAYS; offset <= HORIZON_LOOKAHEAD_DAYS; offset++) {
+            let dayDate = new Date(baseDate);
+            dayDate.setDate(baseDate.getDate() + offset);
 
-            let dayTargets = Store.getPlannedExercisesForDate(futureDate);
-            let isRest = Store.isRestDayExplicitlyScheduled(futureDate);
+            let dayTargets = Store.getPlannedExercisesForDate(dayDate);
+            let isRest = Store.isRestDayExplicitlyScheduled(dayDate);
             let itemCount = isRest ? 1 : Math.max(dayTargets.length, 1);
             if (itemCount > maxItemCount) maxItemCount = itemCount;
 
-            daysData.push({ futureDate, dayTargets, isRest });
+            daysData.push({ dayDate, dayTargets, isRest, offset });
         }
 
         const perItemHeight = 16;
         const eventsMinHeight = maxItemCount * perItemHeight;
 
-        daysData.forEach(({ futureDate, dayTargets, isRest }, i) => {
-            let dayLabel = i === 0 ? "Today" : DAYS_SHORT[futureDate.getDay()];
-            let dateString = getLocalDateString(futureDate);
+        let todayCardEl = null;
+
+        daysData.forEach(({ dayDate, dayTargets, isRest, offset }) => {
+            let dayLabel = offset === 0 ? "Today" : DAYS_SHORT[dayDate.getDay()];
+            let dateString = getLocalDateString(dayDate);
 
             let dayCard = document.createElement("div");
             dayCard.className = `cal-day-card ${dateString === activeLogDate ? 'today' : ''}`;
@@ -614,7 +632,7 @@ const TrackView = (() => {
             dayCard.onclick = () => {
                 haptic('light');
                 selectedHorizonDate = dateString;
-                render7DayHorizon(new Date());
+                render7DayHorizon(new Date(), true);
                 renderTodayExercisesCard(dateString);
             };
 
@@ -640,11 +658,19 @@ const TrackView = (() => {
 
             dayCard.innerHTML = `
                 <div class="cal-day-title" style="font-weight: bold;">${dayLabel}</div>
-                <div class="text-muted" style="font-size:0.65rem; margin-bottom: 4px;">${futureDate.getMonth() + 1}/${futureDate.getDate()}</div>
+                <div class="text-muted" style="font-size:0.65rem; margin-bottom: 4px;">${dayDate.getMonth() + 1}/${dayDate.getDate()}</div>
                 <div class="cal-day-events" style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px; min-height: ${eventsMinHeight}px;">${tagsHtml}</div>
             `;
             container.appendChild(dayCard);
+
+            if (offset === 0) todayCardEl = dayCard;
         });
+
+        if (preservedScrollLeft !== null) {
+            container.scrollLeft = preservedScrollLeft;
+        } else if (todayCardEl) {
+            container.scrollLeft = todayCardEl.offsetLeft;
+        }
     }
 
     function formatSelectedDayTitle(dateObj) {
@@ -653,7 +679,7 @@ const TrackView = (() => {
     }
 
     // Renders the scheduled exercises for whichever day is selected in the
-    // 7-Day Horizon (defaults to the current selection, i.e. today on first
+    // Horizon strip (defaults to the current selection, i.e. today on first
     // load). Each instance of a scheduled exercise gets its own row — if
     // scheduled 2x that day, two rows render, and each flips to "Edit"
     // independently as soon as its own instance is logged (matched

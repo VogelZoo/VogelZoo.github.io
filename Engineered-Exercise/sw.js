@@ -4,7 +4,7 @@
 // are temporarily consolidated (each internally organized into sections
 // that map 1:1 to the fuller multi-file split we'll return to ahead of the
 // Xcode/Swift port) — bump this whenever either one changes.
-const CACHE_VERSION = "ee-v21";
+const CACHE_VERSION = "ee-v22";
 const APP_SHELL = [
     "./",
     "./index.html",
@@ -12,11 +12,11 @@ const APP_SHELL = [
     "./store.js",
     "./app.js",
     "./manifest.json",
-    "./icon-192.png",
-    "./icon-512.png",
-    "./icon-192-maskable.png",
-    "./icon-512-maskable.png",
-    "./apple-touch-icon.png"
+    "./assets/icon-192.png",
+    "./assets/icon-512.png",
+    "./assets/icon-192-maskable.png",
+    "./assets/icon-512-maskable.png",
+    "./assets/apple-touch-icon.png"
 ];
 
 self.addEventListener("install", (event) => {
