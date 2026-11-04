@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Starfall prototype</title>
+<style>
+:root{color-scheme:dark;--bg:#0a1020;--ink:#cfe8f0;--hot:#ffb347;--cool:#6fe3c1;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:14px system-ui,sans-serif;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+button{position:fixed;border-radius:50%;font:600 14px system-ui,sans-serif;color:var(--ink);touch-action:none;cursor:pointer;-webkit-appearance:none;appearance:none}
+#fire{width:96px;height:96px;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(26px + env(safe-area-inset-bottom,0px));border:2px solid var(--hot);background:rgba(255,179,71,.14)}
+#fire.on{background:rgba(255,179,71,.45)}
+#tgt{width:64px;height:64px;right:calc(126px + env(safe-area-inset-right,0px));bottom:calc(34px + env(safe-area-inset-bottom,0px));border:2px solid var(--cool);background:rgba(111,227,193,.12)}
+#tgt:active{background:rgba(111,227,193,.4)}
+#jump,#map{width:64px;height:64px;border:2px solid var(--ink);background:rgba(207,232,240,.1)}
+#jump{right:calc(30px + env(safe-area-inset-right,0px));bottom:calc(136px + env(safe-area-inset-bottom,0px))}
+#map{right:calc(126px + env(safe-area-inset-right,0px));bottom:calc(108px + env(safe-area-inset-bottom,0px))}
+#jump:active,#map:active{background:rgba(207,232,240,.35)}
+#landb{display:none;width:64px;height:64px;right:calc(126px + env(safe-area-inset-right,0px));bottom:calc(182px + env(safe-area-inset-bottom,0px));border:2px solid var(--cool);background:rgba(111,227,193,.22)}
+#landb.show{display:block}
+#lp{position:fixed;inset:0;background:rgba(10,16,32,.97);overflow:auto;touch-action:pan-y;padding:calc(18px + env(safe-area-inset-top,0px)) 18px calc(24px + env(safe-area-inset-bottom,0px));box-sizing:border-box}
+#lp .in{max-width:520px;margin:0 auto}
+#lp h2{margin:0 0 4px;font-size:22px}
+#lp .sub{margin-bottom:12px}
+#lp button{position:static;width:auto;height:auto;border-radius:8px;padding:10px 14px;margin:4px 6px 4px 0;border:1px solid #4a6078;background:#0f1a30}
+#lp .row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;padding:8px 0;border-top:1px solid rgba(207,232,240,.15)}
+#lp .it{display:flex;align-items:center;gap:10px;flex:1;min-width:200px}
+.ic{width:52px;height:42px;flex:none;border-radius:8px;background:#0f1a30;border:1px solid #2a3a55;object-fit:cover}
+.pic{display:block;width:100%;max-width:320px;height:auto;margin:0 auto 10px;background:#0f1a30;border:1px solid #2a3a55;border-radius:12px;object-fit:cover}
+#lp .lore{color:#9fb6c6;line-height:1.45;margin:6px 0 12px}
+.maponly #fire,.maponly #tgt,.maponly #jump,.maponly #landb{display:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<button id="tgt">Target</button>
+<button id="fire">Fire</button>
+<button id="jump">Jump</button>
+<button id="map">Map</button>
+<button id="landb">Land</button>
+<div id="lp" hidden></div>
+<script>
+// ---------- DATA (swap this out for JSON files later) ----------
+const SHIPS = {
+  courier: { name:'Courier', thrust:260, turn:240, max:320, shield:60, armor:80, regen:6, r:14, color:'#cfe8f0',
+    shape:[[16,0],[-10,-9],[-5,0],[-10,9]],
+    weapons:[{ dmg:8, speed:520, life:0.9, cd:0.22, off:[10,0], color:'#ffb347' }] },
+  raider:  { name:'Raider', thrust:210, turn:170, max:280, shield:30, armor:50, regen:3, r:13, color:'#ff7b7b',
+    shape:[[14,0],[-9,-10],[-3,-3],[-12,0],[-3,3],[-9,10]],
+    weapons:[{ dmg:6, speed:460, life:0.8, cd:0.4, off:[10,0], color:'#ff7b7b' }] }
+};
+const ASSIST = 0.8;   // drag when not thrusting (flight assist)
+const JUMP_R = 700;   // fly outside this ring to jump
+const SYSTEMS = {
+  hearth:{ name:'Hearth', x:10, y:52, danger:1, links:['vael','orrin'], planets:[{x:-260,y:160,r:44,c:'#6fb5e3',name:'Hearth Prime'}] },
+  vael:  { name:'Vael',   x:38, y:10, danger:1, links:['hearth','kesh','drift'], planets:[{x:300,y:-180,r:36,c:'#b58be0',name:'Vael II'},{x:-380,y:220,r:22,c:'#8fbf8f',name:'Vael Moon'}] },
+  orrin: { name:'Orrin',  x:26, y:90, danger:1, links:['hearth','kesh','lumen'], planets:[{x:-320,y:-200,r:50,c:'#e0a36f',name:'Orrin'}] },
+  kesh:  { name:'Kesh',   x:66, y:38, danger:2, links:['vael','orrin','drift','lumen'], planets:[{x:260,y:260,r:40,c:'#e07f7f',name:'Kesh Station'}] },
+  drift: { name:'Drift',  x:92, y:12, danger:3, links:['kesh'], planets:[{x:-200,y:-300,r:26,c:'#9aa7b5',name:'Drift Wreck'}] },
+  lumen: { name:'Lumen',  x:78, y:80, danger:0, links:['kesh'], planets:[{x:340,y:120,r:56,c:'#e3d36f',name:'Lumen Gardens'}] }
+};
+Object.entries(SYSTEMS).forEach(([k,s]) => s.links.forEach(l => { if(!SYSTEMS[l].links.includes(k)) SYSTEMS[l].links.push(k); }));
+// Factions: universe = The Ledger War (see factions.json for the full set)
+const FACTIONS = { peacekeepers:{name:'Peacekeepers',c:'#6fb5e3'}, junkers:{name:'Junkers',c:'#e07f5f'}, corpos:{name:'Corpos',c:'#b58be0'}, lattice:{name:'The Lattice',c:'#6fe3c1'} };
+const UNIVERSE = ['peacekeepers','junkers','corpos'];
+const OWNER = { hearth:'peacekeepers', vael:'peacekeepers', orrin:'corpos', kesh:'corpos', drift:'junkers', lumen:'junkers' };
+const standing = { peacekeepers:30, junkers:30, corpos:30 };
+const band = v => v<=-25?'Hostile':v>=60?'Allied':v>=25?'Friendly':'Neutral';
+const COMM = { food:20, ore:35, tech:90 }, FUEL_MAX=6, FUEL_PRICE=25;
+let CARGO_MAX=20;
+const hs = s => { let h=0; for(const ch of s) h=(h*31+ch.charCodeAt(0))%997; return h/997; };
+const PAIR = {'peacekeepers|junkers':-60,'peacekeepers|corpos':10,'peacekeepers|lattice':-70,'junkers|corpos':-50,'junkers|lattice':0,'corpos|lattice':-60};
+const pv = (a,b) => PAIR[a+'|'+b] ?? PAIR[b+'|'+a] ?? 0;
+const PATROL = { peacekeepers:'warden', junkers:'scrapper', corpos:'arbiter' };
+const TECH = { peacekeepers:3, junkers:2, corpos:4, lattice:5 };
+const FRAMES = {
+  courier:  { name:'Courier',  fac:null,           price:1500,  massCap:60,  cargo:20,  slots:{ weapon:2, engine:1, utility:2, hull:1 } },
+  scrapper: { name:'Scrapper', fac:'junkers',      price:2500,  massCap:50,  cargo:10,  slots:{ weapon:2, engine:1, utility:0, hull:1 } },
+  warden:   { name:'Warden',   fac:'peacekeepers', price:4500,  massCap:90,  cargo:15,  slots:{ weapon:2, engine:1, utility:1, hull:2 } },
+  patchwork:{ name:'Patchwork',fac:'junkers',      price:5500,  massCap:120, cargo:70,  slots:{ weapon:2, engine:1, utility:3, hull:2 } },
+  arbiter:  { name:'Arbiter',  fac:'corpos',       price:7500,  massCap:130, cargo:30,  slots:{ weapon:3, engine:1, utility:2, hull:2 } },
+  ledger:   { name:'Ledger',   fac:'corpos',       price:8000,  massCap:160, cargo:120, slots:{ weapon:1, engine:1, utility:3, hull:2 } },
+  bulwark:  { name:'Bulwark',  fac:'peacekeepers', price:14000, massCap:220, cargo:40,  slots:{ weapon:4, engine:1, utility:2, hull:4 } }
+};
+const frameConf = id => { const f=FRAMES[id]; return { massCap:f.massCap, cargo:f.cargo, convRate:10, convFee:600, convMax:Math.min(2,Math.floor(f.cargo/10)), slots:f.slots }; };
+let frameId = 'courier', FRAME = frameConf('courier');
+function setFrame(id){
+  frameId=id; FRAME=frameConf(id); conv=0;
+  for (const t of ['weapon','engine','utility','hull']) loadout[t]=Array(FRAME.slots[t]).fill(null);
+  loadout.weapon[0]='blaster'; loadout.engine[0]='stock'; applyLoadout();
+}
+const shipValue = () => Math.round(0.7*(FRAMES[frameId].price+Object.values(loadout).flat().filter(Boolean).reduce((a,k)=>a+OUT[k].price,0)));
+const OUT = {
+  blaster:{ name:'Blaster', type:'weapon', tech:1, mass:8, price:0, w:{ dmg:8, speed:520, life:0.9, cd:0.22, color:'#ffb347' } },
+  pulse:  { name:'Pulse gun', type:'weapon', tech:2, mass:10, price:400, w:{ dmg:4, speed:560, life:0.8, cd:0.11, color:'#6fe3c1' } },
+  cannon: { name:'Cannon', type:'weapon', tech:3, mass:16, price:900, w:{ dmg:20, speed:480, life:1.1, cd:0.6, color:'#ff7b7b' } },
+  stock:  { name:'Stock engine', type:'engine', tech:1, mass:10, price:0, mt:1, mu:1, mx:1 },
+  ion:    { name:'Ion engine', type:'engine', tech:3, mass:14, price:700, mt:1.27, mu:1.12, mx:1.22 },
+  cell:   { name:'Shield cell', type:'utility', tech:2, mass:8, price:500, shield:30, regen:3 },
+  pod:    { name:'Cargo pod', type:'utility', tech:1, mass:6, price:300, cargo:10 },
+  plate:  { name:'Armor plating', type:'hull', tech:2, mass:12, price:450, armor:40 }
+};
+const loadout = { weapon:['blaster',null], engine:['stock'], utility:[null,null], hull:[null] };
+let conv = 0;
+const cap = s => s[0].toUpperCase()+s.slice(1);
+const massUsed = () => Object.values(loadout).flat().filter(Boolean).reduce((a,k)=>a+OUT[k].mass,0);
+const cargoMax = () => FRAME.cargo-FRAME.convRate*conv+loadout.utility.filter(Boolean).reduce((a,k)=>a+(OUT[k].cargo||0),0);
+const check = () => massUsed()>FRAME.massCap ? 'Over the mass limit' : (used()>cargoMax() ? 'Cargo hold too full. Sell cargo first' : null);
+const wouldErr = (t,i,key) => { const old=loadout[t][i]; loadout[t][i]=key; const e=check(); loadout[t][i]=old; return e; };
+const trySet = (t,i,key) => { const e=wouldErr(t,i,key); if(!e) loadout[t][i]=key; return e; };
+const desc = o => o.w ? `dmg ${o.w.dmg}, ${(1/o.w.cd).toFixed(1)}/s` : o.mt ? `+${Math.round((o.mt-1)*100)}% thrust, +${Math.round((o.mx-1)*100)}% speed` : [o.shield&&`+${o.shield} shield`,o.armor&&`+${o.armor} armor`,o.cargo&&`+${o.cargo} cargo`].filter(Boolean).join(', ');
+function applyLoadout(){
+  const it=t=>loadout[t].filter(Boolean).map(k=>OUT[k]), sum=(a,k)=>a.reduce((s,o)=>s+(o[k]||0),0);
+  const B=SHIPS[frameId], e=it('engine')[0]||OUT.stock, ws=it('weapon'), us=it('utility'), hl=it('hull');
+  player.d=Object.assign({},B,{ thrust:B.thrust*e.mt, turn:B.turn*e.mu, max:B.max*e.mx, shield:B.shield+sum(us,'shield'), regen:B.regen+sum(us,'regen'), armor:B.armor+sum(hl,'armor'), weapons:ws.map((o,i)=>({...o.w, off:[10,(i-(ws.length-1)/2)*8]})) });
+  CARGO_MAX=cargoMax(); player.cd=player.d.weapons.map(()=>0); player.sh=player.d.shield; player.ar=player.d.armor;
+}
+const WPN = (dmg,cd,c) => [{ dmg, speed:500, life:0.9, cd, off:[10,0], color:c }];
+SHIPS.warden   = { ...SHIPS.courier, name:'Warden',   thrust:240, turn:200, shield:55, armor:80, weapons:WPN(7,0.3,'#6fb5e3') };
+SHIPS.scrapper = { ...SHIPS.raider,  name:'Scrapper', thrust:270, turn:220, shield:25, armor:45, weapons:WPN(6,0.35,'#e07f5f') };
+SHIPS.arbiter  = { ...SHIPS.courier, name:'Arbiter',  thrust:220, turn:180, shield:70, armor:60, weapons:WPN(8,0.4,'#b58be0') };
+SHIPS.hauler   = { name:'Hauler', thrust:150, turn:110, max:200, shield:30, armor:90, regen:3, r:17, color:'#cfe8f0', shape:[[16,0],[8,-10],[-14,-10],[-14,10],[8,10]], weapons:[] };
+SHIPS.bulwark   = { ...SHIPS.warden, name:'Bulwark',   thrust:170, turn:130, max:240, shield:110, armor:170, regen:6, r:20, shape:[[20,0],[-12,-14],[-8,0],[-12,14]] };
+SHIPS.patchwork = { ...SHIPS.hauler, name:'Patchwork', thrust:190, turn:150, max:260, shield:30,  armor:90,  regen:4, r:17, color:'#e07f5f' };
+SHIPS.ledger    = { ...SHIPS.hauler, name:'Ledger',    thrust:160, turn:120, max:230, shield:60,  armor:100, regen:5, r:19, color:'#b58be0' };
+
+// ---------- SETUP ----------
+const cv = document.getElementById('c'), g = cv.getContext('2d');
+const root = getComputedStyle(document.documentElement);
+let W, H, DPR, Z, SAFE_T = 0;
+function resize(){
+  DPR = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight;
+  cv.width = W*DPR; cv.height = H*DPR; Z = Math.min(W,H)/620;
+  SAFE_T = parseFloat(root.paddingTop) || 0;
+}
+addEventListener('resize', resize); resize();
+
+const rnd = (a,b) => a + Math.random()*(b-a);
+const angDiff = (a,b) => { let d=b-a; while(d>Math.PI)d-=2*Math.PI; while(d<-Math.PI)d+=2*Math.PI; return d; };
+
+let ships=[], shots=[], parts=[], player, kills=0, time=0, spawnT=1, respawnT=0;
+let sysId='hearth', dest=null, mapOpen=false, jumpT=0, flash=0, msg='Fly close to a planet and tap Land', msgT=6;
+let fuel=5, credits=500; const cargo={food:0,ore:0,tech:0}; let popT=12;
+const cam = {x:0,y:0};
+const stars = [0,1,2].map(l => Array.from({length:[60,45,30][l]}, () => [Math.random(),Math.random(),Math.random()]));
+const PAR = [0.12,0.3,0.55];
+
+function mk(id,x,y,ai){
+  const d = SHIPS[id];
+  return { d, x, y, vx:0, vy:0, a:rnd(0,6.28), sh:d.shield, ar:d.armor, cd:d.weapons.map(()=>0), hit:0,
+    ai, team:ai?1:0, dead:false, tgt:null, in:{aim:null,turn:0,thrust:0,fire:false} };
+}
+function spawnPlayer(){ player = mk('courier',0,0,false); ships.push(player); applyLoadout(); }
+spawnPlayer(); fillTraffic(true);
+
+// ---------- INPUT ----------
+const keys = {}; let fireBtn = false;
+addEventListener('keydown', e => { keys[e.code]=true; if(e.code==='KeyT') cycleTarget(); });
+addEventListener('keyup', e => keys[e.code]=false);
+const R = 56, stick = {id:null,ox:0,oy:0,x:0,y:0};
+cv.addEventListener('pointerdown', e => {
+  if (mapOpen){ pickNode(e.clientX,e.clientY); return; }
+  if (e.clientX < W*0.55 && stick.id===null){ const m=R+48; stick.id=e.pointerId; stick.sx=e.clientX; stick.sy=e.clientY; stick.ox=stick.x=Math.max(e.clientX,m); stick.oy=stick.y=Math.min(Math.max(e.clientY,m),H-m-(parseFloat(root.paddingBottom)||0)); cv.setPointerCapture(e.pointerId); }
+});
+cv.addEventListener('pointermove', e => { if(e.pointerId===stick.id){ stick.x=stick.ox+(e.clientX-stick.sx); stick.y=stick.oy+(e.clientY-stick.sy); } });
+const endStick = e => { if(e.pointerId===stick.id) stick.id=null; };
+cv.addEventListener('pointerup', endStick); cv.addEventListener('pointercancel', endStick);
+const fb = document.getElementById('fire');
+fb.addEventListener('pointerdown', e => { fireBtn=true; fb.classList.add('on'); fb.setPointerCapture(e.pointerId); });
+const fireUp = () => { fireBtn=false; fb.classList.remove('on'); };
+fb.addEventListener('pointerup', fireUp); fb.addEventListener('pointercancel', fireUp);
+document.getElementById('tgt').addEventListener('pointerdown', cycleTarget);
+const mapB = document.getElementById('map');
+mapB.addEventListener('pointerdown', () => { mapOpen=!mapOpen; mapB.textContent=mapOpen?'Close':'Map'; document.body.classList.toggle('maponly',mapOpen); stick.id=null; fireUp(); });
+document.getElementById('jump').addEventListener('pointerdown', tryJump);
+const nodePos = s => ({ x:W*0.12+s.x/100*W*0.76, y:SAFE_T+H*0.2+s.y/100*(H*0.6) });
+function toast(t){ msg=t; msgT=2.5; }
+const landB=document.getElementById('landb'), lp=document.getElementById('lp');
+let landed=null, nearP=null;
+let lpView='main', lpMsg='', outSel=null, lpInfo=null;
+function outAct(k,c,x){
+  if (k==='info'){ lpInfo={kind:c,id:x}; }
+  else if (k==='yard'){ lpView='yard'; }
+  else if (k==='buyship'){
+    const f=FRAMES[c], net=f.price-shipValue();
+    if (credits<net) lpMsg='Not enough credits';
+    else if (used()>f.cargo) lpMsg='Cargo hold too full. Sell cargo first';
+    else { credits-=net; setFrame(c); lpInfo=null; lpMsg='You now fly the '+f.name; }
+  }
+  else if (k==='outf'){ lpView='outfit'; outSel=null; }
+  else if (k==='rem' && outSel && outSel.t==='engine'){ lpMsg='The engine cannot be removed'; }
+  else if (k==='back'){ if(lpInfo) lpInfo=null; else if(outSel) outSel=null; else lpView='main'; }
+  else if (k==='slot'){ outSel={t:c,i:+x}; }
+  else if ((k==='inst'||k==='rem') && outSel){
+    const {t,i}=outSel, old=loadout[t][i], key=k==='inst'?c:null;
+    const refund=old?Math.round(OUT[old].price*0.7):0, cost=key?OUT[key].price:0;
+    if (credits+refund<cost) lpMsg='Not enough credits';
+    else { const e=trySet(t,i,key); if(e) lpMsg=e; else { credits+=refund-cost; applyLoadout(); outSel=null; lpInfo=null; } }
+  }
+  else if (k==='convp'){
+    if (conv>=FRAME.convMax) lpMsg='No more bays can be converted';
+    else if (credits<FRAME.convFee) lpMsg='Not enough credits';
+    else { conv++; loadout.weapon.push(null); const e=check(); if(e){ conv--; loadout.weapon.pop(); lpMsg=e; } else { credits-=FRAME.convFee; applyLoadout(); } }
+  }
+  else if (k==='convm'){
+    if (conv<=0) lpMsg='Nothing to convert back';
+    else if (loadout.weapon[loadout.weapon.length-1]) lpMsg='Empty the last weapon slot first';
+    else if (credits<FRAME.convFee/2) lpMsg='Not enough credits';
+    else { conv--; loadout.weapon.pop(); const e=check(); if(e){ conv++; loadout.weapon.push(null); lpMsg=e; } else { credits-=FRAME.convFee/2; applyLoadout(); } }
+  }
+  renderLand();
+}
+const ART = {};   // id -> image URL. Drop real artwork in here later and it replaces the placeholders.
+const LORE = {
+  courier:'The workhorse of the border lanes. Nobody builds Couriers anymore. They just keep getting rebuilt.',
+  scrapper:'Junker-built from three wrecks and a grudge. Fast, loud, and held together by optimism.',
+  warden:'The Peacekeeper patrol standard. Plain, sturdy, and painted so you can see it coming.',
+  patchwork:'A Junker hauler stitched from derelict hulls. Every bay was a different ship once.',
+  arbiter:'A Corpos escort frame, leased rather than sold, in theory. Its guns settle disputes before they start.',
+  ledger:'A Corpos bulk freighter built around one idea: more cargo per credit than anyone else.',
+  bulwark:'What the Peacekeepers send when order needs to be enforced loudly.',
+  blaster:'Standard bolt thrower. Every pilot’s first gun, and sadly, often their last.',
+  pulse:'A rapid-fire light emitter. Junker gunsmiths love it because it forgives bad aim.',
+  cannon:'Slow, brutal, and Peacekeeper-approved. One hit gets a reaction from anyone.',
+  stock:'The factory drive. Reliable, unexciting, and identical to the one in your grandfather’s ship.',
+  ion:'A Corpos-refined ion drive. It costs more, does more, and leaves a bluer trail.',
+  cell:'A capacitor bank bolted to the shield emitter. It buys you a few extra seconds.',
+  pod:'A clip-on cargo pod. Junkers call it a closet. Traders call it profit.',
+  plate:'Layered plating salvaged from the last war. Heavy, ugly, and it works.'
+};
+function icon(kind,id,big){
+  const cls=big?'pic':'ic';
+  if (id && ART[id]) return `<img class='${cls}' src='${ART[id]}' alt=''>`;
+  let g='';
+  if (!id) g=`<rect x='24' y='20' width='52' height='40' rx='6' fill='none' stroke='#4a6078' stroke-dasharray='5 5'/>`;
+  else if (kind==='ship'){ const f=FRAMES[id], s=SHIPS[id], col=f.fac?FACTIONS[f.fac].c:'#cfe8f0'; g=`<polygon transform='translate(50 40) scale(1.7)' points='${s.shape.map(p=>p.join(',')).join(' ')}' fill='#0f1a30' stroke='${col}' stroke-width='1.6'/>`; }
+  else {
+    const o=OUT[id], col={weapon:'#ffb347',engine:'#6fb5e3',utility:'#6fe3c1',hull:'#cfe8f0'}[o.type];
+    g={
+      weapon:`<path d='M20 40h45M58 30l12 10-12 10' fill='none' stroke='${col}' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/>`,
+      engine:`<path d='M30 28h22l16 12-16 12H30z' fill='none' stroke='${col}' stroke-width='4' stroke-linejoin='round'/><path d='M22 34l-8 6 8 6' fill='none' stroke='#ffb347' stroke-width='4' stroke-linecap='round'/>`,
+      utility:`<path d='M50 18l22 10v16c0 10-9 17-22 22-13-5-22-12-22-22V28z' fill='none' stroke='${col}' stroke-width='4' stroke-linejoin='round'/>`,
+      hull:`<rect x='24' y='24' width='52' height='32' rx='5' fill='none' stroke='${col}' stroke-width='4'/><path d='M24 40h52M50 24v32' stroke='${col}' stroke-width='3'/>`
+    }[o.type];
+  }
+  return `<svg class='${cls}' viewBox='0 0 100 80' xmlns='http://www.w3.org/2000/svg'>${g}</svg>`;
+}
+function renderInfo(){
+  const {kind,id}=lpInfo, ship=kind==='ship', o=ship?FRAMES[id]:OUT[id];
+  let sub, rows, err, buy;
+  if (ship){
+    const sl=o.slots, B=SHIPS[id], net=o.price-shipValue();
+    err=id===frameId?'Current ship':(credits<net?'Not enough credits':(used()>o.cargo?'Sell cargo first':''));
+    sub=o.fac?FACTIONS[o.fac].name:'Independent';
+    rows=[['Price',o.price],['Net cost after trade-in',net],['Mass limit',o.massCap],['Cargo',o.cargo],['Weapon slots',sl.weapon],['Utility slots',sl.utility],['Hull slots',sl.hull],['Thrust',B.thrust],['Top speed',B.max],['Shield',B.shield],['Armor',B.armor]];
+    buy=`buyship:${id}`;
+  } else {
+    const {t,i}=outSel||{}, cur=outSel?loadout[t][i]:null, refund=cur?Math.round(OUT[cur].price*0.7):0;
+    err=!outSel?'Pick a slot first':(wouldErr(t,i,id)||(credits+refund<o.price?'Not enough credits':''));
+    sub=cap(o.type)+' · tech '+o.tech;
+    rows=[['Price',o.price],['Net cost',o.price-refund],['Mass',o.mass],['Effect',desc(o)]];
+    buy=`inst:${id}`;
+  }
+  let h=`<div class='in'>${icon(kind,id,true)}<h2>${o.name}</h2><div class='sub'>${sub}</div><p class='lore'>${LORE[id]||''}</p>`;
+  if (lpMsg){ h+=`<div class='sub' style='color:#ffb347'>${lpMsg}</div>`; lpMsg=''; }
+  h+=rows.map(r=>`<div class='row'><span>${r[0]}</span><span>${r[1]}</span></div>`).join('');
+  lp.innerHTML=h+`<div class='row'><span>${err?`<span style='color:#7f9bb0'>${err}</span>`:`<button data-a='${buy}'>Buy</button>`}</span><button data-a='back'>Back</button></div></div>`; lp.hidden=false;
+}
+function renderYard(){
+  const o=OWNER[sysId];
+  let h=`<div class='in'><h2>Shipyard</h2><div class='sub'>${landed.name} · ${FACTIONS[o].name} · Credits ${credits} · Trade-in ${shipValue()}</div>`;
+  if (lpMsg){ h+=`<div class='sub' style='color:#ffb347'>${lpMsg}</div>`; lpMsg=''; }
+  for (const id in FRAMES){
+    const f=FRAMES[id]; if (f.fac && f.fac!==o) continue;
+    const sl=f.slots, net=f.price-shipValue();
+    const err=id===frameId?'Current ship':(credits<net?'Not enough credits':(used()>f.cargo?'Sell cargo first':''));
+    h+=`<div class='row'><span class='it'>${icon('ship',id)}<span>${f.name}: mass ${f.massCap}, cargo ${f.cargo}, weapons ${sl.weapon}, utility ${sl.utility}, hull ${sl.hull}, ${net>=0?'cost '+net:'refund '+(-net)}</span></span><span><button data-a='info:ship:${id}'>Info</button>${err?`<span style='color:#7f9bb0'>${err}</span>`:`<button data-a='buyship:${id}'>Buy</button>`}</span></div>`;
+  }
+  lp.innerHTML=h+`<div class='row'><span>Buying a ship sells your current ship and outfits at 70%.</span><button data-a='back'>Back</button></div></div>`; lp.hidden=false;
+}
+function renderOutfit(){
+  const tech=TECH[OWNER[sysId]];
+  let h=`<div class='in'><h2>Outfitter</h2><div class='sub'>${landed.name} · tech ${tech} · Credits ${credits}</div>`;
+  if (lpMsg){ h+=`<div class='sub' style='color:#ffb347'>${lpMsg}</div>`; lpMsg=''; }
+  h+=`<div class='row'><span>Mass ${massUsed()}/${FRAME.massCap}</span><span>Cargo space ${cargoMax()}</span></div>`;
+  if (!outSel){
+    for (const t in loadout) loadout[t].forEach((k,i) => { h+=`<div class='row'><span class='it'>${icon('out',k)}<span>${cap(t)} ${i+1}: ${k?OUT[k].name:'empty'}</span></span><button data-a='slot:${t}:${i}'>Change</button></div>`; });
+    h+=`<div class='row'><span>Convert ${FRAME.convRate} cargo into a weapon slot (${conv}/${FRAME.convMax})</span><span><button data-a='convp'>+ ${FRAME.convFee}</button><button data-a='convm'>- ${FRAME.convFee/2}</button></span></div>`;
+  } else {
+    const {t,i}=outSel, cur=loadout[t][i];
+    h+=`<div class='sub'>${cap(t)} ${i+1}</div>`;
+    for (const key in OUT){
+      const o=OUT[key]; if(o.type!==t||o.tech>tech||key===cur) continue;
+      const refund=cur?Math.round(OUT[cur].price*0.7):0, net=o.price-refund, err=wouldErr(t,i,key)||(credits+refund<o.price?'Not enough credits':'');
+      h+=`<div class='row'><span class='it'>${icon('out',key)}<span>${o.name}: ${desc(o)}, mass ${o.mass}, ${net>=0?'cost '+net:'refund '+(-net)}</span></span><span><button data-a='info:out:${key}'>Info</button>${err?`<span style='color:#7f9bb0'>${err}</span>`:`<button data-a='inst:${key}'>Buy</button>`}</span></div>`;
+    }
+    if (cur && t!=='engine') h+=`<div class='row'><span>Remove ${OUT[cur].name} (refund ${Math.round(OUT[cur].price*0.7)})</span><button data-a='rem'>Remove</button></div>`;
+  }
+  lp.innerHTML=h+`<div class='row'><button data-a='back'>Back</button></div></div>`; lp.hidden=false;
+}
+landB.addEventListener('pointerdown', tryLand);
+const used=()=>Object.values(cargo).reduce((a,b)=>a+b,0);
+const price=(p,c)=>Math.max(1,Math.round(COMM[c]*(0.6+0.8*hs(p.name+c))));
+function tryLand(){
+  if(!nearP||landed||player.dead) return;
+  if(Math.hypot(player.vx,player.vy)>110) return toast('Too fast to land. Ease off the thrust');
+  const o=OWNER[sysId];
+  if(standing[o]<=-25) return toast('Docking denied: '+FACTIONS[o].name+' standing is hostile');
+  landed=nearP; lpView='main'; outSel=null; player.sh=player.d.shield; player.ar=player.d.armor; player.vx=player.vy=0; document.body.classList.add('maponly'); renderLand();
+}
+function renderLand(){
+  if (lpInfo) return renderInfo();
+  if (lpView==='outfit') return renderOutfit();
+  if (lpView==='yard') return renderYard();
+  const o=OWNER[sysId], F=FACTIONS[o];
+  let h=`<div class='in'><h2>${landed.name}</h2><div class='sub' style='color:${F.c}'>${F.name} · ${band(standing[o])} (${standing[o]})</div>`+
+   `<div class='row'><span>Credits ${credits}</span><span>Fuel ${fuel}/${FUEL_MAX}</span><span>Cargo ${used()}/${CARGO_MAX}</span></div>`+
+   `<div class='row'><span>Fuel, ${FUEL_PRICE} each</span><span><button data-a='fuel1'>Buy 1</button><button data-a='fuelF'>Fill</button></span></div>`;
+  for(const c in COMM) h+=`<div class='row'><span>${c[0].toUpperCase()+c.slice(1)}: ${price(landed,c)} each, held ${cargo[c]}</span><span><button data-a='b1:${c}'>Buy 1</button><button data-a='b5:${c}'>Buy 5</button><button data-a='s:${c}'>Sell all</button></span></div>`;
+  lp.innerHTML=h+`<div class='row'><span><button data-a='outf'>Outfitter</button><button data-a='yard'>Shipyard</button><button data-a='off'>Take off</button></span></div></div>`; lp.hidden=false;
+}
+lp.addEventListener('click', e=>{
+  const a=e.target.dataset&&e.target.dataset.a; if(!a||!landed) return;
+  const [k,c,x]=a.split(':');
+  if (['outf','back','slot','inst','rem','convp','convm','yard','buyship','info'].includes(k)) return outAct(k,c,x);
+  if(k==='off'){ landed=null; lp.hidden=true; document.body.classList.remove('maponly'); return; }
+  if(k==='fuel1'||k==='fuelF'){ const n=k==='fuel1'?1:FUEL_MAX-fuel; for(let i=0;i<n&&fuel<FUEL_MAX&&credits>=FUEL_PRICE;i++){ fuel++; credits-=FUEL_PRICE; } }
+  else if(k==='s'){ credits+=cargo[c]*price(landed,c); cargo[c]=0; }
+  else { const n=k==='b5'?5:1, pr=price(landed,c); for(let i=0;i<n&&used()<CARGO_MAX&&credits>=pr;i++){ cargo[c]++; credits-=pr; } }
+  renderLand();
+});
+function pickNode(x,y){
+  for (const k of SYSTEMS[sysId].links){ const p=nodePos(SYSTEMS[k]); if (Math.hypot(p.x-x,p.y-y)<34){ dest=k; toast('Jump set: '+SYSTEMS[k].name); return; } }
+}
+function tryJump(){
+  if (jumpT>0 || player.dead) return;
+  if (!dest) return toast('Open the map and pick a linked system');
+  if (fuel<1) return toast('Out of fuel. Land on a world to refuel');
+  if (Math.hypot(player.x,player.y)<JUMP_R) return toast('Fly outside the dashed ring to jump');
+  jumpT=1.2;
+}
+function doJump(){
+  const from=SYSTEMS[sysId], to=SYSTEMS[dest];
+  const a=Math.atan2(from.y-to.y, from.x-to.x);
+  sysId=dest; dest=null; fuel-=1;
+  ships=[player]; shots=[]; parts=[]; player.tgt=null; spawnT=2;
+  player.x=Math.cos(a)*(JUMP_R+100); player.y=Math.sin(a)*(JUMP_R+100);
+  player.a=a+Math.PI; player.vx=Math.cos(player.a)*140; player.vy=Math.sin(player.a)*140;
+  cam.x=player.x; cam.y=player.y; flash=1; popT=12; fillTraffic(true);
+}
+addEventListener('contextmenu', e => e.preventDefault());
+
+function readInput(){
+  const i = player.in;
+  i.fire = fireBtn || !!keys.Space;
+  if (stick.id !== null){
+    const dx=stick.x-stick.ox, dy=stick.y-stick.oy, m=Math.min(1,Math.hypot(dx,dy)/R);
+    i.aim = m>0.18 ? Math.atan2(dy,dx) : null; i.turn = 0;
+    i.thrust = m>0.35 ? Math.min(1,(m-0.3)/0.5) : 0;
+  } else {
+    i.aim = null;
+    i.turn = ((keys.ArrowRight||keys.KeyD)?1:0) - ((keys.ArrowLeft||keys.KeyA)?1:0);
+    i.thrust = (keys.ArrowUp||keys.KeyW)?1:0;
+  }
+}
+function cycleTarget(){
+  const foes = ships.filter(s => s !== player && !s.dead).sort((a,b) => dist(player,a)-dist(player,b));
+  if (!foes.length) return;
+  const n = foes.indexOf(player.tgt); player.tgt = foes[(n+1)%foes.length];
+}
+const dist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
+
+// ---------- SIM ----------
+function stepShip(s,dt){
+  const d=s.d, i=s.in, tr=d.turn*Math.PI/180*dt;
+  let turn = i.aim!=null ? Math.max(-1,Math.min(1,angDiff(s.a,i.aim)/tr)) : i.turn;
+  s.a += turn*tr;
+  let th = i.thrust;
+  if (i.aim!=null && Math.abs(angDiff(s.a,i.aim))>1.1) th = 0;
+  const c=Math.cos(s.a), sn=Math.sin(s.a);
+  if (th>0){
+    s.vx += c*d.thrust*th*dt; s.vy += sn*d.thrust*th*dt;
+    if (Math.random()<0.7) parts.push({x:s.x-c*d.r,y:s.y-sn*d.r,vx:s.vx-c*90+rnd(-20,20),vy:s.vy-sn*90+rnd(-20,20),life:.35,max:.35,c:'#ffb347'});
+  } else { const k=Math.max(0,1-ASSIST*dt); s.vx*=k; s.vy*=k; }
+  const sp=Math.hypot(s.vx,s.vy); if(sp>d.max){ s.vx*=d.max/sp; s.vy*=d.max/sp; }
+  s.x+=s.vx*dt; s.y+=s.vy*dt;
+  s.sh=Math.min(d.shield,s.sh+d.regen*dt); s.hit=Math.max(0,s.hit-dt);
+  d.weapons.forEach((w,n) => {
+    s.cd[n]-=dt;
+    if (i.fire && s.cd[n]<=0){
+      s.cd[n]=w.cd;
+      shots.push({ x:s.x+c*w.off[0]-sn*w.off[1], y:s.y+sn*w.off[0]+c*w.off[1],
+        vx:s.vx+c*w.speed, vy:s.vy+sn*w.speed, life:w.life, dmg:w.dmg, team:s.team, src:s, c:w.color });
+    }
+  });
+}
+function hostile(a,b){
+  const fa=a.fac||(a.team===1?'pirate':null), fb=b.fac||(b.team===1?'pirate':null);
+  if (fa==='pirate') return fb!=='pirate';
+  if (fb==='pirate') return true;
+  if (!fa) return false;
+  if (!fb) return standing[fa]<=-25 || !!a.angry;
+  return fa!==fb && pv(fa,fb)<=-50;
+}
+function pickTarget(s,range){
+  let best=null, bd=range;
+  for (const t of ships){ if(t===s||t.dead||!hostile(s,t)) continue; const d=Math.hypot(t.x-s.x,t.y-s.y); if(d<bd){ bd=d; best=t; } }
+  return best;
+}
+function mkF(id,f,role,x,y){
+  const s=mk(id,x,y,true); Object.assign(s,{fac:f,role,team:2,col:FACTIONS[f].c,angry:false});
+  if (role==='trader'){
+    const P=SYSTEMS[sysId].planets;
+    if (Math.random()<0.6){ const p=P[Math.floor(rnd(0,P.length))]; s.gx=p.x; s.gy=p.y; }
+    else { const a=rnd(0,6.28); s.gx=Math.cos(a)*(JUMP_R+500); s.gy=Math.sin(a)*(JUMP_R+500); }
+  } else { s.gx=rnd(-500,500); s.gy=rnd(-500,500); }
+  return s;
+}
+function fillTraffic(init){
+  const own=OWNER[sysId], sys=SYSTEMS[sysId];
+  const count=(f,r)=>ships.filter(s=>s.fac===f&&s.role===r&&!s.dead).length;
+  const place=()=>{ const a=rnd(0,6.28), r=init?rnd(150,JUMP_R):900, c=init?{x:0,y:0}:player; return [c.x+Math.cos(a)*r, c.y+Math.sin(a)*r]; };
+  while (count(own,'patrol')<1+(sys.danger>=2?1:0)){ const [x,y]=place(); ships.push(mkF(PATROL[own],own,'patrol',x,y)); }
+  while (count(own,'trader')<(sys.danger>=3?1:3)){ const [x,y]=place(); ships.push(mkF('hauler',own,'trader',x,y)); }
+  if (init) sys.links.forEach(l => { const f=OWNER[l]; if(f!==own && Math.random()<0.6){ const [x,y]=place(); ships.push(mkF(PATROL[f],f,'patrol',x,y)); } });
+}
+function thinkFac(s){
+  const i=s.in, armed=s.d.weapons.length>0;
+  const foe=pickTarget(s,armed?650:550);
+  if (foe && armed){
+    const dx=foe.x-s.x, dy=foe.y-s.y, dd=Math.hypot(dx,dy), tl=dd/520;
+    const ang=Math.atan2(dy+(foe.vy-s.vy)*tl, dx+(foe.vx-s.vx)*tl);
+    if (s.ar<s.d.armor*0.3){ i.aim=ang+Math.PI; i.thrust=1; return; }
+    i.aim=ang; i.thrust=dd>240?1:(dd<110?0:0.35); i.fire=dd<430&&Math.abs(angDiff(s.a,ang))<0.12; return;
+  }
+  if (foe){ i.aim=Math.atan2(s.y-foe.y,s.x-foe.x); i.thrust=1; return; }
+  const gx=s.gx-s.x, gy=s.gy-s.y;
+  if (Math.hypot(gx,gy)<60){ if(s.role==='trader'){ s.dead=true; return; } s.gx=rnd(-500,500); s.gy=rnd(-500,500); }
+  i.aim=Math.atan2(gy,gx); i.thrust=s.role==='trader'?1:0.6;
+}
+function think(s){
+  const i=s.in; i.fire=false;
+  if (s.fac) return thinkFac(s);
+  const t=pickTarget(s,900)||player;
+  if (t.dead){ i.thrust=0; i.aim=null; return; }
+  const dx=t.x-s.x, dy=t.y-s.y, dd=Math.hypot(dx,dy);
+  const lead=dd/520, toward=Math.atan2(dy+(t.vy-s.vy)*lead, dx+(t.vx-s.vx)*lead);
+  if (s.ar < s.d.armor*0.3){ i.aim=toward+Math.PI; i.thrust=1; if(dd>1200) s.dead=true; return; }  // flee
+  i.aim=toward;
+  i.thrust = dd>240 ? 1 : (dd<110 ? 0 : 0.35);
+  i.fire = dd<430 && Math.abs(angDiff(s.a,toward))<0.12;
+}
+function damage(s,n,src){
+  if (src===player && s.fac && !s.angry && !hostile(s,player)){
+    standing[s.fac]=Math.max(-100,standing[s.fac]-8);
+    Object.keys(standing).forEach(f => { if(f!==s.fac && pv(f,s.fac)<=-50) standing[f]=Math.min(100,standing[f]+2); });
+    ships.forEach(o => { if(o.fac===s.fac) o.angry=true; });
+    toast('Attacking '+FACTIONS[s.fac].name+' costs you standing');
+  }
+  s.hit=0.25;
+  if (s.sh>0){ const a=Math.min(s.sh,n); s.sh-=a; n-=a; }
+  s.ar-=n;
+  if (s.ar<=0 && !s.dead){
+    s.dead=true;
+    for(let k=0;k<36;k++){ const a=rnd(0,6.28), v=rnd(30,220); parts.push({x:s.x,y:s.y,vx:s.vx*.5+Math.cos(a)*v,vy:s.vy*.5+Math.sin(a)*v,life:rnd(.4,.9),max:.9,c:k%2?'#ffb347':'#cfe8f0'}); }
+    if (s.team===1){ spawnT=3; if(src===player){ kills++; const o=OWNER[sysId]; standing[o]=Math.min(100,standing[o]+2); } } else if (s===player) respawnT=2.2; else if (s.fac && src===player) standing[s.fac]=Math.max(-100,standing[s.fac]-5);
+  }
+}
+function update(dt){
+  if (mapOpen || landed) return;
+  msgT-=dt; flash=Math.max(0,flash-dt*1.5);
+  if (jumpT>0){ jumpT-=dt; if(jumpT<=0) doJump(); }
+  nearP=null; if(!player.dead) for(const p of SYSTEMS[sysId].planets) if(Math.hypot(player.x-p.x,player.y-p.y)<p.r+70) nearP=p;
+  landB.classList.toggle('show',!!nearP);
+  if ((popT-=dt)<=0){ popT=12; fillTraffic(false); }
+  time+=dt;
+  if (player.dead){ respawnT-=dt; if(respawnT<=0){ spawnPlayer(); } } else readInput();
+  if (ships.filter(s=>s.team===1).length<SYSTEMS[sysId].danger && (spawnT-=dt)<=0){ spawnT=4;
+    const a=rnd(0,6.28); ships.push(mk('raider',player.x+Math.cos(a)*750,player.y+Math.sin(a)*750,true));
+  }
+  ships.forEach(s => { if(s.ai) think(s); stepShip(s,dt); });
+  shots.forEach(b => {
+    b.x+=b.vx*dt; b.y+=b.vy*dt; b.life-=dt;
+    for (const s of ships) if (s!==b.src && (b.src===player||hostile(b.src,s)) && !s.dead && Math.hypot(s.x-b.x,s.y-b.y)<s.d.r+3){
+      b.life=0; damage(s,b.dmg,b.src);
+      for(let k=0;k<4;k++) parts.push({x:b.x,y:b.y,vx:rnd(-80,80),vy:rnd(-80,80),life:.25,max:.25,c:b.c});
+      break;
+    }
+  });
+  shots = shots.filter(b => b.life>0);
+  parts.forEach(p => { p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt; });
+  parts = parts.filter(p => p.life>0);
+  ships = ships.filter(s => !s.dead);
+  if (!player.dead){
+    if (player.tgt && player.tgt.dead) player.tgt=null;
+    if (!player.tgt) cycleTarget();
+    const k=Math.min(1,dt*6); cam.x+=(player.x+player.vx*.25-cam.x)*k; cam.y+=(player.y+player.vy*.25-cam.y)*k;
+  }
+}
+
+// ---------- RENDER ----------
+function bar(x,y,w,v,col){ g.fillStyle='rgba(207,232,240,.15)'; g.fillRect(x,y,w,6); g.fillStyle=col; g.fillRect(x,y,w*Math.max(0,Math.min(1,v)),6); }
+function draw(){
+  g.setTransform(DPR,0,0,DPR,0,0);
+  g.fillStyle='#0a1020'; g.fillRect(0,0,W,H);
+  const S=Math.max(W,H);
+  stars.forEach((L,l) => { g.fillStyle=['#4a6078','#7f9bb0','#cfe8f0'][l];
+    L.forEach(st => { const x=(((st[0]*S-cam.x*PAR[l])%S)+S)%S, y=(((st[1]*S-cam.y*PAR[l])%S)+S)%S; g.fillRect(x,y,l+1,l+1); }); });
+
+  g.setTransform(DPR*Z,0,0,DPR*Z,DPR*W/2,DPR*H/2); g.translate(-cam.x,-cam.y);
+  g.setLineDash([10,14]); g.strokeStyle='rgba(207,232,240,'+(dest?0.35:0.14)+')'; g.lineWidth=2; g.beginPath(); g.arc(0,0,JUMP_R,0,6.29); g.stroke(); g.setLineDash([]);
+  g.textBaseline='top'; g.textAlign='center'; g.font='600 12px system-ui,sans-serif';
+  SYSTEMS[sysId].planets.forEach(p => {
+    g.fillStyle=p.c; g.globalAlpha=.85; g.beginPath(); g.arc(p.x,p.y,p.r,0,6.29); g.fill(); g.globalAlpha=1;
+    g.strokeStyle='rgba(207,232,240,.5)'; g.lineWidth=1.5; g.stroke(); g.fillStyle='#cfe8f0'; g.fillText(p.name,p.x,p.y+p.r+6);
+  });
+  g.textAlign='left';
+  parts.forEach(p => { g.globalAlpha=p.life/p.max; g.fillStyle=p.c; g.fillRect(p.x-1.5,p.y-1.5,3,3); }); g.globalAlpha=1;
+  shots.forEach(b => { g.strokeStyle=b.c; g.lineWidth=2.5; g.beginPath(); g.moveTo(b.x,b.y); g.lineTo(b.x-b.vx*.03,b.y-b.vy*.03); g.stroke(); });
+  ships.forEach(s => {
+    g.save(); g.translate(s.x,s.y); g.rotate(s.a);
+    g.beginPath(); s.d.shape.forEach((p,i)=> i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])); g.closePath();
+    g.fillStyle='#0f1a30'; g.fill(); g.strokeStyle=s.col||s.d.color; g.lineWidth=1.8; g.stroke(); g.restore();
+    if (s.hit>0 && s.sh>0){ g.strokeStyle='rgba(111,227,193,'+(s.hit*3)+')'; g.lineWidth=2; g.beginPath(); g.arc(s.x,s.y,s.d.r+5,0,6.29); g.stroke(); }
+  });
+  const t = player.tgt;
+  if (t){ const r=t.d.r+10; g.strokeStyle='#6fe3c1'; g.lineWidth=1.5; g.beginPath();
+    [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([sx,sy]) => { g.moveTo(t.x+sx*r,t.y+sy*r*.4); g.lineTo(t.x+sx*r,t.y+sy*r); g.lineTo(t.x+sx*r*.4,t.y+sy*r); });
+    g.stroke(); }
+
+  // screen-space HUD
+  g.setTransform(DPR,0,0,DPR,0,0);
+  const top = SAFE_T + 16, left = 16;
+  g.font='600 12px system-ui,sans-serif'; g.textBaseline='top'; g.fillStyle='#cfe8f0';
+  g.fillText('Shield', left, top); bar(left+52,top+3,110,player.sh/player.d.shield,'#6fe3c1');
+  g.fillText('Armor', left, top+16); bar(left+52,top+19,110,player.ar/player.d.armor,'#ffb347');
+  g.fillText('Fuel', left, top+32); bar(left+52,top+35,110,fuel/FUEL_MAX,'#cfe8f0');
+  g.fillText('Credits '+credits+'  Cargo '+used()+'/'+CARGO_MAX+'  Kills '+kills, left, top+50);
+  if (t){
+    g.fillText((t.fac?FACTIONS[t.fac].name+' ':'')+t.d.name+(hostile(t,player)?' (hostile)':''), left, top+74); bar(left,top+92,162,t.sh/t.d.shield,'#6fe3c1'); bar(left,top+102,162,t.ar/t.d.armor,'#ff7b7b');
+    const sx=W/2+(t.x-cam.x)*Z, sy=H/2+(t.y-cam.y)*Z;
+    if (sx<0||sx>W||sy<0||sy>H){ const a=Math.atan2(sy-H/2,sx-W/2), ex=W/2+Math.cos(a)*(W/2-24), ey=H/2+Math.sin(a)*(H/2-24);
+      const k=Math.min((W/2-24)/Math.max(1e-3,Math.abs(Math.cos(a))),(H/2-24)/Math.max(1e-3,Math.abs(Math.sin(a))));
+      const px=W/2+Math.cos(a)*k, py=H/2+Math.sin(a)*k;
+      g.save(); g.translate(px,py); g.rotate(a); g.fillStyle='#6fe3c1'; g.beginPath(); g.moveTo(10,0); g.lineTo(-8,-7); g.lineTo(-8,7); g.fill(); g.restore(); }
+  }
+  // radar
+  const rx=W-70, ry=top+54, rr=48, range=1600;
+  g.fillStyle='rgba(10,16,32,.7)'; g.strokeStyle='rgba(207,232,240,.35)'; g.lineWidth=1.2;
+  g.beginPath(); g.arc(rx,ry,rr,0,6.29); g.fill(); g.stroke();
+  ships.forEach(s => { if(s===player) return; const dx=(s.x-player.x)/range*rr, dy=(s.y-player.y)/range*rr, m=Math.hypot(dx,dy), k=m>rr-4?(rr-4)/m:1;
+    g.fillStyle = s===t ? '#6fe3c1' : (s.fac?FACTIONS[s.fac].c:'#ff7b7b'); g.fillRect(rx+dx*k-2,ry+dy*k-2,4,4); });
+  g.fillStyle='#cfe8f0'; g.fillRect(rx-2,ry-2,4,4);
+  // stick
+  if (stick.id!==null){
+    const dx=stick.x-stick.ox, dy=stick.y-stick.oy, m=Math.min(R,Math.hypot(dx,dy)), a=Math.atan2(dy,dx);
+    g.strokeStyle='rgba(207,232,240,.4)'; g.lineWidth=2; g.beginPath(); g.arc(stick.ox,stick.oy,R,0,6.29); g.stroke();
+    g.fillStyle='rgba(207,232,240,.35)'; g.beginPath(); g.arc(stick.ox+Math.cos(a)*m,stick.oy+Math.sin(a)*m,24,0,6.29); g.fill();
+  }
+  if (time<8){ g.globalAlpha=Math.min(1,(8-time)); g.fillStyle='#cfe8f0'; g.textAlign='center'; g.fillText('Drag on the left to steer. Hold Fire to shoot. Target cycles foes.', W/2, H-24-0); g.textAlign='left'; g.globalAlpha=1; }
+  if (player.dead){ g.fillStyle='#ff7b7b'; g.font='600 20px system-ui,sans-serif'; g.textAlign='center'; g.fillText('Ship destroyed. Launching a new one…', W/2, H/2-10); g.textAlign='left'; }
+}
+
+function drawOverlays(){
+  g.setTransform(DPR,0,0,DPR,0,0); g.textBaseline='top'; g.textAlign='center'; g.font='600 13px system-ui,sans-serif';
+  const top=SAFE_T+16;
+  const o=OWNER[sysId]; g.fillStyle=FACTIONS[o].c; g.fillText(SYSTEMS[sysId].name+' · '+FACTIONS[o].name+' ('+band(standing[o])+')'+(dest?'  to  '+SYSTEMS[dest].name:''), W/2, top);
+  if (msgT>0){ g.fillStyle='#ffb347'; g.fillText(msg, W/2, top+20); }
+  const fa = jumpT>0 ? 1-jumpT/1.2 : flash;
+  if (fa>0){ g.fillStyle='rgba(207,232,240,'+fa+')'; g.fillRect(0,0,W,H); }
+  if (mapOpen) drawMap();
+  g.textAlign='left';
+}
+function drawMap(){
+  g.fillStyle='rgba(10,16,32,.95)'; g.fillRect(0,0,W,H);
+  g.fillStyle='#cfe8f0'; g.font='600 16px system-ui,sans-serif'; g.fillText('Galaxy map', W/2, SAFE_T+16);
+  g.font='500 12px system-ui,sans-serif'; g.fillStyle='#7f9bb0'; g.fillText('Tap a linked system to set your jump. Red marks show raider patrols.', W/2, SAFE_T+38);
+  const cur=SYSTEMS[sysId];
+  Object.entries(SYSTEMS).forEach(([k,s]) => s.links.forEach(l => { if (k<l){
+    const a=nodePos(s), b=nodePos(SYSTEMS[l]), hot=(k===sysId&&l===dest)||(l===sysId&&k===dest);
+    g.strokeStyle=hot?'#6fe3c1':'rgba(207,232,240,.22)'; g.lineWidth=hot?3:1.5; g.beginPath(); g.moveTo(a.x,a.y); g.lineTo(b.x,b.y); g.stroke();
+  }}));
+  Object.entries(SYSTEMS).forEach(([k,s]) => {
+    const p=nodePos(s), adj=cur.links.includes(k), here=k===sysId;
+    g.strokeStyle=here?'#ffb347':k===dest?'#6fe3c1':adj?'#cfe8f0':'#4a6078'; g.lineWidth=(here||k===dest)?3:2;
+    g.fillStyle=FACTIONS[OWNER[k]].c; g.beginPath(); g.arc(p.x,p.y,here?13:10,0,6.29); g.fill(); g.stroke();
+    g.fillStyle=(adj||here)?'#cfe8f0':'#6f8aa0'; g.fillText(s.name,p.x,p.y+20);
+    for (let n=0;n<s.danger;n++){ g.fillStyle='#ff7b7b'; g.fillRect(p.x-s.danger*3.5+n*7,p.y+38,5,5); }
+  });
+  g.textAlign='left'; g.font='600 12px system-ui,sans-serif';
+  const by=H-(parseFloat(root.paddingBottom)||0)-20-UNIVERSE.length*18;
+  UNIVERSE.forEach((f,i) => { g.fillStyle=FACTIONS[f].c; g.fillRect(16,by+i*18+2,10,10); g.fillStyle='#cfe8f0'; g.fillText(FACTIONS[f].name+'  '+band(standing[f])+' ('+standing[f]+')',34,by+i*18); });
+  g.fillStyle='#7f9bb0'; g.fillText('Fuel '+fuel+'/'+FUEL_MAX+'   Credits '+credits, 16, by-20);
+  g.textAlign='center';
+}
+let last=performance.now(), acc=0;
+function frame(t){ acc+=Math.min(.1,(t-last)/1000); last=t; while(acc>=1/60){ update(1/60); acc-=1/60; } draw(); drawOverlays(); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
