@@ -31,6 +31,14 @@ button{position:fixed;border-radius:50%;font:600 14px system-ui,sans-serif;color
 .pic{display:block;width:100%;max-width:320px;height:auto;margin:0 auto 10px;background:#0f1a30;border:1px solid #2a3a55;border-radius:12px;object-fit:cover}
 #lp .lore{color:#9fb6c6;line-height:1.45;margin:6px 0 12px}
 .maponly #fire,.maponly #tgt,.maponly #jump,.maponly #landb{display:none}
+#menu{display:none;left:calc(14px + env(safe-area-inset-left,0px));top:calc(14px + env(safe-area-inset-top,0px));width:56px;height:56px;border:2px solid var(--ink);background:rgba(207,232,240,.1)}
+.maponly #menu{display:block}
+#gp{position:fixed;inset:0;z-index:10;background:rgba(10,16,32,.98);overflow:auto;touch-action:pan-y;padding:calc(18px + env(safe-area-inset-top,0px)) 18px 24px;box-sizing:border-box;user-select:text;-webkit-user-select:text}
+#gp .in{max-width:520px;margin:0 auto}
+#gp h2{margin:0 0 4px;font-size:22px}
+#gp .sub{margin-bottom:10px}
+#gp button{position:static;width:auto;height:auto;border-radius:8px;padding:10px 14px;margin:4px 6px 4px 0;border:1px solid #4a6078;background:#0f1a30}
+#gp textarea{width:100%;height:110px;box-sizing:border-box;background:#0f1a30;color:var(--ink);border:1px solid #2a3a55;border-radius:8px;font:12px monospace;margin:6px 0;touch-action:auto}
 </style>
 </head>
 <body>
@@ -40,7 +48,9 @@ button{position:fixed;border-radius:50%;font:600 14px system-ui,sans-serif;color
 <button id="jump">Jump</button>
 <button id="map">Map</button>
 <button id="landb">Land</button>
+<button id="menu">File</button>
 <div id="lp" hidden></div>
+<div id="gp" hidden></div>
 <script>
 // ---------- DATA (swap this out for JSON files later) ----------
 const SHIPS = {
@@ -53,39 +63,156 @@ const SHIPS = {
 };
 const ASSIST = 0.8;   // drag when not thrusting (flight assist)
 const JUMP_R = 700;   // fly outside this ring to jump
-const SYSTEMS = {
-  hearth:{ name:'Hearth', x:10, y:52, danger:1, links:['vael','orrin'], planets:[{x:-260,y:160,r:44,c:'#6fb5e3',name:'Hearth Prime'}] },
-  vael:  { name:'Vael',   x:38, y:10, danger:1, links:['hearth','kesh','drift'], planets:[{x:300,y:-180,r:36,c:'#b58be0',name:'Vael II'},{x:-380,y:220,r:22,c:'#8fbf8f',name:'Vael Moon'}] },
-  orrin: { name:'Orrin',  x:26, y:90, danger:1, links:['hearth','kesh','lumen'], planets:[{x:-320,y:-200,r:50,c:'#e0a36f',name:'Orrin'}] },
-  kesh:  { name:'Kesh',   x:66, y:38, danger:2, links:['vael','orrin','drift','lumen'], planets:[{x:260,y:260,r:40,c:'#e07f7f',name:'Kesh Station'}] },
-  drift: { name:'Drift',  x:92, y:12, danger:3, links:['kesh'], planets:[{x:-200,y:-300,r:26,c:'#9aa7b5',name:'Drift Wreck'}] },
-  lumen: { name:'Lumen',  x:78, y:80, danger:0, links:['kesh'], planets:[{x:340,y:120,r:56,c:'#e3d36f',name:'Lumen Gardens'}] }
+// ---------- CONTENT (handwritten; each key becomes its own JSON file/folder later) ----------
+const CONTENT = {
+  version: 1,
+  systemCount: 50,
+  nameParts: { start:['Ka','Vel','Or','Tam','Os','Bra','Il','Cal','Ny','Dra','Lum','Hes','Zan','Mir','Sol','Ar'], mid:['','ra','li','den','ko','ve'], end:['n','s','th','x','m','ria','dor','is','on','ax'] },
+  // Ship classes are shared templates; each faction names them and applies style/bias multipliers (price, spd, def, cargo, dmg).
+  shipClasses: {
+    racer:    { label:'Racer',         tech:1, price:2200,  thrust:330, turn:280, max:420, shield:30,  armor:40,  regen:5,  r:12, cargo:10,  mass:40,  slots:[1,1,1,1], guns:1, dmg:5,  cd:0.3,  shape:[[18,0],[-8,-6],[-4,0],[-8,6]], blurb:'A stripped-down speed frame built to outrun trouble.' },
+    fighter:  { label:'Fighter',       tech:1, price:2000,  thrust:270, turn:230, max:330, shield:55,  armor:70,  regen:5,  r:14, cargo:15,  mass:60,  slots:[2,1,1,1], guns:2, dmg:7,  cd:0.3,  shape:[[16,0],[-10,-9],[-5,0],[-10,9]], blurb:'A nimble all-rounder and the backbone of any patrol.' },
+    cruiser:  { label:'Cruiser',       tech:3, price:9000,  thrust:190, turn:140, max:260, shield:110, armor:150, regen:6,  r:19, cargo:40,  mass:200, slots:[4,1,2,3], guns:3, dmg:9,  cd:0.35, shape:[[20,0],[4,-8],[-12,-11],[-8,0],[-12,11],[4,8]], blurb:'A balanced warship with real armor and real guns.' },
+    destroyer:{ label:'Destroyer',     tech:3, price:12000, thrust:175, turn:120, max:240, shield:140, armor:200, regen:7,  r:22, cargo:30,  mass:260, slots:[5,1,2,4], guns:4, dmg:11, cd:0.35, shape:[[24,0],[-4,-8],[-16,-14],[-12,0],[-16,14],[-4,8]], blurb:'A heavy gun platform built to break other warships.' },
+    carrier:  { label:'Carrier',       tech:4, price:22000, thrust:130, turn:90,  max:200, shield:160, armor:260, regen:8,  r:28, cargo:80,  mass:340, slots:[3,1,4,5], guns:2, dmg:8,  cd:0.4,  shape:[[22,0],[10,-14],[-18,-16],[-18,16],[10,14]], blurb:'A fleet anchor with hangar space and a thick hull.' },
+    science:  { label:'Science Vessel',tech:3, price:8500,  thrust:200, turn:160, max:270, shield:90,  armor:70,  regen:8,  r:17, cargo:50,  mass:180, slots:[1,1,5,2], guns:1, dmg:6,  cd:0.4,  shape:[[14,0],[4,-10],[-6,-12],[-14,-5],[-14,5],[-6,12],[4,10]], blurb:'Sensor-heavy and utility-rich, with room for strange cargo.' },
+    cargo_s:  { label:'Light Cargo',   tech:1, price:3000,  thrust:210, turn:150, max:260, shield:40,  armor:70,  regen:3,  r:15, cargo:50,  mass:90,  slots:[1,1,2,1], guns:0, dmg:0,  cd:0.5,  shape:[[14,0],[6,-8],[-12,-8],[-12,8],[6,8]], blurb:'A small hauler for short runs and tight margins.' },
+    cargo_m:  { label:'Medium Cargo',  tech:2, price:6000,  thrust:180, turn:125, max:230, shield:50,  armor:100, regen:4,  r:18, cargo:100, mass:140, slots:[2,1,3,2], guns:0, dmg:0,  cd:0.5,  shape:[[16,0],[8,-10],[-14,-10],[-14,10],[8,10]], blurb:'The standard freighter of the lanes.' },
+    cargo_h:  { label:'Heavy Cargo',   tech:3, price:12000, thrust:150, turn:100, max:200, shield:70,  armor:150, regen:5,  r:22, cargo:200, mass:200, slots:[2,1,3,3], guns:0, dmg:0,  cd:0.5,  shape:[[18,0],[10,-12],[-18,-12],[-18,12],[10,12]], blurb:'A bulk carrier that trades speed for tonnage.' },
+    cargo_x:  { label:'Massive Cargo', tech:4, price:26000, thrust:115, turn:70,  max:170, shield:100, armor:260, regen:6,  r:30, cargo:400, mass:300, slots:[3,1,4,4], guns:0, dmg:0,  cd:0.5,  shape:[[22,0],[12,-15],[-22,-15],[-22,15],[12,15]], blurb:'A moving warehouse. Slow, huge, and worth escorting.' },
+    unique:   { label:'Unique',        tech:4, price:30000, thrust:240, turn:190, max:300, shield:170, armor:190, regen:10, r:20, cargo:60,  mass:280, slots:[4,1,4,4], guns:4, dmg:13, cd:0.28, shape:[[22,0],[2,-6],[-8,-16],[-14,-6],[-10,0],[-14,6],[-8,16],[2,6]], blurb:'A one-of-a-kind flagship design. Few are ever built.' }
+  },
+  factions: [
+    { id:'peacekeepers', name:'Peacekeepers', c:'#6fb5e3', patrol:'fighter', techRange:[2,4], relations:{ junkers:-60, corpos:10, lattice:-70 },
+      shipTag:'Built to Peacekeeper doctrine: sturdy, armed, and easy to spot.',
+      style:{ price:1.15, spd:0.95, def:1.1, cargo:0.9, dmg:1.1 },
+      bias:{ destroyer:{def:1.25,dmg:1.25,price:0.9}, cruiser:{def:1.2,dmg:1.2,price:0.9}, racer:{spd:0.9,price:1.2}, science:{def:0.9}, unique:{def:1.3,dmg:1.2,price:1.2} },
+      ships:{ racer:'Dispatch', fighter:'Warden', cruiser:'Marshal', destroyer:'Bulwark', carrier:'Garrison', science:'Surveyor', cargo_s:'Tender', cargo_m:'Convoy', cargo_h:'Stalwart', cargo_x:'Atlas', unique:'Paragon' } },
+    { id:'junkers', name:'Junkers', c:'#e07f5f', patrol:'fighter', techRange:[1,3], relations:{ corpos:-50, lattice:0 },
+      shipTag:'Junker-built from salvage. Cheap, loud, and held together by optimism.',
+      style:{ price:0.65, spd:1, def:0.8, cargo:1.05, dmg:0.85 },
+      bias:{ racer:{spd:1.1}, science:{def:0.7,price:0.9}, unique:{cargo:1.5,def:1.25,price:1.1} },
+      ships:{ racer:'Skiff', fighter:'Scrapper', cruiser:'Brawler', destroyer:'Wrecker', carrier:'Rustbelt', science:'Tinkerer', cargo_s:'Pickup', cargo_m:'Patchwork', cargo_h:'Hoarder', cargo_x:'Heap', unique:'Jackpot' } },
+    { id:'corpos', name:'Corpos', c:'#b58be0', patrol:'fighter', techRange:[3,5], relations:{ lattice:-60 },
+      shipTag:'A Corpos design: expensive, precise, and leased in spirit even when sold.',
+      style:{ price:1.6, spd:1.1, def:1.15, cargo:1.1, dmg:1.1 },
+      bias:{ science:{def:1.3,spd:1.2,price:1.2}, racer:{spd:1.3,dmg:1.2,price:1.2}, unique:{spd:1.3,def:1.4,dmg:1.4,price:1.5} },
+      ships:{ racer:'Dividend', fighter:'Arbiter', cruiser:'Executive', destroyer:'Enforcer', carrier:'Holding', science:'Analyst', cargo_s:'Parcel', cargo_m:'Ledger', cargo_h:'Syndicate', cargo_x:'Conglomerate', unique:'Chairman' } },
+    { id:'lattice', name:'The Lattice', c:'#6fe3c1', patrol:'fighter', techRange:[4,5], relations:{},
+      shipTag:'A Lattice hull: small, quick, and coordinated by something you never see.',
+      style:{ price:1, spd:1.1, def:0.9, cargo:0.8, dmg:1 },
+      bias:{ carrier:{def:1.35,dmg:1.3,price:0.75}, racer:{spd:1.15,price:0.8}, fighter:{spd:1.1,dmg:1.15,price:0.8}, destroyer:{def:0.8,price:1.2}, cruiser:{def:0.85,price:1.2}, unique:{spd:1.25,dmg:1.25,price:1.2} },
+      ships:{ racer:'Glint', fighter:'Mote', cruiser:'Prism', destroyer:'Lance', carrier:'Hive', science:'Lens', cargo_s:'Pod', cargo_m:'Ferry', cargo_h:'Vault', cargo_x:'Cathedral', unique:'Apex' } },
+    // spawn.zones: border = between factions, fringe = map edge far from any capital.
+    // Minor owners (minor:true) are never picked as one of the universe's main factions. Each rolls per planet via `spawn`.
+    // relations key '*' is a default toward everyone. outlaw = no standing penalties for fighting them, no trader traffic.
+    { id:'independent', name:'Independent', c:'#9aa7b5', minor:true, patrol:null, techRange:[1,4], startStanding:0,
+      spawn:{ chance:0.3, zones:['border','fringe'] }, relations:{}, shipTag:'An independent yard build. No logo, no leash.',
+      ships:{ racer:'Wayfarer', fighter:'Drifter', science:'Cartographer', cargo_s:'Packet', cargo_m:'Trader', cargo_h:'Bulker' } },
+    { id:'pirates', name:'Pirates', c:'#e0564f', minor:true, outlaw:true, patrol:'fighter', techRange:[1,2], startStanding:-50,
+      spawn:{ chance:0.3, zones:['border','fringe'] }, relations:{ '*':-60 }, shipTag:'A pirate refit. Someone else paid for it first.',
+      style:{ price:0.75, spd:1.1, def:0.8, cargo:0.9, dmg:1.15 }, bias:{ unique:{def:1.3,dmg:1.3,price:1.3} },
+      ships:{ racer:'Cutter', fighter:'Raider', cruiser:'Marauder', cargo_s:'Smuggler', unique:'Reaver' } }
+  ],
+  // price = base * (1 + techSlope*(3-planetTech) + sum of tag mods) * slow noise. Negative tag mod = producers sell cheap.
+  commodities: [
+    { id:'food',     base:20, techSlope: 0.10, tags:{ agri:-0.30 } },
+    { id:'ore',      base:35, techSlope: 0,    tags:{ mining:-0.30 } },
+    { id:'tech',     base:90, techSlope:-0.15, tags:{ industrial:-0.25 } },
+    { id:'medicine', base:60, techSlope:-0.15, tags:{ industrial:-0.15 } }
+  ],
+  // Quest steps are queries, not planet ids. Skipped entirely if a required faction isn't in the universe.
+  quests: [
+    { id:'dead_drop', name:'Dead Drop', requires:{ factions:['junkers'] },
+      steps:[ { where:{ faction:'junkers', tech:{ lt:2 } }, chance:0.1 } ] }
+  ]
 };
-Object.entries(SYSTEMS).forEach(([k,s]) => s.links.forEach(l => { if(!SYSTEMS[l].links.includes(k)) SYSTEMS[l].links.push(k); }));
-// Factions: universe = The Ledger War (see factions.json for the full set)
-const FACTIONS = { peacekeepers:{name:'Peacekeepers',c:'#6fb5e3'}, junkers:{name:'Junkers',c:'#e07f5f'}, corpos:{name:'Corpos',c:'#b58be0'}, lattice:{name:'The Lattice',c:'#6fe3c1'} };
-const UNIVERSE = ['peacekeepers','junkers','corpos'];
-const OWNER = { hearth:'peacekeepers', vael:'peacekeepers', orrin:'corpos', kesh:'corpos', drift:'junkers', lumen:'junkers' };
-const standing = { peacekeepers:30, junkers:30, corpos:30 };
+
+// ---------- SEEDED RNG (every entity derives its own stream, so generation order never matters) ----------
+const hashStr = s => { let h=2166136261; for (const ch of s){ h^=ch.charCodeAt(0); h=Math.imul(h,16777619); } return h>>>0; };
+const rngOf = (...k) => { let a=hashStr(k.join('|')); return () => { a=(a+0x6D2B79F5)|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; };
+const noise = (...k) => rngOf(...k)();
+const vnoise = (x,...k) => { const i=Math.floor(x), f=x-i, u=f*f*(3-2*f); return noise(...k,i)*(1-u)+noise(...k,i+1)*u; };
+const SEED = new URLSearchParams(location.search).get('seed') || String(Date.now()%1e6);
+
+// ---------- UNIVERSE GENERATION (output is derived from SEED + CONTENT, never saved in full) ----------
+function generateUniverse(seed){
+  const R = (...k) => rngOf(seed,...k), F = CONTENT.factions;
+  const minors = F.filter(f=>f.minor), pool = F.filter(f=>!f.minor).map(f=>f.id).sort(), pick = [], rf = R('factions');
+  const n = Math.max(2, Math.round(pool.length*0.75));
+  while (pick.length<n) pick.push(pool.splice(Math.floor(rf()*pool.length),1)[0]);
+  const N = CONTENT.systemCount, pts = [], rp = R('layout'); let md = 9;   // dart-throw points with a minimum spacing, relaxing if crowded
+  while (pts.length<N){ for (let t=0; t<3000 && pts.length<N; t++){ const x=6+rp()*88, y=6+rp()*88; if (pts.every(a=>Math.hypot(a[0]-x,a[1]-y)>=md)) pts.push([Math.round(x*10)/10, Math.round(y*10)/10]); } md*=0.92; }
+  const systems = {}, taken = new Set();
+  pts.forEach(([x,y],i) => { const P=CONTENT.nameParts; let name, t=0;
+    do { const q=R('name',i,t++), pk=a=>a[Math.floor(q()*a.length)]; name=pk(P.start)+pk(P.mid)+pk(P.end); } while (taken.has(name));
+    taken.add(name); systems['s'+i] = { name, x, y, danger:1, links:[], planets:[] }; });
+  const ks = Object.keys(systems), d = (a,b) => Math.hypot(systems[a].x-systems[b].x, systems[a].y-systems[b].y);
+  const link = (a,b) => { if (!systems[a].links.includes(b)){ systems[a].links.push(b); systems[b].links.push(a); } };
+  ks.forEach(a => ks.filter(b=>b!==a).sort((p,q)=>d(a,p)-d(a,q)).slice(0,3).forEach((b,i)=>{ if (i<2 || d(a,b)<13) link(a,b); }));
+  for(;;){ const seen=new Set([ks[0]]), st=[ks[0]];
+    while (st.length){ const c=st.pop(); systems[c].links.forEach(l=>{ if(!seen.has(l)){ seen.add(l); st.push(l); } }); }
+    if (seen.size===ks.length) break;
+    let best=null; seen.forEach(a=>ks.filter(b=>!seen.has(b)).forEach(b=>{ if(!best||d(a,b)<d(best[0],best[1])) best=[a,b]; })); link(best[0],best[1]); }
+  const caps=[ks[Math.floor(R('cap')()*ks.length)]];
+  while (caps.length<pick.length) caps.push(ks.filter(k=>!caps.includes(k)).sort((a,b)=>Math.min(...caps.map(c=>d(b,c)))-Math.min(...caps.map(c=>d(a,c))))[0]);
+  const wd = (k,c) => d(k,c)*(0.85+0.3*noise(seed,'terr',k,c)), fac = {};   // noisy distance so borders aren't straight lines
+  ks.forEach(k => fac[k]=pick[caps.indexOf(caps.reduce((b,c)=>wd(k,c)<wd(k,b)?c:b))]);
+  const planets = {}, used = new Set(), depth = {};   // depth = jumps from the owning capital through same-faction systems
+  caps.forEach(c => { depth[c]=0; const st=[c]; while (st.length){ const x=st.shift(); systems[x].links.forEach(l => { if (fac[l]===fac[c] && depth[l]==null){ depth[l]=depth[x]+1; st.push(l); } }); } });
+  ks.forEach(k => { const sys=systems[k], q=R('planets',k), border=sys.links.some(l=>fac[l]!==fac[k]), dp=depth[k]??9,
+      edge=sys.x<12||sys.x>88||sys.y<12||sys.y>88;
+    // minor owners only claim frontier systems or far-flung fringe, never a capital or a faction's interior
+    const zone = (caps.includes(k)||dp<1) ? null : border ? 'border' : (edge&&dp>=2) ? 'fringe' : null;
+    sys.danger = Math.min(3, (border?2:1) + (caps.includes(k)?-1:0) + (q()<0.25?1:0));
+    let own=fac[k]; if (zone) for (const m of minors) if (m.spawn.zones.includes(zone) && q()<m.spawn.chance){ own=m.id; break; }   // one owner per system
+    if (F.find(x=>x.id===own).outlaw) sys.danger=Math.min(3,sys.danger+1);
+    const [lo,hi]=F.find(x=>x.id===own).techRange, a0=q()*6.28, np=1+(q()<0.4?1:0);
+    for (let j=0;j<np;j++){ const bar=j>0&&q()<0.5, ang=a0+j*(Math.PI+q()-0.5), dist=260+q()*140, T=['agri','mining','industrial'], t1=T[Math.floor(q()*3)];
+      const p = { id:k+'p'+j, system:k, name:sys.name+(j?' II':' Prime'), faction:bar?null:own, barren:bar, tech:bar?0:lo+Math.floor(q()*(hi-lo+1)),
+        tags:bar?['barren']:q()<0.35?[t1,T[(T.indexOf(t1)+1)%3]]:[t1], x:Math.round(Math.cos(ang)*dist), y:Math.round(Math.sin(ang)*dist),
+        r:Math.round(22+q()*34), c:bar?'#7d838c':`hsl(${Math.floor(q()*360)},45%,65%)` };
+      sys.planets.push(p); planets[p.id]=p; used.add(own); } });
+  return { seed, factions:[...pick, ...minors.map(m=>m.id).filter(id=>used.has(id))], systems, planets, start:caps[0] };
+}
+const UNI = generateUniverse(SEED); console.log('Starfall seed:', SEED, 'factions:', UNI.factions.join(', '));
+const SYSTEMS = UNI.systems, UNIVERSE = UNI.factions;
+const FACTIONS = Object.fromEntries(CONTENT.factions.map(f=>[f.id,f]));
+const sysOwner = id => SYSTEMS[id].planets[0].faction;   // planets carry their own faction; this is the system's "primary" owner
+const standing = Object.fromEntries(UNIVERSE.map(f=>[f,FACTIONS[f].startStanding ?? 30]));
+// Fog of war: a system's owner is unknown until you land on (or are refused docking at) one of its planets.
+const known = new Set(UNI.systems[UNI.start].planets.map(p=>p.id));
+const reveal = p => known.add(p.id);
+const sysKnown = id => SYSTEMS[id].planets.some(p => known.has(p.id) && !p.barren);
+const pv = (a,b) => FACTIONS[a].relations?.[b] ?? FACTIONS[b].relations?.[a] ?? FACTIONS[a].relations?.['*'] ?? FACTIONS[b].relations?.['*'] ?? 0;
+// Shops are queries: faction-locked items need the owner, everything needs planet tech >= item tech.
+const avail = (it,p) => (!it.fac || it.fac===p.faction) && (it.tech ?? 1) <= p.tech;
+
+// ---------- QUESTS (progress lives in save state; targets are resolved lazily, seeded so reloads can't reroll) ----------
+const questState = {};   // questId -> current step index
+const match = (p,w) => Object.entries(w).every(([k,v]) => k==='tag' ? p.tags.includes(v) : (v && typeof v==='object') ? (!('lt' in v)||p[k]<v.lt) && (!('gt' in v)||p[k]>v.gt) && (!('in' in v)||v.in.includes(p[k])) : p[k]===v);
+const activeQuests = () => CONTENT.quests.filter(q => q.requires.factions.every(f => UNIVERSE.includes(f)));
+const questOffers = p => activeQuests().filter(q => { const i=questState[q.id]??0, st=q.steps[i]; return st && match(p,st.where) && noise(UNI.seed,q.id,i,p.id)<st.chance; });
 const band = v => v<=-25?'Hostile':v>=60?'Allied':v>=25?'Friendly':'Neutral';
-const COMM = { food:20, ore:35, tech:90 }, FUEL_MAX=6, FUEL_PRICE=25;
+const COMM = Object.fromEntries(CONTENT.commodities.map(c=>[c.id,c.base])), FUEL_MAX=6, FUEL_PRICE=25;
 let CARGO_MAX=20;
 const hs = s => { let h=0; for(const ch of s) h=(h*31+ch.charCodeAt(0))%997; return h/997; };
-const PAIR = {'peacekeepers|junkers':-60,'peacekeepers|corpos':10,'peacekeepers|lattice':-70,'junkers|corpos':-50,'junkers|lattice':0,'corpos|lattice':-60};
-const pv = (a,b) => PAIR[a+'|'+b] ?? PAIR[b+'|'+a] ?? 0;
-const PATROL = { peacekeepers:'warden', junkers:'scrapper', corpos:'arbiter' };
-const TECH = { peacekeepers:3, junkers:2, corpos:4, lattice:5 };
-const FRAMES = {
-  courier:  { name:'Courier',  fac:null,           price:1500,  massCap:60,  cargo:20,  slots:{ weapon:2, engine:1, utility:2, hull:1 } },
-  scrapper: { name:'Scrapper', fac:'junkers',      price:2500,  massCap:50,  cargo:10,  slots:{ weapon:2, engine:1, utility:0, hull:1 } },
-  warden:   { name:'Warden',   fac:'peacekeepers', price:4500,  massCap:90,  cargo:15,  slots:{ weapon:2, engine:1, utility:1, hull:2 } },
-  patchwork:{ name:'Patchwork',fac:'junkers',      price:5500,  massCap:120, cargo:70,  slots:{ weapon:2, engine:1, utility:3, hull:2 } },
-  arbiter:  { name:'Arbiter',  fac:'corpos',       price:7500,  massCap:130, cargo:30,  slots:{ weapon:3, engine:1, utility:2, hull:2 } },
-  ledger:   { name:'Ledger',   fac:'corpos',       price:8000,  massCap:160, cargo:120, slots:{ weapon:1, engine:1, utility:3, hull:2 } },
-  bulwark:  { name:'Bulwark',  fac:'peacekeepers', price:14000, massCap:220, cargo:40,  slots:{ weapon:4, engine:1, utility:2, hull:4 } }
-};
+const PATROL = Object.fromEntries(CONTENT.factions.map(f=>[f.id,f.patrol?f.id+'_'+f.patrol:null]));
+// FRAMES (shop/stats) and SHIPS (flight model) are generated per faction: id = factionId_class, e.g. corpos_fighter.
+const FRAMES = {};
+function buildShips(){
+  const r5 = (v,n=1) => Math.round(v/n)*n;
+  for (const f of CONTENT.factions) for (const [cls,name] of Object.entries(f.ships||{})){
+    const C = CONTENT.shipClasses[cls], b = { price:1, spd:1, def:1, cargo:1, dmg:1, ...f.style }, o = f.bias?.[cls] || {}, m = k => b[k]*(o[k] ?? 1), id = f.id+'_'+cls;
+    FRAMES[id] = { name, cls, fac:f.id, tech:C.tech, price:r5(C.price*m('price'),50), massCap:r5(C.mass*Math.sqrt(m('def'))), cargo:r5(C.cargo*m('cargo')),
+      slots:{ weapon:C.slots[0], engine:C.slots[1], utility:C.slots[2], hull:C.slots[3] }, lore:C.blurb+' '+(f.shipTag||'') };
+    SHIPS[id] = { name, thrust:r5(C.thrust*m('spd')), turn:r5(C.turn*m('spd')), max:r5(C.max*m('spd')), shield:r5(C.shield*m('def')), armor:r5(C.armor*m('def')), regen:C.regen, r:C.r, color:f.c, shape:C.shape,
+      weapons:Array.from({length:C.guns}, (_,i) => ({ dmg:+(C.dmg*m('dmg')).toFixed(1), speed:500, life:0.9, cd:C.cd, off:[10,(i-(C.guns-1)/2)*8], color:f.c })) };
+  }
+}
+buildShips();
 const frameConf = id => { const f=FRAMES[id]; return { massCap:f.massCap, cargo:f.cargo, convRate:10, convFee:600, convMax:Math.min(2,Math.floor(f.cargo/10)), slots:f.slots }; };
-let frameId = 'courier', FRAME = frameConf('courier');
+let frameId = sysOwner(UNI.start)+'_fighter', FRAME = frameConf(frameId);   // you start in a fighter built by the faction whose capital you spawn at
 function setFrame(id){
   frameId=id; FRAME=frameConf(id); conv=0;
   for (const t of ['weapon','engine','utility','hull']) loadout[t]=Array(FRAME.slots[t]).fill(null);
@@ -102,7 +229,7 @@ const OUT = {
   pod:    { name:'Cargo pod', type:'utility', tech:1, mass:6, price:300, cargo:10 },
   plate:  { name:'Armor plating', type:'hull', tech:2, mass:12, price:450, armor:40 }
 };
-const loadout = { weapon:['blaster',null], engine:['stock'], utility:[null,null], hull:[null] };
+const loadout = Object.fromEntries(['weapon','engine','utility','hull'].map(t => [t, Array(FRAME.slots[t]).fill(null)])); loadout.weapon[0]='blaster'; loadout.engine[0]='stock';
 let conv = 0;
 const cap = s => s[0].toUpperCase()+s.slice(1);
 const massUsed = () => Object.values(loadout).flat().filter(Boolean).reduce((a,k)=>a+OUT[k].mass,0);
@@ -118,13 +245,6 @@ function applyLoadout(){
   CARGO_MAX=cargoMax(); player.cd=player.d.weapons.map(()=>0); player.sh=player.d.shield; player.ar=player.d.armor;
 }
 const WPN = (dmg,cd,c) => [{ dmg, speed:500, life:0.9, cd, off:[10,0], color:c }];
-SHIPS.warden   = { ...SHIPS.courier, name:'Warden',   thrust:240, turn:200, shield:55, armor:80, weapons:WPN(7,0.3,'#6fb5e3') };
-SHIPS.scrapper = { ...SHIPS.raider,  name:'Scrapper', thrust:270, turn:220, shield:25, armor:45, weapons:WPN(6,0.35,'#e07f5f') };
-SHIPS.arbiter  = { ...SHIPS.courier, name:'Arbiter',  thrust:220, turn:180, shield:70, armor:60, weapons:WPN(8,0.4,'#b58be0') };
-SHIPS.hauler   = { name:'Hauler', thrust:150, turn:110, max:200, shield:30, armor:90, regen:3, r:17, color:'#cfe8f0', shape:[[16,0],[8,-10],[-14,-10],[-14,10],[8,10]], weapons:[] };
-SHIPS.bulwark   = { ...SHIPS.warden, name:'Bulwark',   thrust:170, turn:130, max:240, shield:110, armor:170, regen:6, r:20, shape:[[20,0],[-12,-14],[-8,0],[-12,14]] };
-SHIPS.patchwork = { ...SHIPS.hauler, name:'Patchwork', thrust:190, turn:150, max:260, shield:30,  armor:90,  regen:4, r:17, color:'#e07f5f' };
-SHIPS.ledger    = { ...SHIPS.hauler, name:'Ledger',    thrust:160, turn:120, max:230, shield:60,  armor:100, regen:5, r:19, color:'#b58be0' };
 
 // ---------- SETUP ----------
 const cv = document.getElementById('c'), g = cv.getContext('2d');
@@ -141,8 +261,8 @@ const rnd = (a,b) => a + Math.random()*(b-a);
 const angDiff = (a,b) => { let d=b-a; while(d>Math.PI)d-=2*Math.PI; while(d<-Math.PI)d+=2*Math.PI; return d; };
 
 let ships=[], shots=[], parts=[], player, kills=0, time=0, spawnT=1, respawnT=0;
-let sysId='hearth', dest=null, mapOpen=false, jumpT=0, flash=0, msg='Fly close to a planet and tap Land', msgT=6;
-let fuel=5, credits=500; const cargo={food:0,ore:0,tech:0}; let popT=12;
+let sysId=UNI.start, dest=null, mapOpen=false, jumpT=0, flash=0, msg='Fly close to a planet and tap Land', msgT=6;
+let fuel=5, credits=500; const cargo=Object.fromEntries(Object.keys(COMM).map(k=>[k,0])); let popT=12;
 const cam = {x:0,y:0};
 const stars = [0,1,2].map(l => Array.from({length:[60,45,30][l]}, () => [Math.random(),Math.random(),Math.random()]));
 const PAR = [0.12,0.3,0.55];
@@ -152,7 +272,7 @@ function mk(id,x,y,ai){
   return { d, x, y, vx:0, vy:0, a:rnd(0,6.28), sh:d.shield, ar:d.armor, cd:d.weapons.map(()=>0), hit:0,
     ai, team:ai?1:0, dead:false, tgt:null, in:{aim:null,turn:0,thrust:0,fire:false} };
 }
-function spawnPlayer(){ player = mk('courier',0,0,false); ships.push(player); applyLoadout(); }
+function spawnPlayer(){ player = mk(frameId,0,0,false); ships.push(player); applyLoadout(); }
 spawnPlayer(); fillTraffic(true);
 
 // ---------- INPUT ----------
@@ -161,10 +281,10 @@ addEventListener('keydown', e => { keys[e.code]=true; if(e.code==='KeyT') cycleT
 addEventListener('keyup', e => keys[e.code]=false);
 const R = 56, stick = {id:null,ox:0,oy:0,x:0,y:0};
 cv.addEventListener('pointerdown', e => {
-  if (mapOpen){ pickNode(e.clientX,e.clientY); return; }
+  if (mapOpen){ mapDown(e); return; }
   if (e.clientX < W*0.55 && stick.id===null){ const m=R+48; stick.id=e.pointerId; stick.sx=e.clientX; stick.sy=e.clientY; stick.ox=stick.x=Math.max(e.clientX,m); stick.oy=stick.y=Math.min(Math.max(e.clientY,m),H-m-(parseFloat(root.paddingBottom)||0)); cv.setPointerCapture(e.pointerId); }
 });
-cv.addEventListener('pointermove', e => { if(e.pointerId===stick.id){ stick.x=stick.ox+(e.clientX-stick.sx); stick.y=stick.oy+(e.clientY-stick.sy); } });
+cv.addEventListener('pointermove', e => { if(mapOpen){ mapMove(e); return; } if(e.pointerId===stick.id){ stick.x=stick.ox+(e.clientX-stick.sx); stick.y=stick.oy+(e.clientY-stick.sy); } });
 const endStick = e => { if(e.pointerId===stick.id) stick.id=null; };
 cv.addEventListener('pointerup', endStick); cv.addEventListener('pointercancel', endStick);
 const fb = document.getElementById('fire');
@@ -173,9 +293,37 @@ const fireUp = () => { fireBtn=false; fb.classList.remove('on'); };
 fb.addEventListener('pointerup', fireUp); fb.addEventListener('pointercancel', fireUp);
 document.getElementById('tgt').addEventListener('pointerdown', cycleTarget);
 const mapB = document.getElementById('map');
-mapB.addEventListener('pointerdown', () => { mapOpen=!mapOpen; mapB.textContent=mapOpen?'Close':'Map'; document.body.classList.toggle('maponly',mapOpen); stick.id=null; fireUp(); });
+mapB.addEventListener('pointerdown', () => { mptr.clear(); mapOpen=!mapOpen; mapB.textContent=mapOpen?'Close':'Map'; document.body.classList.toggle('maponly',mapOpen); stick.id=null; fireUp(); });
 document.getElementById('jump').addEventListener('pointerdown', tryJump);
 const nodePos = s => ({ x:W*0.12+s.x/100*W*0.76, y:SAFE_T+H*0.2+s.y/100*(H*0.6) });
+
+// ---------- MAP ZOOM / PAN (mv = view transform around the screen center) ----------
+const mv = { z:1, px:0, py:0 }, mptr = new Map(); let mTap = null, mPinch = 0;
+const mapPos = s => { const b=nodePos(s); return { x:W/2+(b.x-W/2)*mv.z+mv.px, y:H/2+(b.y-H/2)*mv.z+mv.py }; };
+const zbtns = () => [{x:W-30,y:H/2-52,t:'+'},{x:W-30,y:H/2,t:'\u2212'},{x:W-30,y:H/2+52,t:'\u2316'}];
+const clampMap = () => { mv.px=Math.max(-W*mv.z,Math.min(W*mv.z,mv.px)); mv.py=Math.max(-H*mv.z,Math.min(H*mv.z,mv.py)); };
+const zoomAt = (cx,cy,f) => { const z=Math.min(4,Math.max(0.8,mv.z*f)), k=z/mv.z; mv.px=cx-W/2-(cx-W/2-mv.px)*k; mv.py=cy-H/2-(cy-H/2-mv.py)*k; mv.z=z; clampMap(); };
+function mapDown(e){
+  const bt = zbtns().find(b => Math.hypot(b.x-e.clientX,b.y-e.clientY)<26);
+  if (bt){ if (bt.t==='+') zoomAt(W/2,H/2,1.5); else if (bt.t==='\u2212') zoomAt(W/2,H/2,1/1.5);
+    else { const b=nodePos(SYSTEMS[sysId]); mv.z=2; mv.px=-(b.x-W/2)*2; mv.py=-(b.y-H/2)*2; clampMap(); } return; }
+  cv.setPointerCapture(e.pointerId); mptr.set(e.pointerId,{x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY});
+  mTap = mptr.size===1 ? e.pointerId : null; mPinch = 0;
+}
+function mapMove(e){
+  const p=mptr.get(e.pointerId); if (!p) return;
+  const ox=p.x, oy=p.y; p.x=e.clientX; p.y=e.clientY;
+  if (mptr.size>=2){ const [a,b]=[...mptr.values()], dist=Math.hypot(a.x-b.x,a.y-b.y);
+    if (mPinch) zoomAt((a.x+b.x)/2,(a.y+b.y)/2,dist/mPinch); mPinch=dist; mTap=null; }
+  else { mv.px+=p.x-ox; mv.py+=p.y-oy; if (Math.hypot(p.x-p.sx,p.y-p.sy)>8) mTap=null; clampMap(); }
+}
+function mapUp(e){
+  const p=mptr.get(e.pointerId); if (!p) return;
+  if (mTap===e.pointerId && e.type==='pointerup') pickNode(e.clientX,e.clientY);
+  mptr.delete(e.pointerId); mPinch=0; if (mptr.size) mTap=null;
+}
+cv.addEventListener('pointerup', mapUp); cv.addEventListener('pointercancel', mapUp);
+cv.addEventListener('wheel', e => { if (!mapOpen) return; e.preventDefault(); zoomAt(e.clientX,e.clientY,Math.exp(-e.deltaY*0.0015)); }, {passive:false});
 function toast(t){ msg=t; msgT=2.5; }
 const landB=document.getElementById('landb'), lp=document.getElementById('lp');
 let landed=null, nearP=null;
@@ -263,25 +411,25 @@ function renderInfo(){
     rows=[['Price',o.price],['Net cost',o.price-refund],['Mass',o.mass],['Effect',desc(o)]];
     buy=`inst:${id}`;
   }
-  let h=`<div class='in'>${icon(kind,id,true)}<h2>${o.name}</h2><div class='sub'>${sub}</div><p class='lore'>${LORE[id]||''}</p>`;
+  let h=`<div class='in'>${icon(kind,id,true)}<h2>${o.name}</h2><div class='sub'>${sub}</div><p class='lore'>${LORE[id]||FRAMES[id]?.lore||''}</p>`;
   if (lpMsg){ h+=`<div class='sub' style='color:#ffb347'>${lpMsg}</div>`; lpMsg=''; }
   h+=rows.map(r=>`<div class='row'><span>${r[0]}</span><span>${r[1]}</span></div>`).join('');
   lp.innerHTML=h+`<div class='row'><span>${err?`<span style='color:#7f9bb0'>${err}</span>`:`<button data-a='${buy}'>Buy</button>`}</span><button data-a='back'>Back</button></div></div>`; lp.hidden=false;
 }
 function renderYard(){
-  const o=OWNER[sysId];
+  const o=landed.faction;
   let h=`<div class='in'><h2>Shipyard</h2><div class='sub'>${landed.name} · ${FACTIONS[o].name} · Credits ${credits} · Trade-in ${shipValue()}</div>`;
   if (lpMsg){ h+=`<div class='sub' style='color:#ffb347'>${lpMsg}</div>`; lpMsg=''; }
   for (const id in FRAMES){
-    const f=FRAMES[id]; if (f.fac && f.fac!==o) continue;
+    const f=FRAMES[id]; if (!avail(f,landed)) continue;
     const sl=f.slots, net=f.price-shipValue();
     const err=id===frameId?'Current ship':(credits<net?'Not enough credits':(used()>f.cargo?'Sell cargo first':''));
-    h+=`<div class='row'><span class='it'>${icon('ship',id)}<span>${f.name}: mass ${f.massCap}, cargo ${f.cargo}, weapons ${sl.weapon}, utility ${sl.utility}, hull ${sl.hull}, ${net>=0?'cost '+net:'refund '+(-net)}</span></span><span><button data-a='info:ship:${id}'>Info</button>${err?`<span style='color:#7f9bb0'>${err}</span>`:`<button data-a='buyship:${id}'>Buy</button>`}</span></div>`;
+    h+=`<div class='row'><span class='it'>${icon('ship',id)}<span>${f.name} (${CONTENT.shipClasses[f.cls].label}): mass ${f.massCap}, cargo ${f.cargo}, weapons ${sl.weapon}, utility ${sl.utility}, hull ${sl.hull}, ${net>=0?'cost '+net:'refund '+(-net)}</span></span><span><button data-a='info:ship:${id}'>Info</button>${err?`<span style='color:#7f9bb0'>${err}</span>`:`<button data-a='buyship:${id}'>Buy</button>`}</span></div>`;
   }
   lp.innerHTML=h+`<div class='row'><span>Buying a ship sells your current ship and outfits at 70%.</span><button data-a='back'>Back</button></div></div>`; lp.hidden=false;
 }
 function renderOutfit(){
-  const tech=TECH[OWNER[sysId]];
+  const tech=landed.tech;
   let h=`<div class='in'><h2>Outfitter</h2><div class='sub'>${landed.name} · tech ${tech} · Credits ${credits}</div>`;
   if (lpMsg){ h+=`<div class='sub' style='color:#ffb347'>${lpMsg}</div>`; lpMsg=''; }
   h+=`<div class='row'><span>Mass ${massUsed()}/${FRAME.massCap}</span><span>Cargo space ${cargoMax()}</span></div>`;
@@ -292,7 +440,7 @@ function renderOutfit(){
     const {t,i}=outSel, cur=loadout[t][i];
     h+=`<div class='sub'>${cap(t)} ${i+1}</div>`;
     for (const key in OUT){
-      const o=OUT[key]; if(o.type!==t||o.tech>tech||key===cur) continue;
+      const o=OUT[key]; if(o.type!==t||!avail(o,landed)||key===cur) continue;
       const refund=cur?Math.round(OUT[cur].price*0.7):0, net=o.price-refund, err=wouldErr(t,i,key)||(credits+refund<o.price?'Not enough credits':'');
       h+=`<div class='row'><span class='it'>${icon('out',key)}<span>${o.name}: ${desc(o)}, mass ${o.mass}, ${net>=0?'cost '+net:'refund '+(-net)}</span></span><span><button data-a='info:out:${key}'>Info</button>${err?`<span style='color:#7f9bb0'>${err}</span>`:`<button data-a='inst:${key}'>Buy</button>`}</span></div>`;
     }
@@ -302,11 +450,13 @@ function renderOutfit(){
 }
 landB.addEventListener('pointerdown', tryLand);
 const used=()=>Object.values(cargo).reduce((a,b)=>a+b,0);
-const price=(p,c)=>Math.max(1,Math.round(COMM[c]*(0.6+0.8*hs(p.name+c))));
+const price=(p,c)=>{ const k=CONTENT.commodities.find(x=>x.id===c); let m=1+k.techSlope*(3-p.tech); for(const t of p.tags) m+=k.tags?.[t]||0; return Math.max(1,Math.round(k.base*m*(0.85+0.3*vnoise(time/120,UNI.seed,p.id,c)))); };
 function tryLand(){
   if(!nearP||landed||player.dead) return;
+  if(nearP.barren){ reveal(nearP); return toast(nearP.name+' is uninhabited. Nothing to land on but rock'); }
   if(Math.hypot(player.vx,player.vy)>110) return toast('Too fast to land. Ease off the thrust');
-  const o=OWNER[sysId];
+  reveal(nearP);
+  const o=nearP.faction;
   if(standing[o]<=-25) return toast('Docking denied: '+FACTIONS[o].name+' standing is hostile');
   landed=nearP; lpView='main'; outSel=null; player.sh=player.d.shield; player.ar=player.d.armor; player.vx=player.vy=0; document.body.classList.add('maponly'); renderLand();
 }
@@ -314,16 +464,17 @@ function renderLand(){
   if (lpInfo) return renderInfo();
   if (lpView==='outfit') return renderOutfit();
   if (lpView==='yard') return renderYard();
-  const o=OWNER[sysId], F=FACTIONS[o];
-  let h=`<div class='in'><h2>${landed.name}</h2><div class='sub' style='color:${F.c}'>${F.name} · ${band(standing[o])} (${standing[o]})</div>`+
+  const o=landed.faction, F=FACTIONS[o];
+  let h=`<div class='in'><h2>${landed.name}</h2><div class='sub' style='color:${F.c}'>${F.name} · ${band(standing[o])} (${standing[o]}) · tech ${landed.tech} · ${landed.tags.join('/')}${questOffers(landed).map(q=>' · ★ '+q.name).join('')}</div>`+
    `<div class='row'><span>Credits ${credits}</span><span>Fuel ${fuel}/${FUEL_MAX}</span><span>Cargo ${used()}/${CARGO_MAX}</span></div>`+
    `<div class='row'><span>Fuel, ${FUEL_PRICE} each</span><span><button data-a='fuel1'>Buy 1</button><button data-a='fuelF'>Fill</button></span></div>`;
   for(const c in COMM) h+=`<div class='row'><span>${c[0].toUpperCase()+c.slice(1)}: ${price(landed,c)} each, held ${cargo[c]}</span><span><button data-a='b1:${c}'>Buy 1</button><button data-a='b5:${c}'>Buy 5</button><button data-a='s:${c}'>Sell all</button></span></div>`;
-  lp.innerHTML=h+`<div class='row'><span><button data-a='outf'>Outfitter</button><button data-a='yard'>Shipyard</button><button data-a='off'>Take off</button></span></div></div>`; lp.hidden=false;
+  lp.innerHTML=h+`<div class='row'><span><button data-a='outf'>Outfitter</button><button data-a='yard'>Shipyard</button><button data-a='game'>Save / Load</button><button data-a='off'>Take off</button></span></div></div>`; lp.hidden=false;
 }
 lp.addEventListener('click', e=>{
   const a=e.target.dataset&&e.target.dataset.a; if(!a||!landed) return;
   const [k,c,x]=a.split(':');
+  if (k==='game') return openGame();
   if (['outf','back','slot','inst','rem','convp','convm','yard','buyship','info'].includes(k)) return outAct(k,c,x);
   if(k==='off'){ landed=null; lp.hidden=true; document.body.classList.remove('maponly'); return; }
   if(k==='fuel1'||k==='fuelF'){ const n=k==='fuel1'?1:FUEL_MAX-fuel; for(let i=0;i<n&&fuel<FUEL_MAX&&credits>=FUEL_PRICE;i++){ fuel++; credits-=FUEL_PRICE; } }
@@ -332,7 +483,9 @@ lp.addEventListener('click', e=>{
   renderLand();
 });
 function pickNode(x,y){
-  for (const k of SYSTEMS[sysId].links){ const p=nodePos(SYSTEMS[k]); if (Math.hypot(p.x-x,p.y-y)<34){ dest=k; toast('Jump set: '+SYSTEMS[k].name); return; } }
+  let best=null, bd=40;
+  for (const k of SYSTEMS[sysId].links){ const p=mapPos(SYSTEMS[k]), h=Math.hypot(p.x-x,p.y-y); if (h<bd){ bd=h; best=k; } }
+  if (best){ dest=best; toast('Jump set: '+SYSTEMS[best].name); }
 }
 function tryJump(){
   if (jumpT>0 || player.dead) return;
@@ -418,13 +571,14 @@ function mkF(id,f,role,x,y){
   } else { s.gx=rnd(-500,500); s.gy=rnd(-500,500); }
   return s;
 }
+function traderShip(f){ const c=['cargo_s','cargo_s','cargo_m','cargo_h'].filter(k=>SHIPS[f+'_'+k]); return f+'_'+c[Math.floor(Math.random()*c.length)]; }
 function fillTraffic(init){
-  const own=OWNER[sysId], sys=SYSTEMS[sysId];
+  const own=sysOwner(sysId), sys=SYSTEMS[sysId];
   const count=(f,r)=>ships.filter(s=>s.fac===f&&s.role===r&&!s.dead).length;
   const place=()=>{ const a=rnd(0,6.28), r=init?rnd(150,JUMP_R):900, c=init?{x:0,y:0}:player; return [c.x+Math.cos(a)*r, c.y+Math.sin(a)*r]; };
-  while (count(own,'patrol')<1+(sys.danger>=2?1:0)){ const [x,y]=place(); ships.push(mkF(PATROL[own],own,'patrol',x,y)); }
-  while (count(own,'trader')<(sys.danger>=3?1:3)){ const [x,y]=place(); ships.push(mkF('hauler',own,'trader',x,y)); }
-  if (init) sys.links.forEach(l => { const f=OWNER[l]; if(f!==own && Math.random()<0.6){ const [x,y]=place(); ships.push(mkF(PATROL[f],f,'patrol',x,y)); } });
+  while (PATROL[own] && count(own,'patrol')<1+(sys.danger>=2?1:0)){ const [x,y]=place(); ships.push(mkF(PATROL[own],own,'patrol',x,y)); }
+  while (!FACTIONS[own].outlaw && count(own,'trader')<(sys.danger>=3?1:3)){ const [x,y]=place(); ships.push(mkF(traderShip(own),own,'trader',x,y)); }
+  if (init) sys.links.forEach(l => { const f=sysOwner(l); if(f!==own && PATROL[f] && Math.random()<0.6){ const [x,y]=place(); ships.push(mkF(PATROL[f],f,'patrol',x,y)); } });
 }
 function thinkFac(s){
   const i=s.in, armed=s.d.weapons.length>0;
@@ -465,7 +619,7 @@ function damage(s,n,src){
   if (s.ar<=0 && !s.dead){
     s.dead=true;
     for(let k=0;k<36;k++){ const a=rnd(0,6.28), v=rnd(30,220); parts.push({x:s.x,y:s.y,vx:s.vx*.5+Math.cos(a)*v,vy:s.vy*.5+Math.sin(a)*v,life:rnd(.4,.9),max:.9,c:k%2?'#ffb347':'#cfe8f0'}); }
-    if (s.team===1){ spawnT=3; if(src===player){ kills++; const o=OWNER[sysId]; standing[o]=Math.min(100,standing[o]+2); } } else if (s===player) respawnT=2.2; else if (s.fac && src===player) standing[s.fac]=Math.max(-100,standing[s.fac]-5);
+    if (s.team===1){ spawnT=3; if(src===player){ kills++; const o=sysOwner(sysId); if(!FACTIONS[o].outlaw) standing[o]=Math.min(100,standing[o]+2); } } else if (s===player) respawnT=2.2; else if (s.fac && src===player) standing[s.fac]=Math.max(-100,standing[s.fac]-5);
   }
 }
 function update(dt){
@@ -566,7 +720,7 @@ function draw(){
 function drawOverlays(){
   g.setTransform(DPR,0,0,DPR,0,0); g.textBaseline='top'; g.textAlign='center'; g.font='600 13px system-ui,sans-serif';
   const top=SAFE_T+16;
-  const o=OWNER[sysId]; g.fillStyle=FACTIONS[o].c; g.fillText(SYSTEMS[sysId].name+' · '+FACTIONS[o].name+' ('+band(standing[o])+')'+(dest?'  to  '+SYSTEMS[dest].name:''), W/2, top);
+  const o=sysOwner(sysId), kn=sysKnown(sysId); g.fillStyle=kn?FACTIONS[o].c:'#7f9bb0'; g.fillText(SYSTEMS[sysId].name+' · '+(kn?FACTIONS[o].name+' ('+band(standing[o])+')':'Unsurveyed')+(dest?'  to  '+SYSTEMS[dest].name:''), W/2, top);
   if (msgT>0){ g.fillStyle='#ffb347'; g.fillText(msg, W/2, top+20); }
   const fa = jumpT>0 ? 1-jumpT/1.2 : flash;
   if (fa>0){ g.fillStyle='rgba(207,232,240,'+fa+')'; g.fillRect(0,0,W,H); }
@@ -576,28 +730,96 @@ function drawOverlays(){
 function drawMap(){
   g.fillStyle='rgba(10,16,32,.95)'; g.fillRect(0,0,W,H);
   g.fillStyle='#cfe8f0'; g.font='600 16px system-ui,sans-serif'; g.fillText('Galaxy map', W/2, SAFE_T+16);
-  g.font='500 12px system-ui,sans-serif'; g.fillStyle='#7f9bb0'; g.fillText('Tap a linked system to set your jump. Red marks show raider patrols.', W/2, SAFE_T+38);
-  const cur=SYSTEMS[sysId];
+  g.font='500 12px system-ui,sans-serif'; g.fillStyle='#7f9bb0'; g.fillText('Pinch to zoom, drag to pan, tap a linked system.', W/2, SAFE_T+38); g.fillText('Grey systems are unsurveyed. Land on a planet to learn its owner.', W/2, SAFE_T+54);
+  const cur=SYSTEMS[sysId], LEG=UNIVERSE.filter(f=>[...known].some(id=>UNI.planets[id].faction===f));
   Object.entries(SYSTEMS).forEach(([k,s]) => s.links.forEach(l => { if (k<l){
-    const a=nodePos(s), b=nodePos(SYSTEMS[l]), hot=(k===sysId&&l===dest)||(l===sysId&&k===dest);
+    const a=mapPos(s), b=mapPos(SYSTEMS[l]), hot=(k===sysId&&l===dest)||(l===sysId&&k===dest);
     g.strokeStyle=hot?'#6fe3c1':'rgba(207,232,240,.22)'; g.lineWidth=hot?3:1.5; g.beginPath(); g.moveTo(a.x,a.y); g.lineTo(b.x,b.y); g.stroke();
   }}));
   Object.entries(SYSTEMS).forEach(([k,s]) => {
-    const p=nodePos(s), adj=cur.links.includes(k), here=k===sysId;
+    const p=mapPos(s), adj=cur.links.includes(k), here=k===sysId;
     g.strokeStyle=here?'#ffb347':k===dest?'#6fe3c1':adj?'#cfe8f0':'#4a6078'; g.lineWidth=(here||k===dest)?3:2;
-    g.fillStyle=FACTIONS[OWNER[k]].c; g.beginPath(); g.arc(p.x,p.y,here?13:10,0,6.29); g.fill(); g.stroke();
-    g.fillStyle=(adj||here)?'#cfe8f0':'#6f8aa0'; g.fillText(s.name,p.x,p.y+20);
-    for (let n=0;n<s.danger;n++){ g.fillStyle='#ff7b7b'; g.fillRect(p.x-s.danger*3.5+n*7,p.y+38,5,5); }
+    g.fillStyle=sysKnown(k)?FACTIONS[sysOwner(k)].c:'#5b6b7c'; g.beginPath(); g.arc(p.x,p.y,here?10:6.5,0,6.29); g.fill(); g.stroke();
+    const hot=adj||here||k===dest;
+    if (hot||mv.z>=2){ g.fillStyle=hot?'#cfe8f0':'#6f8aa0'; g.font='500 11px system-ui,sans-serif'; g.fillText(s.name,p.x,p.y+18); }
+    if (hot) for (let n=0;n<s.danger;n++){ g.fillStyle='#ff7b7b'; g.fillRect(p.x-s.danger*3.5+n*7,p.y+24,5,5); }
   });
   g.textAlign='left'; g.font='600 12px system-ui,sans-serif';
-  const by=H-(parseFloat(root.paddingBottom)||0)-20-UNIVERSE.length*18;
-  UNIVERSE.forEach((f,i) => { g.fillStyle=FACTIONS[f].c; g.fillRect(16,by+i*18+2,10,10); g.fillStyle='#cfe8f0'; g.fillText(FACTIONS[f].name+'  '+band(standing[f])+' ('+standing[f]+')',34,by+i*18); });
+  const by=H-(parseFloat(root.paddingBottom)||0)-20-LEG.length*18;
+  LEG.forEach((f,i) => { g.fillStyle=FACTIONS[f].c; g.fillRect(16,by+i*18+2,10,10); g.fillStyle='#cfe8f0'; g.fillText(FACTIONS[f].name+'  '+band(standing[f])+' ('+standing[f]+')',34,by+i*18); });
+  zbtns().forEach(b => { g.fillStyle='rgba(20,32,56,.9)'; g.strokeStyle='#4a6078'; g.lineWidth=2; g.beginPath(); g.arc(b.x,b.y,20,0,6.29); g.fill(); g.stroke(); g.fillStyle='#cfe8f0'; g.font='600 20px system-ui,sans-serif'; g.textAlign='center'; g.fillText(b.t,b.x,b.y+7); });
+  g.textAlign='left'; g.font='600 12px system-ui,sans-serif';
   g.fillStyle='#7f9bb0'; g.fillText('Fuel '+fuel+'/'+FUEL_MAX+'   Credits '+credits, 16, by-20);
   g.textAlign='center';
 }
 let last=performance.now(), acc=0;
 function frame(t){ acc+=Math.min(.1,(t-last)/1000); last=t; while(acc>=1/60){ update(1/60); acc-=1/60; } draw(); drawOverlays(); requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
+
+// ---------- SAVE / LOAD (export / import JSON) ----------
+// The universe is never stored: a save holds the seed plus your changes. Loading a save with a different seed reloads the page with ?seed=.
+const SAVE_V = 1, gp = document.getElementById('gp');
+function makeSave(){
+  return { game:'starfall', v:SAVE_V, contentVersion:CONTENT.version, seed:SEED, savedAt:new Date().toISOString(), state:{
+    sysId, dest, fuel, credits, kills, time:Math.round(time), conv, cargo:{...cargo}, frameId, loadout:JSON.parse(JSON.stringify(loadout)),
+    standing:{...standing}, known:[...known], questState:{...questState}, landed:landed?landed.id:null,
+    player:{ x:player.x, y:player.y, vx:player.vx, vy:player.vy, a:player.a, sh:player.sh, ar:player.ar } } };
+}
+function applySave(d){   // returns null on success, otherwise a message for the player
+  try {
+    if (!d || d.game!=='starfall' || !d.state) throw 'That is not a Starfall save file';
+    if (d.v>SAVE_V) throw 'That save is from a newer version of the game';
+    if (String(d.seed)!==String(SEED)){
+      try { sessionStorage.setItem('starfall_pending', JSON.stringify(d)); } catch(e) { throw 'This save is for universe '+d.seed+'. Reopen the game with ?seed='+d.seed+' and import it again'; }
+      location.search='?seed='+encodeURIComponent(d.seed); return 'Loading universe '+d.seed+'…';
+    }
+    const S=d.state;
+    if (!SYSTEMS[S.sysId] || !FRAMES[S.frameId]) throw 'That save does not match this version of the game';
+    for (const t in loadout) if (!Array.isArray(S.loadout?.[t]) || S.loadout[t].some(k => k && !OUT[k])) throw 'That save has unknown outfits';
+    sysId=S.sysId; dest=SYSTEMS[S.dest]?S.dest:null; fuel=Math.min(FUEL_MAX,Math.max(0,+S.fuel||0)); credits=Math.max(0,+S.credits||0); kills=+S.kills||0; time=+S.time||0;
+    for (const k in cargo) cargo[k]=Math.max(0,Math.floor(+S.cargo?.[k]||0));
+    frameId=S.frameId; FRAME=frameConf(frameId); conv=Math.min(FRAME.convMax,Math.max(0,+S.conv||0));
+    for (const t in loadout) loadout[t]=S.loadout[t].slice();
+    for (const k in standing) if (typeof S.standing?.[k]==='number') standing[k]=S.standing[k];
+    known.clear(); (S.known||[]).forEach(id => { if (UNI.planets[id]) known.add(id); });
+    for (const k in questState) delete questState[k]; Object.assign(questState, S.questState||{});
+    ships=[]; shots=[]; parts=[]; jumpT=0; spawnT=2; respawnT=0; spawnPlayer();
+    const P=S.player||{}; Object.assign(player,{ x:+P.x||0, y:+P.y||0, vx:+P.vx||0, vy:+P.vy||0, a:+P.a||0 });
+    if (P.sh!=null) player.sh=Math.min(player.d.shield,Math.max(1,+P.sh)); if (P.ar!=null) player.ar=Math.min(player.d.armor,Math.max(1,+P.ar));
+    cam.x=player.x; cam.y=player.y; popT=12; fillTraffic(true);
+    mapOpen=false; mapB.textContent='Map'; document.body.classList.remove('maponly');
+    landed=null; lpView='main'; lpInfo=null; outSel=null; lp.hidden=true;
+    const L=UNI.planets[S.landed]; if (L && !L.barren){ landed=L; renderLand(); }
+    return null;
+  } catch (e) { return typeof e==='string' ? e : 'Could not read that save: '+e.message; }
+}
+function doLoad(text){
+  let d; try { d=JSON.parse(text); } catch(e) { return openGame('That is not valid JSON'); }
+  const err=applySave(d); if (err) return openGame(err);
+  gp.hidden=true; toast('Game loaded');
+}
+function openGame(note=''){
+  const json=JSON.stringify(makeSave(),null,1).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  gp.innerHTML=`<div class='in'><h2>Save / Load</h2><div class='sub'>Universe seed ${SEED}</div>`+(note?`<div class='sub' style='color:#ffb347'>${note}</div>`:'')+
+    `<div><button data-g='dl'>Export save file</button><button data-g='copy'>Copy JSON</button></div><textarea id='gjson' readonly>${json}</textarea>`+
+    `<h2 style='font-size:18px;margin-top:16px'>Load</h2><div class='sub'><input id='gfile' type='file' accept='.json,application/json'></div>`+
+    `<textarea id='gpaste' placeholder='…or paste save JSON here'></textarea><div><button data-g='load'>Load pasted JSON</button><button data-g='close'>Close</button></div></div>`;
+  gp.hidden=false;
+}
+gp.addEventListener('click', e => {
+  const g=e.target.dataset && e.target.dataset.g; if (!g) return;
+  if (g==='close') gp.hidden=true;
+  else if (g==='load') doLoad(document.getElementById('gpaste').value);
+  else if (g==='copy'){ const ta=document.getElementById('gjson'); ta.select(); try { navigator.clipboard.writeText(ta.value); } catch(err) { document.execCommand('copy'); } }
+  else if (g==='dl'){
+    try { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(makeSave(),null,1)],{type:'application/json'})); a.download='starfall-'+SEED+'.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
+    catch(err) {}
+    openGame('Export started. If no file appeared, copy the JSON below instead.');
+  }
+});
+gp.addEventListener('change', e => { if (e.target.id==='gfile' && e.target.files[0]) e.target.files[0].text().then(doLoad); });
+document.getElementById('menu').addEventListener('pointerdown', () => openGame());
+try { const pend=sessionStorage.getItem('starfall_pending'); if (pend){ sessionStorage.removeItem('starfall_pending'); const err=applySave(JSON.parse(pend)); toast(err||'Game loaded'); } } catch(e) {}
 </script>
 </body>
 </html>
