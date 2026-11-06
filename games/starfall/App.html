@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Starfall prototype</title>
+<style>
+:root{color-scheme:dark;--bg:#0a1020;--ink:#cfe8f0;--hot:#ffb347;--cool:#6fe3c1;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:14px system-ui,sans-serif;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+button{position:fixed;border-radius:50%;font:600 14px system-ui,sans-serif;color:var(--ink);touch-action:none;cursor:pointer;-webkit-appearance:none;appearance:none}
+#fire{width:96px;height:96px;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(26px + env(safe-area-inset-bottom,0px));border:2px solid var(--hot);background:rgba(255,179,71,.14)}
+#fire.on{background:rgba(255,179,71,.45)}
+#tgt{width:64px;height:64px;right:calc(126px + env(safe-area-inset-right,0px));bottom:calc(34px + env(safe-area-inset-bottom,0px));border:2px solid var(--cool);background:rgba(111,227,193,.12)}
+#tgt:active{background:rgba(111,227,193,.4)}
+#jump,#map{width:64px;height:64px;border:2px solid var(--ink);background:rgba(207,232,240,.1)}
+#jump{right:calc(30px + env(safe-area-inset-right,0px));bottom:calc(136px + env(safe-area-inset-bottom,0px))}
+#map{right:calc(126px + env(safe-area-inset-right,0px));bottom:calc(108px + env(safe-area-inset-bottom,0px))}
+#jump:active,#map:active{background:rgba(207,232,240,.35)}
+#landb{display:none;width:64px;height:64px;right:calc(126px + env(safe-area-inset-right,0px));bottom:calc(182px + env(safe-area-inset-bottom,0px));border:2px solid var(--cool);background:rgba(111,227,193,.22)}
+#landb.show{display:block}
+#lp{position:fixed;inset:0;background:rgba(10,16,32,.97);overflow:auto;touch-action:pan-y;padding:calc(18px + env(safe-area-inset-top,0px)) 18px calc(24px + env(safe-area-inset-bottom,0px));box-sizing:border-box}
+#lp .in{max-width:520px;margin:0 auto}
+#lp h2{margin:0 0 4px;font-size:22px}
+#lp .sub{margin-bottom:12px}
+#lp button{position:static;width:auto;height:auto;border-radius:8px;padding:10px 14px;margin:4px 6px 4px 0;border:1px solid #4a6078;background:#0f1a30}
+#lp .row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;padding:8px 0;border-top:1px solid rgba(207,232,240,.15)}
+#lp .it{display:flex;align-items:center;gap:10px;flex:1;min-width:200px}
+.ic{width:52px;height:42px;flex:none;border-radius:8px;background:#0f1a30;border:1px solid #2a3a55;object-fit:cover}
+.pic{display:block;width:100%;max-width:320px;height:auto;margin:0 auto 10px;background:#0f1a30;border:1px solid #2a3a55;border-radius:12px;object-fit:cover}
+#lp .lore{color:#9fb6c6;line-height:1.45;margin:6px 0 12px}
+.maponly #fire,.maponly #tgt,.maponly #jump,.maponly #landb{display:none}
+#menu{display:none;left:calc(14px + env(safe-area-inset-left,0px));top:calc(14px + env(safe-area-inset-top,0px));width:56px;height:56px;border:2px solid var(--ink);background:rgba(207,232,240,.1)}
+.maponly #menu{display:block}
+#gp{position:fixed;inset:0;z-index:10;background:rgba(10,16,32,.98);overflow:auto;touch-action:pan-y;padding:calc(18px + env(safe-area-inset-top,0px)) 18px 24px;box-sizing:border-box;user-select:text;-webkit-user-select:text}
+#gp .in{max-width:520px;margin:0 auto}
+#gp h2{margin:0 0 4px;font-size:22px}
+#gp .sub{margin-bottom:10px}
+#gp button{position:static;width:auto;height:auto;border-radius:8px;padding:10px 14px;margin:4px 6px 4px 0;border:1px solid #4a6078;background:#0f1a30}
+#gp textarea{width:100%;height:110px;box-sizing:border-box;background:#0f1a30;color:var(--ink);border:1px solid #2a3a55;border-radius:8px;font:12px monospace;margin:6px 0;touch-action:auto}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<button id="tgt">Target</button>
+<button id="fire">Fire</button>
+<button id="jump">Jump</button>
+<button id="map">Map</button>
+<button id="landb">Land</button>
+<button id="menu">File</button>
+<div id="lp" hidden></div>
+<div id="gp" hidden></div>
+<script>
+// ---------- DATA (swap this out for JSON files later) ----------
+const SHIPS = {}, ART = {}, ARTMISS = new Set();   // generated views of SHIP_DB (see buildShips). ART: id -> image URL. ARTMISS: ids whose file failed to load
+const ASSIST = 0.8;   // drag when not thrusting (flight assist)
+const JUMP_R = 700;   // fly outside this ring to jump
+// ---------- CONTENT (handwritten; each key becomes its own JSON file/folder later) ----------
+const CONTENT = {
+  version: 1,
+  systemCount: 50,
+  nameParts: { start:['Ka','Vel','Or','Tam','Os','Bra','Il','Cal','Ny','Dra','Lum','Hes','Zan','Mir','Sol','Ar'], mid:['','ra','li','den','ko','ve'], end:['n','s','th','x','m','ria','dor','is','on','ax'] },
+  // ===== SHIPS: every fact about every ship is defined here (and nowhere else) =====
+  // Each ship's final record (SHIP_DB[id], id = factionId_class) = class template x lineup multipliers, then `overrides` on top.
+  // A record holds identity, cost, flight stats, slots, weapons, lore and art. SHIPS/FRAMES/ART are generated views of it.
+  ships: {
+    // Every ship looks for artDir + '<id>.png' (e.g. /assets/ships/corpos_fighter.png). If the file is missing, the drawn placeholder is shown instead.
+    // An override's `art:'chairman.png'` replaces the filename; an `art` containing a '/' (or a data: URI) is used as the full path.
+    // Opening the game straight from disk? Change artDir to a relative path like 'assets/ships/'.
+    artDir: '/assets/ships/',
+    // ART GEOMETRY (per ship; class defaults below, any ship can override either field):
+    //   artSize: [w,h]    how big the art is drawn in flight, in world units. The image is centered on the ship, nose pointing right (+x).
+    //                     Default: the hull outline's extent plus 10%. Image resolution doesn't matter; it is stretched to this size.
+    //   engines: [[x,y],..] exhaust points as offsets from the art's center, in the same units as artSize. +x = toward the nose,
+    //                     +y = toward starboard (down on an image whose nose points right). One exhaust sprite/particle spawns per point.
+    // Class templates. slots = [weapon, engine, utility, hull]. guns = number of AI-flown weapons.
+    classes: {
+      racer:    { label:'Racer',         tech:1, price:2200,  thrust:330, turn:280, max:420, shield:30,  armor:40,  regen:5,  r:12, cargo:10,  mass:40,  slots:[1,1,1,1], guns:1, dmg:5,  cd:0.3,  shape:[[18,0],[-8,-6],[-4,0],[-8,6]], engines:[[-8,0]], blurb:'A stripped-down speed frame built to outrun trouble.' },
+      fighter:  { label:'Fighter',       tech:1, price:2000,  thrust:270, turn:230, max:330, shield:55,  armor:70,  regen:5,  r:14, cargo:15,  mass:60,  slots:[2,1,1,1], guns:2, dmg:7,  cd:0.3,  shape:[[16,0],[-10,-9],[-5,0],[-10,9]], engines:[[-9,-4],[-9,4]], blurb:'A nimble all-rounder and the backbone of any patrol.' },
+      cruiser:  { label:'Cruiser',       tech:3, price:9000,  thrust:190, turn:140, max:260, shield:110, armor:150, regen:6,  r:19, cargo:40,  mass:200, slots:[4,1,2,3], guns:3, dmg:9,  cd:0.35, shape:[[20,0],[4,-8],[-12,-11],[-8,0],[-12,11],[4,8]], engines:[[-12,-6],[-12,6]], blurb:'A balanced warship with real armor and real guns.' },
+      destroyer:{ label:'Destroyer',     tech:3, price:12000, thrust:175, turn:120, max:240, shield:140, armor:200, regen:7,  r:22, cargo:30,  mass:260, slots:[5,1,2,4], guns:4, dmg:11, cd:0.35, shape:[[24,0],[-4,-8],[-16,-14],[-12,0],[-16,14],[-4,8]], engines:[[-14,-8],[-12,0],[-14,8]], blurb:'A heavy gun platform built to break other warships.' },
+      carrier:  { label:'Carrier',       tech:4, price:22000, thrust:130, turn:90,  max:200, shield:160, armor:260, regen:8,  r:28, cargo:80,  mass:340, slots:[3,1,4,5], guns:2, dmg:8,  cd:0.4,  shape:[[22,0],[10,-14],[-18,-16],[-18,16],[10,14]], engines:[[-18,-9],[-18,0],[-18,9]], blurb:'A fleet anchor with hangar space and a thick hull.' },
+      science:  { label:'Science Vessel',tech:3, price:8500,  thrust:200, turn:160, max:270, shield:90,  armor:70,  regen:8,  r:17, cargo:50,  mass:180, slots:[1,1,5,2], guns:1, dmg:6,  cd:0.4,  shape:[[14,0],[4,-10],[-6,-12],[-14,-5],[-14,5],[-6,12],[4,10]], engines:[[-14,-3],[-14,3]], blurb:'Sensor-heavy and utility-rich, with room for strange cargo.' },
+      cargo_s:  { label:'Light Cargo',   tech:1, price:3000,  thrust:210, turn:150, max:260, shield:40,  armor:70,  regen:3,  r:15, cargo:50,  mass:90,  slots:[1,1,2,1], guns:0, dmg:0,  cd:0.5,  shape:[[14,0],[6,-8],[-12,-8],[-12,8],[6,8]], engines:[[-12,-4],[-12,4]], blurb:'A small hauler for short runs and tight margins.' },
+      cargo_m:  { label:'Medium Cargo',  tech:2, price:6000,  thrust:180, turn:125, max:230, shield:50,  armor:100, regen:4,  r:18, cargo:100, mass:140, slots:[2,1,3,2], guns:0, dmg:0,  cd:0.5,  shape:[[16,0],[8,-10],[-14,-10],[-14,10],[8,10]], engines:[[-14,-5],[-14,5]], blurb:'The standard freighter of the lanes.' },
+      cargo_h:  { label:'Heavy Cargo',   tech:3, price:12000, thrust:150, turn:100, max:200, shield:70,  armor:150, regen:5,  r:22, cargo:200, mass:200, slots:[2,1,3,3], guns:0, dmg:0,  cd:0.5,  shape:[[18,0],[10,-12],[-18,-12],[-18,12],[10,12]], engines:[[-18,-6],[-18,6]], blurb:'A bulk carrier that trades speed for tonnage.' },
+      cargo_x:  { label:'Massive Cargo', tech:4, price:26000, thrust:115, turn:70,  max:170, shield:100, armor:260, regen:6,  r:30, cargo:400, mass:300, slots:[3,1,4,4], guns:0, dmg:0,  cd:0.5,  shape:[[22,0],[12,-15],[-22,-15],[-22,15],[12,15]], engines:[[-22,-8],[-22,0],[-22,8]], blurb:'A moving warehouse. Slow, huge, and worth escorting.' },
+      unique:   { label:'Unique',        tech:4, price:30000, thrust:240, turn:190, max:300, shield:170, armor:190, regen:10, r:20, cargo:60,  mass:280, slots:[4,1,4,4], guns:4, dmg:13, cd:0.28, shape:[[22,0],[2,-6],[-8,-16],[-14,-6],[-10,0],[-14,6],[-8,16],[2,6]], engines:[[-14,-6],[-14,6]], blurb:'A one-of-a-kind flagship design. Few are ever built.' }
+    },
+    // Per-faction lineup: names (unique per faction), flavor tag, and multipliers: price, spd (thrust/turn/max), def (shield/armor), cargo, dmg.
+    // `bias` multiplies on top of `style` for one class.
+    lineups: {
+      peacekeepers: { tag:'Built to Peacekeeper doctrine: sturdy, armed, and easy to spot.',
+        style:{ price:1.15, spd:0.95, def:1.1, cargo:0.9, dmg:1.1 },
+        bias:{ destroyer:{def:1.25,dmg:1.25,price:0.9}, cruiser:{def:1.2,dmg:1.2,price:0.9}, racer:{spd:0.9,price:1.2}, science:{def:0.9}, unique:{def:1.3,dmg:1.2,price:1.2} },
+        names:{ racer:'Dispatch', fighter:'Warden', cruiser:'Marshal', destroyer:'Bulwark', carrier:'Garrison', science:'Surveyor', cargo_s:'Tender', cargo_m:'Convoy', cargo_h:'Stalwart', cargo_x:'Atlas', unique:'Paragon' } },
+      junkers: { tag:'Junker-built from salvage. Cheap, loud, and held together by optimism.',
+        style:{ price:0.65, spd:1, def:0.8, cargo:1.05, dmg:0.85 },
+        bias:{ racer:{spd:1.1}, science:{def:0.7,price:0.9}, unique:{cargo:1.5,def:1.25,price:1.1} },
+        names:{ racer:'Skiff', fighter:'Scrapper', cruiser:'Brawler', destroyer:'Wrecker', carrier:'Rustbelt', science:'Tinkerer', cargo_s:'Pickup', cargo_m:'Patchwork', cargo_h:'Hoarder', cargo_x:'Heap', unique:'Jackpot' } },
+      corpos: { tag:'A Corpos design: expensive, precise, and leased in spirit even when sold.',
+        style:{ price:1.6, spd:1.1, def:1.15, cargo:1.1, dmg:1.1 },
+        bias:{ science:{def:1.3,spd:1.2,price:1.2}, racer:{spd:1.3,dmg:1.2,price:1.2}, unique:{spd:1.3,def:1.4,dmg:1.4,price:1.5} },
+        names:{ racer:'Dividend', fighter:'Arbiter', cruiser:'Executive', destroyer:'Enforcer', carrier:'Holding', science:'Analyst', cargo_s:'Parcel', cargo_m:'Ledger', cargo_h:'Syndicate', cargo_x:'Conglomerate', unique:'Chairman' } },
+      lattice: { tag:'A Lattice hull: small, quick, and coordinated by something you never see.',
+        style:{ price:1, spd:1.1, def:0.9, cargo:0.8, dmg:1 },
+        bias:{ carrier:{def:1.35,dmg:1.3,price:0.75}, racer:{spd:1.15,price:0.8}, fighter:{spd:1.1,dmg:1.15,price:0.8}, destroyer:{def:0.8,price:1.2}, cruiser:{def:0.85,price:1.2}, unique:{spd:1.25,dmg:1.25,price:1.2} },
+        names:{ racer:'Glint', fighter:'Mote', cruiser:'Prism', destroyer:'Lance', carrier:'Hive', science:'Lens', cargo_s:'Pod', cargo_m:'Ferry', cargo_h:'Vault', cargo_x:'Cathedral', unique:'Apex' } },
+      independent: { tag:'An independent yard build. No logo, no leash.',
+        names:{ racer:'Wayfarer', fighter:'Drifter', science:'Cartographer', cargo_s:'Packet', cargo_m:'Trader', cargo_h:'Bulker' } },
+      pirates: { tag:'A pirate refit. Someone else paid for it first.',
+        style:{ price:0.75, spd:1.1, def:0.8, cargo:0.9, dmg:1.15 }, bias:{ unique:{def:1.3,dmg:1.3,price:1.3} },
+        names:{ racer:'Cutter', fighter:'Raider', cruiser:'Marauder', cargo_s:'Smuggler', unique:'Reaver' } }
+    },
+    // Hand edits for single ships. Any field of the final record can be set here: lore, art, price, thrust, shield, slots, ...
+    overrides: {
+      peacekeepers_fighter:  { lore:'The Peacekeeper patrol standard. Plain, sturdy, and painted so you can see it coming.' },
+      peacekeepers_destroyer:{ lore:'What the Peacekeepers send when order needs to be enforced loudly.' },
+      junkers_fighter:       { lore:'Junker-built from three wrecks and a grudge. Fast, loud, and held together by optimism.' },
+      junkers_cargo_m:       { lore:'A Junker hauler stitched from derelict hulls. Every bay was a different ship once.' },
+      corpos_fighter:        { lore:'A Corpos escort frame, leased rather than sold, in theory. Its guns settle disputes before they start.' },
+      corpos_cargo_m:        { lore:'A Corpos bulk freighter built around one idea: more cargo per credit than anyone else.' }
+    },
+    // Enemy-only ships: never sold, so no shop fields needed.
+    npc: {
+      raider: { name:'Raider', sold:false, thrust:210, turn:170, max:280, shield:30, armor:50, regen:3, r:13, color:'#ff7b7b',
+        shape:[[14,0],[-9,-10],[-3,-3],[-12,0],[-3,3],[-9,10]], engines:[[-12,0]], weapons:[{ dmg:6, speed:460, life:0.8, cd:0.4, off:[10,0], color:'#ff7b7b' }] }
+    }
+  },
+  factions: [
+    { id:'peacekeepers', name:'Peacekeepers', c:'#6fb5e3', patrol:'fighter', techRange:[2,4], relations:{ junkers:-60, corpos:10, lattice:-70 } },
+    { id:'junkers',      name:'Junkers',      c:'#e07f5f', patrol:'fighter', techRange:[1,3], relations:{ corpos:-50, lattice:0 } },
+    { id:'corpos',       name:'Corpos',       c:'#b58be0', patrol:'fighter', techRange:[3,5], relations:{ lattice:-60 } },
+    { id:'lattice',      name:'The Lattice',  c:'#6fe3c1', patrol:'fighter', techRange:[4,5], relations:{} },
+    // spawn.zones: border = between factions, fringe = map edge far from any capital.
+    // Minor owners (minor:true) are never picked as one of the universe's main factions. Each rolls per planet via `spawn`.
+    // relations key '*' is a default toward everyone. outlaw = no standing penalties for fighting them, no trader traffic.
+    { id:'independent', name:'Independent', c:'#9aa7b5', minor:true, patrol:null, techRange:[1,4], startStanding:0,
+      spawn:{ chance:0.3, zones:['border','fringe'] }, relations:{} },
+    { id:'pirates', name:'Pirates', c:'#e0564f', minor:true, outlaw:true, patrol:'fighter', techRange:[1,2], startStanding:-50,
+      spawn:{ chance:0.3, zones:['border','fringe'] }, relations:{ '*':-60 } }
+  ],
+  // price = base * (1 + techSlope*(3-planetTech) + sum of tag mods) * slow noise. Negative tag mod = producers sell cheap.
+  commodities: [
+    { id:'food',     base:20, techSlope: 0.10, tags:{ agri:-0.30 } },
+    { id:'ore',      base:35, techSlope: 0,    tags:{ mining:-0.30 } },
+    { id:'tech',     base:90, techSlope:-0.15, tags:{ industrial:-0.25 } },
+    { id:'medicine', base:60, techSlope:-0.15, tags:{ industrial:-0.15 } }
+  ],
+  // Quest steps are queries, not planet ids. Skipped entirely if a required faction isn't in the universe.
+  quests: [
+    { id:'dead_drop', name:'Dead Drop', requires:{ factions:['junkers'] },
+      steps:[ { where:{ faction:'junkers', tech:{ lt:2 } }, chance:0.1 } ] }
+  ]
+};
+
+// ---------- SEEDED RNG (every entity derives its own stream, so generation order never matters) ----------
+const hashStr = s => { let h=2166136261; for (const ch of s){ h^=ch.charCodeAt(0); h=Math.imul(h,16777619); } return h>>>0; };
+const rngOf = (...k) => { let a=hashStr(k.join('|')); return () => { a=(a+0x6D2B79F5)|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; };
+const noise = (...k) => rngOf(...k)();
+const vnoise = (x,...k) => { const i=Math.floor(x), f=x-i, u=f*f*(3-2*f); return noise(...k,i)*(1-u)+noise(...k,i+1)*u; };
+const SEED = new URLSearchParams(location.search).get('seed') || String(Date.now()%1e6);
+
+// ---------- UNIVERSE GENERATION (output is derived from SEED + CONTENT, never saved in full) ----------
+function generateUniverse(seed){
+  const R = (...k) => rngOf(seed,...k), F = CONTENT.factions;
+  const minors = F.filter(f=>f.minor), pool = F.filter(f=>!f.minor).map(f=>f.id).sort(), pick = [], rf = R('factions');
+  const n = Math.max(2, Math.round(pool.length*0.75));
+  while (pick.length<n) pick.push(pool.splice(Math.floor(rf()*pool.length),1)[0]);
+  const N = CONTENT.systemCount, pts = [], rp = R('layout'); let md = 9;   // dart-throw points with a minimum spacing, relaxing if crowded
+  while (pts.length<N){ for (let t=0; t<3000 && pts.length<N; t++){ const x=6+rp()*88, y=6+rp()*88; if (pts.every(a=>Math.hypot(a[0]-x,a[1]-y)>=md)) pts.push([Math.round(x*10)/10, Math.round(y*10)/10]); } md*=0.92; }
+  const systems = {}, taken = new Set();
+  pts.forEach(([x,y],i) => { const P=CONTENT.nameParts; let name, t=0;
+    do { const q=R('name',i,t++), pk=a=>a[Math.floor(q()*a.length)]; name=pk(P.start)+pk(P.mid)+pk(P.end); } while (taken.has(name));
+    taken.add(name); systems['s'+i] = { name, x, y, danger:1, links:[], planets:[] }; });
+  const ks = Object.keys(systems), d = (a,b) => Math.hypot(systems[a].x-systems[b].x, systems[a].y-systems[b].y);
+  const link = (a,b) => { if (!systems[a].links.includes(b)){ systems[a].links.push(b); systems[b].links.push(a); } };
+  ks.forEach(a => ks.filter(b=>b!==a).sort((p,q)=>d(a,p)-d(a,q)).slice(0,3).forEach((b,i)=>{ if (i<2 || d(a,b)<13) link(a,b); }));
+  for(;;){ const seen=new Set([ks[0]]), st=[ks[0]];
+    while (st.length){ const c=st.pop(); systems[c].links.forEach(l=>{ if(!seen.has(l)){ seen.add(l); st.push(l); } }); }
+    if (seen.size===ks.length) break;
+    let best=null; seen.forEach(a=>ks.filter(b=>!seen.has(b)).forEach(b=>{ if(!best||d(a,b)<d(best[0],best[1])) best=[a,b]; })); link(best[0],best[1]); }
+  const caps=[ks[Math.floor(R('cap')()*ks.length)]];
+  while (caps.length<pick.length) caps.push(ks.filter(k=>!caps.includes(k)).sort((a,b)=>Math.min(...caps.map(c=>d(b,c)))-Math.min(...caps.map(c=>d(a,c))))[0]);
+  const wd = (k,c) => d(k,c)*(0.85+0.3*noise(seed,'terr',k,c)), fac = {};   // noisy distance so borders aren't straight lines
+  ks.forEach(k => fac[k]=pick[caps.indexOf(caps.reduce((b,c)=>wd(k,c)<wd(k,b)?c:b))]);
+  const planets = {}, used = new Set(), depth = {};   // depth = jumps from the owning capital through same-faction systems
+  caps.forEach(c => { depth[c]=0; const st=[c]; while (st.length){ const x=st.shift(); systems[x].links.forEach(l => { if (fac[l]===fac[c] && depth[l]==null){ depth[l]=depth[x]+1; st.push(l); } }); } });
+  ks.forEach(k => { const sys=systems[k], q=R('planets',k), border=sys.links.some(l=>fac[l]!==fac[k]), dp=depth[k]??9,
+      edge=sys.x<12||sys.x>88||sys.y<12||sys.y>88;
+    // minor owners only claim frontier systems or far-flung fringe, never a capital or a faction's interior
+    const zone = (caps.includes(k)||dp<1) ? null : border ? 'border' : (edge&&dp>=2) ? 'fringe' : null;
+    sys.danger = Math.min(3, (border?2:1) + (caps.includes(k)?-1:0) + (q()<0.25?1:0));
+    let own=fac[k]; if (zone) for (const m of minors) if (m.spawn.zones.includes(zone) && q()<m.spawn.chance){ own=m.id; break; }   // one owner per system
+    if (F.find(x=>x.id===own).outlaw) sys.danger=Math.min(3,sys.danger+1);
+    const [lo,hi]=F.find(x=>x.id===own).techRange, a0=q()*6.28, np=1+(q()<0.4?1:0);
+    for (let j=0;j<np;j++){ const bar=j>0&&q()<0.5, ang=a0+j*(Math.PI+q()-0.5), dist=260+q()*140, T=['agri','mining','industrial'], t1=T[Math.floor(q()*3)];
+      const p = { id:k+'p'+j, system:k, name:sys.name+(j?' II':' Prime'), faction:bar?null:own, barren:bar, tech:bar?0:lo+Math.floor(q()*(hi-lo+1)),
+        tags:bar?['barren']:q()<0.35?[t1,T[(T.indexOf(t1)+1)%3]]:[t1], x:Math.round(Math.cos(ang)*dist), y:Math.round(Math.sin(ang)*dist),
+        r:Math.round(22+q()*34), c:bar?'#7d838c':`hsl(${Math.floor(q()*360)},45%,65%)` };
+      sys.planets.push(p); planets[p.id]=p; used.add(own); } });
+  return { seed, factions:[...pick, ...minors.map(m=>m.id).filter(id=>used.has(id))], systems, planets, start:caps[0] };
+}
+const UNI = generateUniverse(SEED); console.log('Starfall seed:', SEED, 'factions:', UNI.factions.join(', '));
+const SYSTEMS = UNI.systems, UNIVERSE = UNI.factions;
+const FACTIONS = Object.fromEntries(CONTENT.factions.map(f=>[f.id,f]));
+const sysOwner = id => SYSTEMS[id].planets[0].faction;   // planets carry their own faction; this is the system's "primary" owner
+const standing = Object.fromEntries(UNIVERSE.map(f=>[f,FACTIONS[f].startStanding ?? 30]));
+// Fog of war: a system's owner is unknown until you land on (or are refused docking at) one of its planets.
+const known = new Set(UNI.systems[UNI.start].planets.map(p=>p.id));
+const reveal = p => known.add(p.id);
+const sysKnown = id => SYSTEMS[id].planets.some(p => known.has(p.id) && !p.barren);
+const pv = (a,b) => FACTIONS[a].relations?.[b] ?? FACTIONS[b].relations?.[a] ?? FACTIONS[a].relations?.['*'] ?? FACTIONS[b].relations?.['*'] ?? 0;
+// Shops are queries: faction-locked items need the owner, everything needs planet tech >= item tech.
+const avail = (it,p) => (!it.fac || it.fac===p.faction) && (it.tech ?? 1) <= p.tech;
+
+// ---------- QUESTS (progress lives in save state; targets are resolved lazily, seeded so reloads can't reroll) ----------
+const questState = {};   // questId -> current step index
+const match = (p,w) => Object.entries(w).every(([k,v]) => k==='tag' ? p.tags.includes(v) : (v && typeof v==='object') ? (!('lt' in v)||p[k]<v.lt) && (!('gt' in v)||p[k]>v.gt) && (!('in' in v)||v.in.includes(p[k])) : p[k]===v);
+const activeQuests = () => CONTENT.quests.filter(q => q.requires.factions.every(f => UNIVERSE.includes(f)));
+const questOffers = p => activeQuests().filter(q => { const i=questState[q.id]??0, st=q.steps[i]; return st && match(p,st.where) && noise(UNI.seed,q.id,i,p.id)<st.chance; });
+const band = v => v<=-25?'Hostile':v>=60?'Allied':v>=25?'Friendly':'Neutral';
+const COMM = Object.fromEntries(CONTENT.commodities.map(c=>[c.id,c.base])), FUEL_MAX=6, FUEL_PRICE=25;
+let CARGO_MAX=20;
+const hs = s => { let h=0; for(const ch of s) h=(h*31+ch.charCodeAt(0))%997; return h/997; };
+const PATROL = Object.fromEntries(CONTENT.factions.map(f=>[f.id,f.patrol?f.id+'_'+f.patrol:null]));
+// SHIP_DB: one complete record per ship (built from CONTENT.ships). SHIPS = flight model view, FRAMES = shop/outfitting view.
+const SHIP_DB = {}, FRAMES = {};
+function buildShips(){
+  const D = CONTENT.ships, r5 = (v,n=1) => Math.round(v/n)*n;
+  for (const [fid,L] of Object.entries(D.lineups)) for (const [cls,name] of Object.entries(L.names)){
+    const C = D.classes[cls], b = { price:1, spd:1, def:1, cargo:1, dmg:1, ...L.style }, o = L.bias?.[cls] || {}, m = k => b[k]*(o[k] ?? 1), id = fid+'_'+cls;
+    const rec = { id, name, cls, classLabel:C.label, fac:fid, color:CONTENT.factions.find(f=>f.id===fid).c, tech:C.tech,
+      price:r5(C.price*m('price'),50), massCap:r5(C.mass*Math.sqrt(m('def'))), cargo:r5(C.cargo*m('cargo')),
+      slots:{ weapon:C.slots[0], engine:C.slots[1], utility:C.slots[2], hull:C.slots[3] },
+      thrust:r5(C.thrust*m('spd')), turn:r5(C.turn*m('spd')), max:r5(C.max*m('spd')), shield:r5(C.shield*m('def')), armor:r5(C.armor*m('def')), regen:C.regen, r:C.r, shape:C.shape,
+      weapons:Array.from({length:C.guns}, (_,i) => ({ dmg:+(C.dmg*m('dmg')).toFixed(1), speed:500, life:0.9, cd:C.cd, off:[10,(i-(C.guns-1)/2)*8], color:CONTENT.factions.find(f=>f.id===fid).c })),
+      artSize:C.artSize, engines:C.engines, lore:(C.blurb+' '+(L.tag||'')).trim(), ...D.overrides[id] };
+    SHIP_DB[id] = rec;
+  }
+  for (const [id,n] of Object.entries(D.npc)) SHIP_DB[id] = { id, ...n };
+  for (const r of Object.values(SHIP_DB)){
+    const ext = (k,f) => Math.round(f*Math.max(...r.shape.map(p=>Math.abs(p[k])))*2*10)/10;
+    r.artSize = r.artSize || [ext(0,1.1), ext(1,1.1)]; r.engines = r.engines || [[-r.r,0]];
+    const file = r.art || r.id+'.png'; r.art = (file.includes('/') || file.startsWith('data:')) ? file : D.artDir + file;
+    SHIPS[r.id] = { name:r.name, thrust:r.thrust, turn:r.turn, max:r.max, shield:r.shield, armor:r.armor, regen:r.regen, r:r.r, color:r.color, shape:r.shape, weapons:r.weapons, id:r.id, artSize:r.artSize, engines:r.engines };
+    if (r.sold !== false) FRAMES[r.id] = { name:r.name, cls:r.cls, fac:r.fac, tech:r.tech, price:r.price, massCap:r.massCap, cargo:r.cargo, slots:r.slots, lore:r.lore };
+    if (r.art) ART[r.id] = r.art;
+  }
+}
+buildShips();
+const frameConf = id => { const f=FRAMES[id]; return { massCap:f.massCap, cargo:f.cargo, convRate:10, convFee:600, convMax:Math.min(2,Math.floor(f.cargo/10)), slots:f.slots }; };
+let frameId = sysOwner(UNI.start)+'_fighter', FRAME = frameConf(frameId);   // you start in a fighter built by the faction whose capital you spawn at
+function setFrame(id){
+  frameId=id; FRAME=frameConf(id); conv=0;
+  for (const t of ['weapon','engine','utility','hull']) loadout[t]=Array(FRAME.slots[t]).fill(null);
+  loadout.weapon[0]='blaster'; loadout.engine[0]='stock'; applyLoadout();
+}
+const shipValue = () => Math.round(0.7*(FRAMES[frameId].price+Object.values(loadout).flat().filter(Boolean).reduce((a,k)=>a+OUT[k].price,0)));
+const OUT = {
+  blaster:{ name:'Blaster', type:'weapon', tech:1, mass:8, price:0, w:{ dmg:8, speed:520, life:0.9, cd:0.22, color:'#ffb347' } },
+  pulse:  { name:'Pulse gun', type:'weapon', tech:2, mass:10, price:400, w:{ dmg:4, speed:560, life:0.8, cd:0.11, color:'#6fe3c1' } },
+  cannon: { name:'Cannon', type:'weapon', tech:3, mass:16, price:900, w:{ dmg:20, speed:480, life:1.1, cd:0.6, color:'#ff7b7b' } },
+  stock:  { name:'Stock engine', type:'engine', tech:1, mass:10, price:0, mt:1, mu:1, mx:1 },
+  ion:    { name:'Ion engine', type:'engine', tech:3, mass:14, price:700, mt:1.27, mu:1.12, mx:1.22 },
+  cell:   { name:'Shield cell', type:'utility', tech:2, mass:8, price:500, shield:30, regen:3 },
+  pod:    { name:'Cargo pod', type:'utility', tech:1, mass:6, price:300, cargo:10 },
+  plate:  { name:'Armor plating', type:'hull', tech:2, mass:12, price:450, armor:40 }
+};
+const loadout = Object.fromEntries(['weapon','engine','utility','hull'].map(t => [t, Array(FRAME.slots[t]).fill(null)])); loadout.weapon[0]='blaster'; loadout.engine[0]='stock';
+let conv = 0;
+const cap = s => s[0].toUpperCase()+s.slice(1);
+const massUsed = () => Object.values(loadout).flat().filter(Boolean).reduce((a,k)=>a+OUT[k].mass,0);
+const cargoMax = () => FRAME.cargo-FRAME.convRate*conv+loadout.utility.filter(Boolean).reduce((a,k)=>a+(OUT[k].cargo||0),0);
+const check = () => massUsed()>FRAME.massCap ? 'Over the mass limit' : (used()>cargoMax() ? 'Cargo hold too full. Sell cargo first' : null);
+const wouldErr = (t,i,key) => { const old=loadout[t][i]; loadout[t][i]=key; const e=check(); loadout[t][i]=old; return e; };
+const trySet = (t,i,key) => { const e=wouldErr(t,i,key); if(!e) loadout[t][i]=key; return e; };
+const desc = o => o.w ? `dmg ${o.w.dmg}, ${(1/o.w.cd).toFixed(1)}/s` : o.mt ? `+${Math.round((o.mt-1)*100)}% thrust, +${Math.round((o.mx-1)*100)}% speed` : [o.shield&&`+${o.shield} shield`,o.armor&&`+${o.armor} armor`,o.cargo&&`+${o.cargo} cargo`].filter(Boolean).join(', ');
+function applyLoadout(){
+  const it=t=>loadout[t].filter(Boolean).map(k=>OUT[k]), sum=(a,k)=>a.reduce((s,o)=>s+(o[k]||0),0);
+  const B=SHIPS[frameId], e=it('engine')[0]||OUT.stock, ws=it('weapon'), us=it('utility'), hl=it('hull');
+  player.d=Object.assign({},B,{ thrust:B.thrust*e.mt, turn:B.turn*e.mu, max:B.max*e.mx, shield:B.shield+sum(us,'shield'), regen:B.regen+sum(us,'regen'), armor:B.armor+sum(hl,'armor'), weapons:ws.map((o,i)=>({...o.w, off:[10,(i-(ws.length-1)/2)*8]})) });
+  CARGO_MAX=cargoMax(); player.cd=player.d.weapons.map(()=>0); player.sh=player.d.shield; player.ar=player.d.armor;
+}
+const WPN = (dmg,cd,c) => [{ dmg, speed:500, life:0.9, cd, off:[10,0], color:c }];
+
+// ---------- SETUP ----------
+const cv = document.getElementById('c'), g = cv.getContext('2d');
+const root = getComputedStyle(document.documentElement);
+let W, H, DPR, Z, SAFE_T = 0;
+function resize(){
+  DPR = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight;
+  cv.width = W*DPR; cv.height = H*DPR; Z = Math.min(W,H)/620;
+  SAFE_T = parseFloat(root.paddingTop) || 0;
+}
+addEventListener('resize', resize); resize();
+
+const rnd = (a,b) => a + Math.random()*(b-a);
+const angDiff = (a,b) => { let d=b-a; while(d>Math.PI)d-=2*Math.PI; while(d<-Math.PI)d+=2*Math.PI; return d; };
+
+let ships=[], shots=[], parts=[], player, kills=0, time=0, spawnT=1, respawnT=0;
+let sysId=UNI.start, dest=null, mapOpen=false, jumpT=0, flash=0, msg='Fly close to a planet and tap Land', msgT=6;
+let fuel=5, credits=500; const cargo=Object.fromEntries(Object.keys(COMM).map(k=>[k,0])); let popT=12;
+const cam = {x:0,y:0};
+const stars = [0,1,2].map(l => Array.from({length:[60,45,30][l]}, () => [Math.random(),Math.random(),Math.random()]));
+const PAR = [0.12,0.3,0.55];
+
+const ARTIMG = {};   // id -> Image used for in-flight sprites; a failed load joins ARTMISS and the outline is drawn instead
+function artImg(id){
+  if (!ART[id] || ARTMISS.has(id)) return null;
+  let im=ARTIMG[id]; if (!im){ im=ARTIMG[id]=new Image(); im.onerror=()=>ARTMISS.add(id); im.src=ART[id]; }
+  return im.complete && im.naturalWidth ? im : null;
+}
+function mk(id,x,y,ai){
+  const d = SHIPS[id];
+  return { d, x, y, vx:0, vy:0, a:rnd(0,6.28), sh:d.shield, ar:d.armor, cd:d.weapons.map(()=>0), hit:0,
+    ai, team:ai?1:0, dead:false, tgt:null, in:{aim:null,turn:0,thrust:0,fire:false} };
+}
+function spawnPlayer(){ player = mk(frameId,0,0,false); ships.push(player); applyLoadout(); }
+spawnPlayer(); fillTraffic(true);
+
+// ---------- INPUT ----------
+const keys = {}; let fireBtn = false;
+addEventListener('keydown', e => { keys[e.code]=true; if(e.code==='KeyT') cycleTarget(); });
+addEventListener('keyup', e => keys[e.code]=false);
+const R = 56, stick = {id:null,ox:0,oy:0,x:0,y:0};
+cv.addEventListener('pointerdown', e => {
+  if (mapOpen){ mapDown(e); return; }
+  if (e.clientX < W*0.55 && stick.id===null){ const m=R+48; stick.id=e.pointerId; stick.sx=e.clientX; stick.sy=e.clientY; stick.ox=stick.x=Math.max(e.clientX,m); stick.oy=stick.y=Math.min(Math.max(e.clientY,m),H-m-(parseFloat(root.paddingBottom)||0)); cv.setPointerCapture(e.pointerId); }
+});
+cv.addEventListener('pointermove', e => { if(mapOpen){ mapMove(e); return; } if(e.pointerId===stick.id){ stick.x=stick.ox+(e.clientX-stick.sx); stick.y=stick.oy+(e.clientY-stick.sy); } });
+const endStick = e => { if(e.pointerId===stick.id) stick.id=null; };
+cv.addEventListener('pointerup', endStick); cv.addEventListener('pointercancel', endStick);
+const fb = document.getElementById('fire');
+fb.addEventListener('pointerdown', e => { fireBtn=true; fb.classList.add('on'); fb.setPointerCapture(e.pointerId); });
+const fireUp = () => { fireBtn=false; fb.classList.remove('on'); };
+fb.addEventListener('pointerup', fireUp); fb.addEventListener('pointercancel', fireUp);
+document.getElementById('tgt').addEventListener('pointerdown', cycleTarget);
+const mapB = document.getElementById('map');
+mapB.addEventListener('pointerdown', () => { mptr.clear(); mapOpen=!mapOpen; mapB.textContent=mapOpen?'Close':'Map'; document.body.classList.toggle('maponly',mapOpen); stick.id=null; fireUp(); });
+document.getElementById('jump').addEventListener('pointerdown', tryJump);
+const nodePos = s => ({ x:W*0.12+s.x/100*W*0.76, y:SAFE_T+H*0.2+s.y/100*(H*0.6) });
+
+// ---------- MAP ZOOM / PAN (mv = view transform around the screen center) ----------
+const mv = { z:1, px:0, py:0 }, mptr = new Map(); let mTap = null, mPinch = 0;
+const mapPos = s => { const b=nodePos(s); return { x:W/2+(b.x-W/2)*mv.z+mv.px, y:H/2+(b.y-H/2)*mv.z+mv.py }; };
+const zbtns = () => [{x:W-30,y:H/2-52,t:'+'},{x:W-30,y:H/2,t:'\u2212'},{x:W-30,y:H/2+52,t:'\u2316'}];
+const clampMap = () => { mv.px=Math.max(-W*mv.z,Math.min(W*mv.z,mv.px)); mv.py=Math.max(-H*mv.z,Math.min(H*mv.z,mv.py)); };
+const zoomAt = (cx,cy,f) => { const z=Math.min(4,Math.max(0.8,mv.z*f)), k=z/mv.z; mv.px=cx-W/2-(cx-W/2-mv.px)*k; mv.py=cy-H/2-(cy-H/2-mv.py)*k; mv.z=z; clampMap(); };
+function mapDown(e){
+  const bt = zbtns().find(b => Math.hypot(b.x-e.clientX,b.y-e.clientY)<26);
+  if (bt){ if (bt.t==='+') zoomAt(W/2,H/2,1.5); else if (bt.t==='\u2212') zoomAt(W/2,H/2,1/1.5);
+    else { const b=nodePos(SYSTEMS[sysId]); mv.z=2; mv.px=-(b.x-W/2)*2; mv.py=-(b.y-H/2)*2; clampMap(); } return; }
+  cv.setPointerCapture(e.pointerId); mptr.set(e.pointerId,{x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY});
+  mTap = mptr.size===1 ? e.pointerId : null; mPinch = 0;
+}
+function mapMove(e){
+  const p=mptr.get(e.pointerId); if (!p) return;
+  const ox=p.x, oy=p.y; p.x=e.clientX; p.y=e.clientY;
+  if (mptr.size>=2){ const [a,b]=[...mptr.values()], dist=Math.hypot(a.x-b.x,a.y-b.y);
+    if (mPinch) zoomAt((a.x+b.x)/2,(a.y+b.y)/2,dist/mPinch); mPinch=dist; mTap=null; }
+  else { mv.px+=p.x-ox; mv.py+=p.y-oy; if (Math.hypot(p.x-p.sx,p.y-p.sy)>8) mTap=null; clampMap(); }
+}
+function mapUp(e){
+  const p=mptr.get(e.pointerId); if (!p) return;
+  if (mTap===e.pointerId && e.type==='pointerup') pickNode(e.clientX,e.clientY);
+  mptr.delete(e.pointerId); mPinch=0; if (mptr.size) mTap=null;
+}
+cv.addEventListener('pointerup', mapUp); cv.addEventListener('pointercancel', mapUp);
+cv.addEventListener('wheel', e => { if (!mapOpen) return; e.preventDefault(); zoomAt(e.clientX,e.clientY,Math.exp(-e.deltaY*0.0015)); }, {passive:false});
+function toast(t){ msg=t; msgT=2.5; }
+const landB=document.getElementById('landb'), lp=document.getElementById('lp');
+let landed=null, nearP=null;
+let lpView='main', lpMsg='', outSel=null, lpInfo=null;
+function outAct(k,c,x){
+  if (k==='info'){ lpInfo={kind:c,id:x}; }
+  else if (k==='yard'){ lpView='yard'; }
+  else if (k==='buyship'){
+    const f=FRAMES[c], net=f.price-shipValue();
+    if (credits<net) lpMsg='Not enough credits';
+    else if (used()>f.cargo) lpMsg='Cargo hold too full. Sell cargo first';
+    else { credits-=net; setFrame(c); lpInfo=null; lpMsg='You now fly the '+f.name; }
+  }
+  else if (k==='outf'){ lpView='outfit'; outSel=null; }
+  else if (k==='rem' && outSel && outSel.t==='engine'){ lpMsg='The engine cannot be removed'; }
+  else if (k==='back'){ if(lpInfo) lpInfo=null; else if(outSel) outSel=null; else lpView='main'; }
+  else if (k==='slot'){ outSel={t:c,i:+x}; }
+  else if ((k==='inst'||k==='rem') && outSel){
+    const {t,i}=outSel, old=loadout[t][i], key=k==='inst'?c:null;
+    const refund=old?Math.round(OUT[old].price*0.7):0, cost=key?OUT[key].price:0;
+    if (credits+refund<cost) lpMsg='Not enough credits';
+    else { const e=trySet(t,i,key); if(e) lpMsg=e; else { credits+=refund-cost; applyLoadout(); outSel=null; lpInfo=null; } }
+  }
+  else if (k==='convp'){
+    if (conv>=FRAME.convMax) lpMsg='No more bays can be converted';
+    else if (credits<FRAME.convFee) lpMsg='Not enough credits';
+    else { conv++; loadout.weapon.push(null); const e=check(); if(e){ conv--; loadout.weapon.pop(); lpMsg=e; } else { credits-=FRAME.convFee; applyLoadout(); } }
+  }
+  else if (k==='convm'){
+    if (conv<=0) lpMsg='Nothing to convert back';
+    else if (loadout.weapon[loadout.weapon.length-1]) lpMsg='Empty the last weapon slot first';
+    else if (credits<FRAME.convFee/2) lpMsg='Not enough credits';
+    else { conv--; loadout.weapon.pop(); const e=check(); if(e){ conv++; loadout.weapon.push(null); lpMsg=e; } else { credits-=FRAME.convFee/2; applyLoadout(); } }
+  }
+  renderLand();
+}
+const LORE = {
+  blaster:'Standard bolt thrower. Every pilot’s first gun, and sadly, often their last.',
+  pulse:'A rapid-fire light emitter. Junker gunsmiths love it because it forgives bad aim.',
+  cannon:'Slow, brutal, and Peacekeeper-approved. One hit gets a reaction from anyone.',
+  stock:'The factory drive. Reliable, unexciting, and identical to the one in your grandfather’s ship.',
+  ion:'A Corpos-refined ion drive. It costs more, does more, and leaves a bluer trail.',
+  cell:'A capacitor bank bolted to the shield emitter. It buys you a few extra seconds.',
+  pod:'A clip-on cargo pod. Junkers call it a closet. Traders call it profit.',
+  plate:'Layered plating salvaged from the last war. Heavy, ugly, and it works.'
+};
+function icon(kind,id,big){
+  const cls=big?'pic':'ic';
+  let g='';
+  if (!id) g=`<rect x='24' y='20' width='52' height='40' rx='6' fill='none' stroke='#4a6078' stroke-dasharray='5 5'/>`;
+  else if (kind==='ship'){ const f=FRAMES[id], s=SHIPS[id], col=f.fac?FACTIONS[f.fac].c:'#cfe8f0'; g=`<polygon transform='translate(50 40) scale(1.7)' points='${s.shape.map(p=>p.join(',')).join(' ')}' fill='#0f1a30' stroke='${col}' stroke-width='1.6'/>`; }
+  else {
+    const o=OUT[id], col={weapon:'#ffb347',engine:'#6fb5e3',utility:'#6fe3c1',hull:'#cfe8f0'}[o.type];
+    g={
+      weapon:`<path d='M20 40h45M58 30l12 10-12 10' fill='none' stroke='${col}' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/>`,
+      engine:`<path d='M30 28h22l16 12-16 12H30z' fill='none' stroke='${col}' stroke-width='4' stroke-linejoin='round'/><path d='M22 34l-8 6 8 6' fill='none' stroke='#ffb347' stroke-width='4' stroke-linecap='round'/>`,
+      utility:`<path d='M50 18l22 10v16c0 10-9 17-22 22-13-5-22-12-22-22V28z' fill='none' stroke='${col}' stroke-width='4' stroke-linejoin='round'/>`,
+      hull:`<rect x='24' y='24' width='52' height='32' rx='5' fill='none' stroke='${col}' stroke-width='4'/><path d='M24 40h52M50 24v32' stroke='${col}' stroke-width='3'/>`
+    }[o.type];
+  }
+  const svg=`<svg class='${cls}' viewBox='0 0 100 80' xmlns='http://www.w3.org/2000/svg'>${g}</svg>`;
+  // Real art if present; if the file fails to load, swap in the drawn placeholder and remember the miss.
+  if (id && ART[id] && !ARTMISS.has(id)) return `<img class='${cls}' src='${ART[id]}' alt='' onerror="ARTMISS.add('${id}');this.onerror=null;this.src='data:image/svg+xml,${encodeURIComponent(svg).replace(/'/g,'%27')}'">`;
+  return svg;
+}
+function renderInfo(){
+  const {kind,id}=lpInfo, ship=kind==='ship', o=ship?FRAMES[id]:OUT[id];
+  let sub, rows, err, buy;
+  if (ship){
+    const sl=o.slots, B=SHIPS[id], net=o.price-shipValue();
+    err=id===frameId?'Current ship':(credits<net?'Not enough credits':(used()>o.cargo?'Sell cargo first':''));
+    sub=o.fac?FACTIONS[o.fac].name:'Independent';
+    rows=[['Price',o.price],['Net cost after trade-in',net],['Mass limit',o.massCap],['Cargo',o.cargo],['Weapon slots',sl.weapon],['Utility slots',sl.utility],['Hull slots',sl.hull],['Thrust',B.thrust],['Top speed',B.max],['Shield',B.shield],['Armor',B.armor]];
+    buy=`buyship:${id}`;
+  } else {
+    const {t,i}=outSel||{}, cur=outSel?loadout[t][i]:null, refund=cur?Math.round(OUT[cur].price*0.7):0;
+    err=!outSel?'Pick a slot first':(wouldErr(t,i,id)||(credits+refund<o.price?'Not enough credits':''));
+    sub=cap(o.type)+' · tech '+o.tech;
+    rows=[['Price',o.price],['Net cost',o.price-refund],['Mass',o.mass],['Effect',desc(o)]];
+    buy=`inst:${id}`;
+  }
+  let h=`<div class='in'>${icon(kind,id,true)}<h2>${o.name}</h2><div class='sub'>${sub}</div><p class='lore'>${LORE[id]||FRAMES[id]?.lore||''}</p>`;
+  if (lpMsg){ h+=`<div class='sub' style='color:#ffb347'>${lpMsg}</div>`; lpMsg=''; }
+  h+=rows.map(r=>`<div class='row'><span>${r[0]}</span><span>${r[1]}</span></div>`).join('');
+  lp.innerHTML=h+`<div class='row'><span>${err?`<span style='color:#7f9bb0'>${err}</span>`:`<button data-a='${buy}'>Buy</button>`}</span><button data-a='back'>Back</button></div></div>`; lp.hidden=false;
+}
+function renderYard(){
+  const o=landed.faction;
+  let h=`<div class='in'><h2>Shipyard</h2><div class='sub'>${landed.name} · ${FACTIONS[o].name} · Credits ${credits} · Trade-in ${shipValue()}</div>`;
+  if (lpMsg){ h+=`<div class='sub' style='color:#ffb347'>${lpMsg}</div>`; lpMsg=''; }
+  for (const id in FRAMES){
+    const f=FRAMES[id]; if (!avail(f,landed)) continue;
+    const sl=f.slots, net=f.price-shipValue();
+    const err=id===frameId?'Current ship':(credits<net?'Not enough credits':(used()>f.cargo?'Sell cargo first':''));
+    h+=`<div class='row'><span class='it'>${icon('ship',id)}<span>${f.name} (${SHIP_DB[id].classLabel}): mass ${f.massCap}, cargo ${f.cargo}, weapons ${sl.weapon}, utility ${sl.utility}, hull ${sl.hull}, ${net>=0?'cost '+net:'refund '+(-net)}</span></span><span><button data-a='info:ship:${id}'>Info</button>${err?`<span style='color:#7f9bb0'>${err}</span>`:`<button data-a='buyship:${id}'>Buy</button>`}</span></div>`;
+  }
+  lp.innerHTML=h+`<div class='row'><span>Buying a ship sells your current ship and outfits at 70%.</span><button data-a='back'>Back</button></div></div>`; lp.hidden=false;
+}
+function renderOutfit(){
+  const tech=landed.tech;
+  let h=`<div class='in'><h2>Outfitter</h2><div class='sub'>${landed.name} · tech ${tech} · Credits ${credits}</div>`;
+  if (lpMsg){ h+=`<div class='sub' style='color:#ffb347'>${lpMsg}</div>`; lpMsg=''; }
+  h+=`<div class='row'><span>Mass ${massUsed()}/${FRAME.massCap}</span><span>Cargo space ${cargoMax()}</span></div>`;
+  if (!outSel){
+    for (const t in loadout) loadout[t].forEach((k,i) => { h+=`<div class='row'><span class='it'>${icon('out',k)}<span>${cap(t)} ${i+1}: ${k?OUT[k].name:'empty'}</span></span><button data-a='slot:${t}:${i}'>Change</button></div>`; });
+    h+=`<div class='row'><span>Convert ${FRAME.convRate} cargo into a weapon slot (${conv}/${FRAME.convMax})</span><span><button data-a='convp'>+ ${FRAME.convFee}</button><button data-a='convm'>- ${FRAME.convFee/2}</button></span></div>`;
+  } else {
+    const {t,i}=outSel, cur=loadout[t][i];
+    h+=`<div class='sub'>${cap(t)} ${i+1}</div>`;
+    for (const key in OUT){
+      const o=OUT[key]; if(o.type!==t||!avail(o,landed)||key===cur) continue;
+      const refund=cur?Math.round(OUT[cur].price*0.7):0, net=o.price-refund, err=wouldErr(t,i,key)||(credits+refund<o.price?'Not enough credits':'');
+      h+=`<div class='row'><span class='it'>${icon('out',key)}<span>${o.name}: ${desc(o)}, mass ${o.mass}, ${net>=0?'cost '+net:'refund '+(-net)}</span></span><span><button data-a='info:out:${key}'>Info</button>${err?`<span style='color:#7f9bb0'>${err}</span>`:`<button data-a='inst:${key}'>Buy</button>`}</span></div>`;
+    }
+    if (cur && t!=='engine') h+=`<div class='row'><span>Remove ${OUT[cur].name} (refund ${Math.round(OUT[cur].price*0.7)})</span><button data-a='rem'>Remove</button></div>`;
+  }
+  lp.innerHTML=h+`<div class='row'><button data-a='back'>Back</button></div></div>`; lp.hidden=false;
+}
+landB.addEventListener('pointerdown', tryLand);
+const used=()=>Object.values(cargo).reduce((a,b)=>a+b,0);
+const price=(p,c)=>{ const k=CONTENT.commodities.find(x=>x.id===c); let m=1+k.techSlope*(3-p.tech); for(const t of p.tags) m+=k.tags?.[t]||0; return Math.max(1,Math.round(k.base*m*(0.85+0.3*vnoise(time/120,UNI.seed,p.id,c)))); };
+function tryLand(){
+  if(!nearP||landed||player.dead) return;
+  if(nearP.barren){ reveal(nearP); return toast(nearP.name+' is uninhabited. Nothing to land on but rock'); }
+  if(Math.hypot(player.vx,player.vy)>110) return toast('Too fast to land. Ease off the thrust');
+  reveal(nearP);
+  const o=nearP.faction;
+  if(standing[o]<=-25) return toast('Docking denied: '+FACTIONS[o].name+' standing is hostile');
+  landed=nearP; lpView='main'; outSel=null; player.sh=player.d.shield; player.ar=player.d.armor; player.vx=player.vy=0; document.body.classList.add('maponly'); renderLand();
+}
+function renderLand(){
+  if (lpInfo) return renderInfo();
+  if (lpView==='outfit') return renderOutfit();
+  if (lpView==='yard') return renderYard();
+  const o=landed.faction, F=FACTIONS[o];
+  let h=`<div class='in'><h2>${landed.name}</h2><div class='sub' style='color:${F.c}'>${F.name} · ${band(standing[o])} (${standing[o]}) · tech ${landed.tech} · ${landed.tags.join('/')}${questOffers(landed).map(q=>' · ★ '+q.name).join('')}</div>`+
+   `<div class='row'><span>Credits ${credits}</span><span>Fuel ${fuel}/${FUEL_MAX}</span><span>Cargo ${used()}/${CARGO_MAX}</span></div>`+
+   `<div class='row'><span>Fuel, ${FUEL_PRICE} each</span><span><button data-a='fuel1'>Buy 1</button><button data-a='fuelF'>Fill</button></span></div>`;
+  for(const c in COMM) h+=`<div class='row'><span>${c[0].toUpperCase()+c.slice(1)}: ${price(landed,c)} each, held ${cargo[c]}</span><span><button data-a='b1:${c}'>Buy 1</button><button data-a='b5:${c}'>Buy 5</button><button data-a='s:${c}'>Sell all</button></span></div>`;
+  lp.innerHTML=h+`<div class='row'><span><button data-a='outf'>Outfitter</button><button data-a='yard'>Shipyard</button><button data-a='game'>Save / Load</button><button data-a='off'>Take off</button></span></div></div>`; lp.hidden=false;
+}
+lp.addEventListener('click', e=>{
+  const a=e.target.dataset&&e.target.dataset.a; if(!a||!landed) return;
+  const [k,c,x]=a.split(':');
+  if (k==='game') return openGame();
+  if (['outf','back','slot','inst','rem','convp','convm','yard','buyship','info'].includes(k)) return outAct(k,c,x);
+  if(k==='off'){ landed=null; lp.hidden=true; document.body.classList.remove('maponly'); return; }
+  if(k==='fuel1'||k==='fuelF'){ const n=k==='fuel1'?1:FUEL_MAX-fuel; for(let i=0;i<n&&fuel<FUEL_MAX&&credits>=FUEL_PRICE;i++){ fuel++; credits-=FUEL_PRICE; } }
+  else if(k==='s'){ credits+=cargo[c]*price(landed,c); cargo[c]=0; }
+  else { const n=k==='b5'?5:1, pr=price(landed,c); for(let i=0;i<n&&used()<CARGO_MAX&&credits>=pr;i++){ cargo[c]++; credits-=pr; } }
+  renderLand();
+});
+function pickNode(x,y){
+  let best=null, bd=40;
+  for (const k of SYSTEMS[sysId].links){ const p=mapPos(SYSTEMS[k]), h=Math.hypot(p.x-x,p.y-y); if (h<bd){ bd=h; best=k; } }
+  if (best){ dest=best; toast('Jump set: '+SYSTEMS[best].name); }
+}
+function tryJump(){
+  if (jumpT>0 || player.dead) return;
+  if (!dest) return toast('Open the map and pick a linked system');
+  if (fuel<1) return toast('Out of fuel. Land on a world to refuel');
+  if (Math.hypot(player.x,player.y)<JUMP_R) return toast('Fly outside the dashed ring to jump');
+  jumpT=1.2;
+}
+function doJump(){
+  const from=SYSTEMS[sysId], to=SYSTEMS[dest];
+  const a=Math.atan2(from.y-to.y, from.x-to.x);
+  sysId=dest; dest=null; fuel-=1;
+  ships=[player]; shots=[]; parts=[]; player.tgt=null; spawnT=2;
+  player.x=Math.cos(a)*(JUMP_R+100); player.y=Math.sin(a)*(JUMP_R+100);
+  player.a=a+Math.PI; player.vx=Math.cos(player.a)*140; player.vy=Math.sin(player.a)*140;
+  cam.x=player.x; cam.y=player.y; flash=1; popT=12; fillTraffic(true);
+}
+addEventListener('contextmenu', e => e.preventDefault());
+
+function readInput(){
+  const i = player.in;
+  i.fire = fireBtn || !!keys.Space;
+  if (stick.id !== null){
+    const dx=stick.x-stick.ox, dy=stick.y-stick.oy, m=Math.min(1,Math.hypot(dx,dy)/R);
+    i.aim = m>0.18 ? Math.atan2(dy,dx) : null; i.turn = 0;
+    i.thrust = m>0.35 ? Math.min(1,(m-0.3)/0.5) : 0;
+  } else {
+    i.aim = null;
+    i.turn = ((keys.ArrowRight||keys.KeyD)?1:0) - ((keys.ArrowLeft||keys.KeyA)?1:0);
+    i.thrust = (keys.ArrowUp||keys.KeyW)?1:0;
+  }
+}
+function cycleTarget(){
+  const foes = ships.filter(s => s !== player && !s.dead).sort((a,b) => dist(player,a)-dist(player,b));
+  if (!foes.length) return;
+  const n = foes.indexOf(player.tgt); player.tgt = foes[(n+1)%foes.length];
+}
+const dist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
+
+// ---------- SIM ----------
+function stepShip(s,dt){
+  const d=s.d, i=s.in, tr=d.turn*Math.PI/180*dt;
+  let turn = i.aim!=null ? Math.max(-1,Math.min(1,angDiff(s.a,i.aim)/tr)) : i.turn;
+  s.a += turn*tr;
+  let th = i.thrust;
+  if (i.aim!=null && Math.abs(angDiff(s.a,i.aim))>1.1) th = 0;
+  const c=Math.cos(s.a), sn=Math.sin(s.a);
+  if (th>0){
+    s.vx += c*d.thrust*th*dt; s.vy += sn*d.thrust*th*dt;
+    for (const e of d.engines) if (Math.random()<0.7/Math.sqrt(d.engines.length)) parts.push({x:s.x+c*e[0]-sn*e[1],y:s.y+sn*e[0]+c*e[1],vx:s.vx-c*90+rnd(-20,20),vy:s.vy-sn*90+rnd(-20,20),life:.35,max:.35,c:'#ffb347'});
+  } else { const k=Math.max(0,1-ASSIST*dt); s.vx*=k; s.vy*=k; }
+  const sp=Math.hypot(s.vx,s.vy); if(sp>d.max){ s.vx*=d.max/sp; s.vy*=d.max/sp; }
+  s.x+=s.vx*dt; s.y+=s.vy*dt;
+  s.sh=Math.min(d.shield,s.sh+d.regen*dt); s.hit=Math.max(0,s.hit-dt);
+  d.weapons.forEach((w,n) => {
+    s.cd[n]-=dt;
+    if (i.fire && s.cd[n]<=0){
+      s.cd[n]=w.cd;
+      shots.push({ x:s.x+c*w.off[0]-sn*w.off[1], y:s.y+sn*w.off[0]+c*w.off[1],
+        vx:s.vx+c*w.speed, vy:s.vy+sn*w.speed, life:w.life, dmg:w.dmg, team:s.team, src:s, c:w.color });
+    }
+  });
+}
+function hostile(a,b){
+  const fa=a.fac||(a.team===1?'pirate':null), fb=b.fac||(b.team===1?'pirate':null);
+  if (fa==='pirate') return fb!=='pirate';
+  if (fb==='pirate') return true;
+  if (!fa) return false;
+  if (!fb) return standing[fa]<=-25 || !!a.angry;
+  return fa!==fb && pv(fa,fb)<=-50;
+}
+function pickTarget(s,range){
+  let best=null, bd=range;
+  for (const t of ships){ if(t===s||t.dead||!hostile(s,t)) continue; const d=Math.hypot(t.x-s.x,t.y-s.y); if(d<bd){ bd=d; best=t; } }
+  return best;
+}
+function mkF(id,f,role,x,y){
+  const s=mk(id,x,y,true); Object.assign(s,{fac:f,role,team:2,col:FACTIONS[f].c,angry:false});
+  if (role==='trader'){
+    const P=SYSTEMS[sysId].planets;
+    if (Math.random()<0.6){ const p=P[Math.floor(rnd(0,P.length))]; s.gx=p.x; s.gy=p.y; }
+    else { const a=rnd(0,6.28); s.gx=Math.cos(a)*(JUMP_R+500); s.gy=Math.sin(a)*(JUMP_R+500); }
+  } else { s.gx=rnd(-500,500); s.gy=rnd(-500,500); }
+  return s;
+}
+function traderShip(f){ const c=['cargo_s','cargo_s','cargo_m','cargo_h'].filter(k=>SHIPS[f+'_'+k]); return f+'_'+c[Math.floor(Math.random()*c.length)]; }
+function fillTraffic(init){
+  const own=sysOwner(sysId), sys=SYSTEMS[sysId];
+  const count=(f,r)=>ships.filter(s=>s.fac===f&&s.role===r&&!s.dead).length;
+  const place=()=>{ const a=rnd(0,6.28), r=init?rnd(150,JUMP_R):900, c=init?{x:0,y:0}:player; return [c.x+Math.cos(a)*r, c.y+Math.sin(a)*r]; };
+  while (PATROL[own] && count(own,'patrol')<1+(sys.danger>=2?1:0)){ const [x,y]=place(); ships.push(mkF(PATROL[own],own,'patrol',x,y)); }
+  while (!FACTIONS[own].outlaw && count(own,'trader')<(sys.danger>=3?1:3)){ const [x,y]=place(); ships.push(mkF(traderShip(own),own,'trader',x,y)); }
+  if (init) sys.links.forEach(l => { const f=sysOwner(l); if(f!==own && PATROL[f] && Math.random()<0.6){ const [x,y]=place(); ships.push(mkF(PATROL[f],f,'patrol',x,y)); } });
+}
+function thinkFac(s){
+  const i=s.in, armed=s.d.weapons.length>0;
+  const foe=pickTarget(s,armed?650:550);
+  if (foe && armed){
+    const dx=foe.x-s.x, dy=foe.y-s.y, dd=Math.hypot(dx,dy), tl=dd/520;
+    const ang=Math.atan2(dy+(foe.vy-s.vy)*tl, dx+(foe.vx-s.vx)*tl);
+    if (s.ar<s.d.armor*0.3){ i.aim=ang+Math.PI; i.thrust=1; return; }
+    i.aim=ang; i.thrust=dd>240?1:(dd<110?0:0.35); i.fire=dd<430&&Math.abs(angDiff(s.a,ang))<0.12; return;
+  }
+  if (foe){ i.aim=Math.atan2(s.y-foe.y,s.x-foe.x); i.thrust=1; return; }
+  const gx=s.gx-s.x, gy=s.gy-s.y;
+  if (Math.hypot(gx,gy)<60){ if(s.role==='trader'){ s.dead=true; return; } s.gx=rnd(-500,500); s.gy=rnd(-500,500); }
+  i.aim=Math.atan2(gy,gx); i.thrust=s.role==='trader'?1:0.6;
+}
+function think(s){
+  const i=s.in; i.fire=false;
+  if (s.fac) return thinkFac(s);
+  const t=pickTarget(s,900)||player;
+  if (t.dead){ i.thrust=0; i.aim=null; return; }
+  const dx=t.x-s.x, dy=t.y-s.y, dd=Math.hypot(dx,dy);
+  const lead=dd/520, toward=Math.atan2(dy+(t.vy-s.vy)*lead, dx+(t.vx-s.vx)*lead);
+  if (s.ar < s.d.armor*0.3){ i.aim=toward+Math.PI; i.thrust=1; if(dd>1200) s.dead=true; return; }  // flee
+  i.aim=toward;
+  i.thrust = dd>240 ? 1 : (dd<110 ? 0 : 0.35);
+  i.fire = dd<430 && Math.abs(angDiff(s.a,toward))<0.12;
+}
+function damage(s,n,src){
+  if (src===player && s.fac && !s.angry && !hostile(s,player)){
+    standing[s.fac]=Math.max(-100,standing[s.fac]-8);
+    Object.keys(standing).forEach(f => { if(f!==s.fac && pv(f,s.fac)<=-50) standing[f]=Math.min(100,standing[f]+2); });
+    ships.forEach(o => { if(o.fac===s.fac) o.angry=true; });
+    toast('Attacking '+FACTIONS[s.fac].name+' costs you standing');
+  }
+  s.hit=0.25;
+  if (s.sh>0){ const a=Math.min(s.sh,n); s.sh-=a; n-=a; }
+  s.ar-=n;
+  if (s.ar<=0 && !s.dead){
+    s.dead=true;
+    for(let k=0;k<36;k++){ const a=rnd(0,6.28), v=rnd(30,220); parts.push({x:s.x,y:s.y,vx:s.vx*.5+Math.cos(a)*v,vy:s.vy*.5+Math.sin(a)*v,life:rnd(.4,.9),max:.9,c:k%2?'#ffb347':'#cfe8f0'}); }
+    if (s.team===1){ spawnT=3; if(src===player){ kills++; const o=sysOwner(sysId); if(!FACTIONS[o].outlaw) standing[o]=Math.min(100,standing[o]+2); } } else if (s===player) respawnT=2.2; else if (s.fac && src===player) standing[s.fac]=Math.max(-100,standing[s.fac]-5);
+  }
+}
+function update(dt){
+  if (mapOpen || landed) return;
+  msgT-=dt; flash=Math.max(0,flash-dt*1.5);
+  if (jumpT>0){ jumpT-=dt; if(jumpT<=0) doJump(); }
+  nearP=null; if(!player.dead) for(const p of SYSTEMS[sysId].planets) if(Math.hypot(player.x-p.x,player.y-p.y)<p.r+70) nearP=p;
+  landB.classList.toggle('show',!!nearP);
+  if ((popT-=dt)<=0){ popT=12; fillTraffic(false); }
+  time+=dt;
+  if (player.dead){ respawnT-=dt; if(respawnT<=0){ spawnPlayer(); } } else readInput();
+  if (ships.filter(s=>s.team===1).length<SYSTEMS[sysId].danger && (spawnT-=dt)<=0){ spawnT=4;
+    const a=rnd(0,6.28); ships.push(mk('raider',player.x+Math.cos(a)*750,player.y+Math.sin(a)*750,true));
+  }
+  ships.forEach(s => { if(s.ai) think(s); stepShip(s,dt); });
+  shots.forEach(b => {
+    b.x+=b.vx*dt; b.y+=b.vy*dt; b.life-=dt;
+    for (const s of ships) if (s!==b.src && (b.src===player||hostile(b.src,s)) && !s.dead && Math.hypot(s.x-b.x,s.y-b.y)<s.d.r+3){
+      b.life=0; damage(s,b.dmg,b.src);
+      for(let k=0;k<4;k++) parts.push({x:b.x,y:b.y,vx:rnd(-80,80),vy:rnd(-80,80),life:.25,max:.25,c:b.c});
+      break;
+    }
+  });
+  shots = shots.filter(b => b.life>0);
+  parts.forEach(p => { p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt; });
+  parts = parts.filter(p => p.life>0);
+  ships = ships.filter(s => !s.dead);
+  if (!player.dead){
+    if (player.tgt && player.tgt.dead) player.tgt=null;
+    if (!player.tgt) cycleTarget();
+    const k=Math.min(1,dt*6); cam.x+=(player.x+player.vx*.25-cam.x)*k; cam.y+=(player.y+player.vy*.25-cam.y)*k;
+  }
+}
+
+// ---------- RENDER ----------
+function bar(x,y,w,v,col){ g.fillStyle='rgba(207,232,240,.15)'; g.fillRect(x,y,w,6); g.fillStyle=col; g.fillRect(x,y,w*Math.max(0,Math.min(1,v)),6); }
+function draw(){
+  g.setTransform(DPR,0,0,DPR,0,0);
+  g.fillStyle='#0a1020'; g.fillRect(0,0,W,H);
+  const S=Math.max(W,H);
+  stars.forEach((L,l) => { g.fillStyle=['#4a6078','#7f9bb0','#cfe8f0'][l];
+    L.forEach(st => { const x=(((st[0]*S-cam.x*PAR[l])%S)+S)%S, y=(((st[1]*S-cam.y*PAR[l])%S)+S)%S; g.fillRect(x,y,l+1,l+1); }); });
+
+  g.setTransform(DPR*Z,0,0,DPR*Z,DPR*W/2,DPR*H/2); g.translate(-cam.x,-cam.y);
+  g.setLineDash([10,14]); g.strokeStyle='rgba(207,232,240,'+(dest?0.35:0.14)+')'; g.lineWidth=2; g.beginPath(); g.arc(0,0,JUMP_R,0,6.29); g.stroke(); g.setLineDash([]);
+  g.textBaseline='top'; g.textAlign='center'; g.font='600 12px system-ui,sans-serif';
+  SYSTEMS[sysId].planets.forEach(p => {
+    g.fillStyle=p.c; g.globalAlpha=.85; g.beginPath(); g.arc(p.x,p.y,p.r,0,6.29); g.fill(); g.globalAlpha=1;
+    g.strokeStyle='rgba(207,232,240,.5)'; g.lineWidth=1.5; g.stroke(); g.fillStyle='#cfe8f0'; g.fillText(p.name,p.x,p.y+p.r+6);
+  });
+  g.textAlign='left';
+  parts.forEach(p => { g.globalAlpha=p.life/p.max; g.fillStyle=p.c; g.fillRect(p.x-1.5,p.y-1.5,3,3); }); g.globalAlpha=1;
+  shots.forEach(b => { g.strokeStyle=b.c; g.lineWidth=2.5; g.beginPath(); g.moveTo(b.x,b.y); g.lineTo(b.x-b.vx*.03,b.y-b.vy*.03); g.stroke(); });
+  ships.forEach(s => {
+    g.save(); g.translate(s.x,s.y); g.rotate(s.a);
+    const im=artImg(s.d.id);
+    if (im) g.drawImage(im,-s.d.artSize[0]/2,-s.d.artSize[1]/2,s.d.artSize[0],s.d.artSize[1]);   // real art, else the outline below
+    else { g.beginPath(); s.d.shape.forEach((p,i)=> i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])); g.closePath();
+      g.fillStyle='#0f1a30'; g.fill(); g.strokeStyle=s.col||s.d.color; g.lineWidth=1.8; g.stroke(); }
+    g.restore();
+    if (s.hit>0 && s.sh>0){ g.strokeStyle='rgba(111,227,193,'+(s.hit*3)+')'; g.lineWidth=2; g.beginPath(); g.arc(s.x,s.y,s.d.r+5,0,6.29); g.stroke(); }
+  });
+  const t = player.tgt;
+  if (t){ const r=t.d.r+10; g.strokeStyle='#6fe3c1'; g.lineWidth=1.5; g.beginPath();
+    [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([sx,sy]) => { g.moveTo(t.x+sx*r,t.y+sy*r*.4); g.lineTo(t.x+sx*r,t.y+sy*r); g.lineTo(t.x+sx*r*.4,t.y+sy*r); });
+    g.stroke(); }
+
+  // screen-space HUD
+  g.setTransform(DPR,0,0,DPR,0,0);
+  const top = SAFE_T + 16, left = 16;
+  g.font='600 12px system-ui,sans-serif'; g.textBaseline='top'; g.fillStyle='#cfe8f0';
+  g.fillText('Shield', left, top); bar(left+52,top+3,110,player.sh/player.d.shield,'#6fe3c1');
+  g.fillText('Armor', left, top+16); bar(left+52,top+19,110,player.ar/player.d.armor,'#ffb347');
+  g.fillText('Fuel', left, top+32); bar(left+52,top+35,110,fuel/FUEL_MAX,'#cfe8f0');
+  g.fillText('Credits '+credits+'  Cargo '+used()+'/'+CARGO_MAX+'  Kills '+kills, left, top+50);
+  if (t){
+    g.fillText((t.fac?FACTIONS[t.fac].name+' ':'')+t.d.name+(hostile(t,player)?' (hostile)':''), left, top+74); bar(left,top+92,162,t.sh/t.d.shield,'#6fe3c1'); bar(left,top+102,162,t.ar/t.d.armor,'#ff7b7b');
+    const sx=W/2+(t.x-cam.x)*Z, sy=H/2+(t.y-cam.y)*Z;
+    if (sx<0||sx>W||sy<0||sy>H){ const a=Math.atan2(sy-H/2,sx-W/2), ex=W/2+Math.cos(a)*(W/2-24), ey=H/2+Math.sin(a)*(H/2-24);
+      const k=Math.min((W/2-24)/Math.max(1e-3,Math.abs(Math.cos(a))),(H/2-24)/Math.max(1e-3,Math.abs(Math.sin(a))));
+      const px=W/2+Math.cos(a)*k, py=H/2+Math.sin(a)*k;
+      g.save(); g.translate(px,py); g.rotate(a); g.fillStyle='#6fe3c1'; g.beginPath(); g.moveTo(10,0); g.lineTo(-8,-7); g.lineTo(-8,7); g.fill(); g.restore(); }
+  }
+  // radar
+  const rx=W-70, ry=top+54, rr=48, range=1600;
+  g.fillStyle='rgba(10,16,32,.7)'; g.strokeStyle='rgba(207,232,240,.35)'; g.lineWidth=1.2;
+  g.beginPath(); g.arc(rx,ry,rr,0,6.29); g.fill(); g.stroke();
+  ships.forEach(s => { if(s===player) return; const dx=(s.x-player.x)/range*rr, dy=(s.y-player.y)/range*rr, m=Math.hypot(dx,dy), k=m>rr-4?(rr-4)/m:1;
+    g.fillStyle = s===t ? '#6fe3c1' : (s.fac?FACTIONS[s.fac].c:'#ff7b7b'); g.fillRect(rx+dx*k-2,ry+dy*k-2,4,4); });
+  g.fillStyle='#cfe8f0'; g.fillRect(rx-2,ry-2,4,4);
+  // stick
+  if (stick.id!==null){
+    const dx=stick.x-stick.ox, dy=stick.y-stick.oy, m=Math.min(R,Math.hypot(dx,dy)), a=Math.atan2(dy,dx);
+    g.strokeStyle='rgba(207,232,240,.4)'; g.lineWidth=2; g.beginPath(); g.arc(stick.ox,stick.oy,R,0,6.29); g.stroke();
+    g.fillStyle='rgba(207,232,240,.35)'; g.beginPath(); g.arc(stick.ox+Math.cos(a)*m,stick.oy+Math.sin(a)*m,24,0,6.29); g.fill();
+  }
+  if (time<8){ g.globalAlpha=Math.min(1,(8-time)); g.fillStyle='#cfe8f0'; g.textAlign='center'; g.fillText('Drag on the left to steer. Hold Fire to shoot. Target cycles foes.', W/2, H-24-0); g.textAlign='left'; g.globalAlpha=1; }
+  if (player.dead){ g.fillStyle='#ff7b7b'; g.font='600 20px system-ui,sans-serif'; g.textAlign='center'; g.fillText('Ship destroyed. Launching a new one…', W/2, H/2-10); g.textAlign='left'; }
+}
+
+function drawOverlays(){
+  g.setTransform(DPR,0,0,DPR,0,0); g.textBaseline='top'; g.textAlign='center'; g.font='600 13px system-ui,sans-serif';
+  const top=SAFE_T+16;
+  const o=sysOwner(sysId), kn=sysKnown(sysId); g.fillStyle=kn?FACTIONS[o].c:'#7f9bb0'; g.fillText(SYSTEMS[sysId].name+' · '+(kn?FACTIONS[o].name+' ('+band(standing[o])+')':'Unsurveyed')+(dest?'  to  '+SYSTEMS[dest].name:''), W/2, top);
+  if (msgT>0){ g.fillStyle='#ffb347'; g.fillText(msg, W/2, top+20); }
+  const fa = jumpT>0 ? 1-jumpT/1.2 : flash;
+  if (fa>0){ g.fillStyle='rgba(207,232,240,'+fa+')'; g.fillRect(0,0,W,H); }
+  if (mapOpen) drawMap();
+  g.textAlign='left';
+}
+function drawMap(){
+  g.fillStyle='rgba(10,16,32,.95)'; g.fillRect(0,0,W,H);
+  g.fillStyle='#cfe8f0'; g.font='600 16px system-ui,sans-serif'; g.fillText('Galaxy map', W/2, SAFE_T+16);
+  g.font='500 12px system-ui,sans-serif'; g.fillStyle='#7f9bb0'; g.fillText('Pinch to zoom, drag to pan, tap a linked system.', W/2, SAFE_T+38); g.fillText('Grey systems are unsurveyed. Land on a planet to learn its owner.', W/2, SAFE_T+54);
+  const cur=SYSTEMS[sysId], LEG=UNIVERSE.filter(f=>[...known].some(id=>UNI.planets[id].faction===f));
+  Object.entries(SYSTEMS).forEach(([k,s]) => s.links.forEach(l => { if (k<l){
+    const a=mapPos(s), b=mapPos(SYSTEMS[l]), hot=(k===sysId&&l===dest)||(l===sysId&&k===dest);
+    g.strokeStyle=hot?'#6fe3c1':'rgba(207,232,240,.22)'; g.lineWidth=hot?3:1.5; g.beginPath(); g.moveTo(a.x,a.y); g.lineTo(b.x,b.y); g.stroke();
+  }}));
+  Object.entries(SYSTEMS).forEach(([k,s]) => {
+    const p=mapPos(s), adj=cur.links.includes(k), here=k===sysId;
+    g.strokeStyle=here?'#ffb347':k===dest?'#6fe3c1':adj?'#cfe8f0':'#4a6078'; g.lineWidth=(here||k===dest)?3:2;
+    g.fillStyle=sysKnown(k)?FACTIONS[sysOwner(k)].c:'#5b6b7c'; g.beginPath(); g.arc(p.x,p.y,here?10:6.5,0,6.29); g.fill(); g.stroke();
+    const hot=adj||here||k===dest;
+    if (hot||mv.z>=2){ g.fillStyle=hot?'#cfe8f0':'#6f8aa0'; g.font='500 11px system-ui,sans-serif'; g.fillText(s.name,p.x,p.y+18); }
+    if (hot) for (let n=0;n<s.danger;n++){ g.fillStyle='#ff7b7b'; g.fillRect(p.x-s.danger*3.5+n*7,p.y+24,5,5); }
+  });
+  g.textAlign='left'; g.font='600 12px system-ui,sans-serif';
+  const by=H-(parseFloat(root.paddingBottom)||0)-20-LEG.length*18;
+  LEG.forEach((f,i) => { g.fillStyle=FACTIONS[f].c; g.fillRect(16,by+i*18+2,10,10); g.fillStyle='#cfe8f0'; g.fillText(FACTIONS[f].name+'  '+band(standing[f])+' ('+standing[f]+')',34,by+i*18); });
+  zbtns().forEach(b => { g.fillStyle='rgba(20,32,56,.9)'; g.strokeStyle='#4a6078'; g.lineWidth=2; g.beginPath(); g.arc(b.x,b.y,20,0,6.29); g.fill(); g.stroke(); g.fillStyle='#cfe8f0'; g.font='600 20px system-ui,sans-serif'; g.textAlign='center'; g.fillText(b.t,b.x,b.y+7); });
+  g.textAlign='left'; g.font='600 12px system-ui,sans-serif';
+  g.fillStyle='#7f9bb0'; g.fillText('Fuel '+fuel+'/'+FUEL_MAX+'   Credits '+credits, 16, by-20);
+  g.textAlign='center';
+}
+let last=performance.now(), acc=0;
+function frame(t){ acc+=Math.min(.1,(t-last)/1000); last=t; while(acc>=1/60){ update(1/60); acc-=1/60; } draw(); drawOverlays(); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+
+// ---------- SAVE / LOAD (export / import JSON) ----------
+// The universe is never stored: a save holds the seed plus your changes. Loading a save with a different seed reloads the page with ?seed=.
+const SAVE_V = 1, gp = document.getElementById('gp');
+function makeSave(){
+  return { game:'starfall', v:SAVE_V, contentVersion:CONTENT.version, seed:SEED, savedAt:new Date().toISOString(), state:{
+    sysId, dest, fuel, credits, kills, time:Math.round(time), conv, cargo:{...cargo}, frameId, loadout:JSON.parse(JSON.stringify(loadout)),
+    standing:{...standing}, known:[...known], questState:{...questState}, landed:landed?landed.id:null,
+    player:{ x:player.x, y:player.y, vx:player.vx, vy:player.vy, a:player.a, sh:player.sh, ar:player.ar } } };
+}
+function applySave(d){   // returns null on success, otherwise a message for the player
+  try {
+    if (!d || d.game!=='starfall' || !d.state) throw 'That is not a Starfall save file';
+    if (d.v>SAVE_V) throw 'That save is from a newer version of the game';
+    if (String(d.seed)!==String(SEED)){
+      try { sessionStorage.setItem('starfall_pending', JSON.stringify(d)); } catch(e) { throw 'This save is for universe '+d.seed+'. Reopen the game with ?seed='+d.seed+' and import it again'; }
+      location.search='?seed='+encodeURIComponent(d.seed); return 'Loading universe '+d.seed+'…';
+    }
+    const S=d.state;
+    if (!SYSTEMS[S.sysId] || !FRAMES[S.frameId]) throw 'That save does not match this version of the game';
+    for (const t in loadout) if (!Array.isArray(S.loadout?.[t]) || S.loadout[t].some(k => k && !OUT[k])) throw 'That save has unknown outfits';
+    sysId=S.sysId; dest=SYSTEMS[S.dest]?S.dest:null; fuel=Math.min(FUEL_MAX,Math.max(0,+S.fuel||0)); credits=Math.max(0,+S.credits||0); kills=+S.kills||0; time=+S.time||0;
+    for (const k in cargo) cargo[k]=Math.max(0,Math.floor(+S.cargo?.[k]||0));
+    frameId=S.frameId; FRAME=frameConf(frameId); conv=Math.min(FRAME.convMax,Math.max(0,+S.conv||0));
+    for (const t in loadout) loadout[t]=S.loadout[t].slice();
+    for (const k in standing) if (typeof S.standing?.[k]==='number') standing[k]=S.standing[k];
+    known.clear(); (S.known||[]).forEach(id => { if (UNI.planets[id]) known.add(id); });
+    for (const k in questState) delete questState[k]; Object.assign(questState, S.questState||{});
+    ships=[]; shots=[]; parts=[]; jumpT=0; spawnT=2; respawnT=0; spawnPlayer();
+    const P=S.player||{}; Object.assign(player,{ x:+P.x||0, y:+P.y||0, vx:+P.vx||0, vy:+P.vy||0, a:+P.a||0 });
+    if (P.sh!=null) player.sh=Math.min(player.d.shield,Math.max(1,+P.sh)); if (P.ar!=null) player.ar=Math.min(player.d.armor,Math.max(1,+P.ar));
+    cam.x=player.x; cam.y=player.y; popT=12; fillTraffic(true);
+    mapOpen=false; mapB.textContent='Map'; document.body.classList.remove('maponly');
+    landed=null; lpView='main'; lpInfo=null; outSel=null; lp.hidden=true;
+    const L=UNI.planets[S.landed]; if (L && !L.barren){ landed=L; renderLand(); }
+    return null;
+  } catch (e) { return typeof e==='string' ? e : 'Could not read that save: '+e.message; }
+}
+function doLoad(text){
+  let d; try { d=JSON.parse(text); } catch(e) { return openGame('That is not valid JSON'); }
+  const err=applySave(d); if (err) return openGame(err);
+  gp.hidden=true; toast('Game loaded');
+}
+function openGame(note=''){
+  const json=JSON.stringify(makeSave(),null,1).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  gp.innerHTML=`<div class='in'><h2>Save / Load</h2><div class='sub'>Universe seed ${SEED}</div>`+(note?`<div class='sub' style='color:#ffb347'>${note}</div>`:'')+
+    `<div><button data-g='dl'>Export save file</button><button data-g='copy'>Copy JSON</button></div><textarea id='gjson' readonly>${json}</textarea>`+
+    `<h2 style='font-size:18px;margin-top:16px'>Load</h2><div class='sub'><input id='gfile' type='file' accept='.json,application/json'></div>`+
+    `<textarea id='gpaste' placeholder='…or paste save JSON here'></textarea><div><button data-g='load'>Load pasted JSON</button><button data-g='close'>Close</button></div></div>`;
+  gp.hidden=false;
+}
+gp.addEventListener('click', e => {
+  const g=e.target.dataset && e.target.dataset.g; if (!g) return;
+  if (g==='close') gp.hidden=true;
+  else if (g==='load') doLoad(document.getElementById('gpaste').value);
+  else if (g==='copy'){ const ta=document.getElementById('gjson'); ta.select(); try { navigator.clipboard.writeText(ta.value); } catch(err) { document.execCommand('copy'); } }
+  else if (g==='dl'){
+    try { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(makeSave(),null,1)],{type:'application/json'})); a.download='starfall-'+SEED+'.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
+    catch(err) {}
+    openGame('Export started. If no file appeared, copy the JSON below instead.');
+  }
+});
+gp.addEventListener('change', e => { if (e.target.id==='gfile' && e.target.files[0]) e.target.files[0].text().then(doLoad); });
+document.getElementById('menu').addEventListener('pointerdown', () => openGame());
+try { const pend=sessionStorage.getItem('starfall_pending'); if (pend){ sessionStorage.removeItem('starfall_pending'); const err=applySave(JSON.parse(pend)); toast(err||'Game loaded'); } } catch(e) {}
+</script>
+</body>
+</html>
