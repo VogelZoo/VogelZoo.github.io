@@ -61,71 +61,104 @@ const CONTENT = {
   version: 1,
   systemCount: 50,
   nameParts: { start:['Ka','Vel','Or','Tam','Os','Bra','Il','Cal','Ny','Dra','Lum','Hes','Zan','Mir','Sol','Ar'], mid:['','ra','li','den','ko','ve'], end:['n','s','th','x','m','ria','dor','is','on','ax'] },
-  // ===== SHIPS: every fact about every ship is defined here (and nowhere else) =====
-  // Each ship's final record (SHIP_DB[id], id = factionId_class) = class template x lineup multipliers, then `overrides` on top.
-  // A record holds identity, cost, flight stats, slots, weapons, lore and art. SHIPS/FRAMES/ART are generated views of it.
+  // ===== SHIPS: ONE LINE PER SHIP. Nothing is calculated; every value below is exactly what the game uses. =====
+  // To change a ship, edit its line. To add one, copy a line and give it a new unique id (convention: factionId_class).
+  //   name/class/faction   display name, class key (see `classes`), owning faction id. A yard sells a ship only on planets of its faction.
+  //   tech                 minimum planet tech level (1-5) that stocks it         price      credits
+  //   massCap              mass budget for outfits                                 cargo      cargo capacity (also limits cargo-bay conversion)
+  //   slots                [weapon, engine, utility, hull] outfit slots
+  //   thrust/turn/max      acceleration / turn rate / top speed                    shield/armor/regen   hit points and shield regen
+  //   radius               collision/target size in world units
+  //   guns/dmg/cd          AI-flown weapons: count, damage per shot, seconds between shots (players mount their own weapons)
+  //   hull                 key into `hulls` (the outline drawn when there is no art)
+  //   engines              exhaust points [[x,y],..] as offsets from the art's center, in the same units as artSize.
+  //                        +x = toward the nose, +y = toward starboard (down on an image whose nose points right).
+  //   artSize              [w,h] size the art is drawn at in flight, in world units; the image is centered on the ship, nose pointing right.
+  //   art                  "" = artDir + id + ".png". A bare filename is looked up in artDir. A value containing "/" (or a data: URI) is used as the full path.
+  //                        If the file is missing the drawn outline/placeholder is shown instead.
+  //   lore                 text on the info screen
+  //   optional: sold:false (never in shops), color (default = faction color), speed/life (shot speed/lifetime, default 500 / 0.9)
   ships: {
-    // Every ship looks for artDir + '<id>.png' (e.g. /assets/ships/corpos_fighter.png). If the file is missing, the drawn placeholder is shown instead.
-    // An override's `art:'chairman.png'` replaces the filename; an `art` containing a '/' (or a data: URI) is used as the full path.
-    // Opening the game straight from disk? Change artDir to a relative path like 'assets/ships/'.
-    artDir: 'assets/ships/',
-    // ART GEOMETRY (per ship; class defaults below, any ship can override either field):
-    //   artSize: [w,h]    how big the art is drawn in flight, in world units. The image is centered on the ship, nose pointing right (+x).
-    //                     Default: the hull outline's extent plus 10%. Image resolution doesn't matter; it is stretched to this size.
-    //   engines: [[x,y],..] exhaust points as offsets from the art's center, in the same units as artSize. +x = toward the nose,
-    //                     +y = toward starboard (down on an image whose nose points right). One exhaust sprite/particle spawns per point.
-    // Class templates. slots = [weapon, engine, utility, hull]. guns = number of AI-flown weapons.
-    classes: {
-      racer:    { label:'Racer',         tech:1, price:2200,  thrust:330, turn:280, max:420, shield:30,  armor:40,  regen:5,  r:12, cargo:10,  mass:40,  slots:[1,1,1,1], guns:1, dmg:5,  cd:0.3,  shape:[[18,0],[-8,-6],[-4,0],[-8,6]], engines:[[-8,0]], blurb:'A stripped-down speed frame built to outrun trouble.' },
-      fighter:  { label:'Fighter',       tech:1, price:2000,  thrust:270, turn:230, max:330, shield:55,  armor:70,  regen:5,  r:14, cargo:15,  mass:60,  slots:[2,1,1,1], guns:2, dmg:7,  cd:0.3,  shape:[[16,0],[-10,-9],[-5,0],[-10,9]], engines:[[-9,-4],[-9,4]], blurb:'A nimble all-rounder and the backbone of any patrol.' },
-      cruiser:  { label:'Cruiser',       tech:3, price:9000,  thrust:190, turn:140, max:260, shield:110, armor:150, regen:6,  r:19, cargo:40,  mass:200, slots:[4,1,2,3], guns:3, dmg:9,  cd:0.35, shape:[[20,0],[4,-8],[-12,-11],[-8,0],[-12,11],[4,8]], engines:[[-12,-6],[-12,6]], blurb:'A balanced warship with real armor and real guns.' },
-      destroyer:{ label:'Destroyer',     tech:3, price:12000, thrust:175, turn:120, max:240, shield:140, armor:200, regen:7,  r:22, cargo:30,  mass:260, slots:[5,1,2,4], guns:4, dmg:11, cd:0.35, shape:[[24,0],[-4,-8],[-16,-14],[-12,0],[-16,14],[-4,8]], engines:[[-14,-8],[-12,0],[-14,8]], blurb:'A heavy gun platform built to break other warships.' },
-      carrier:  { label:'Carrier',       tech:4, price:22000, thrust:130, turn:90,  max:200, shield:160, armor:260, regen:8,  r:28, cargo:80,  mass:340, slots:[3,1,4,5], guns:2, dmg:8,  cd:0.4,  shape:[[22,0],[10,-14],[-18,-16],[-18,16],[10,14]], engines:[[-18,-9],[-18,0],[-18,9]], blurb:'A fleet anchor with hangar space and a thick hull.' },
-      science:  { label:'Science Vessel',tech:3, price:8500,  thrust:200, turn:160, max:270, shield:90,  armor:70,  regen:8,  r:17, cargo:50,  mass:180, slots:[1,1,5,2], guns:1, dmg:6,  cd:0.4,  shape:[[14,0],[4,-10],[-6,-12],[-14,-5],[-14,5],[-6,12],[4,10]], engines:[[-14,-3],[-14,3]], blurb:'Sensor-heavy and utility-rich, with room for strange cargo.' },
-      cargo_s:  { label:'Light Cargo',   tech:1, price:3000,  thrust:210, turn:150, max:260, shield:40,  armor:70,  regen:3,  r:15, cargo:50,  mass:90,  slots:[1,1,2,1], guns:0, dmg:0,  cd:0.5,  shape:[[14,0],[6,-8],[-12,-8],[-12,8],[6,8]], engines:[[-12,-4],[-12,4]], blurb:'A small hauler for short runs and tight margins.' },
-      cargo_m:  { label:'Medium Cargo',  tech:2, price:6000,  thrust:180, turn:125, max:230, shield:50,  armor:100, regen:4,  r:18, cargo:100, mass:140, slots:[2,1,3,2], guns:0, dmg:0,  cd:0.5,  shape:[[16,0],[8,-10],[-14,-10],[-14,10],[8,10]], engines:[[-14,-5],[-14,5]], blurb:'The standard freighter of the lanes.' },
-      cargo_h:  { label:'Heavy Cargo',   tech:3, price:12000, thrust:150, turn:100, max:200, shield:70,  armor:150, regen:5,  r:22, cargo:200, mass:200, slots:[2,1,3,3], guns:0, dmg:0,  cd:0.5,  shape:[[18,0],[10,-12],[-18,-12],[-18,12],[10,12]], engines:[[-18,-6],[-18,6]], blurb:'A bulk carrier that trades speed for tonnage.' },
-      cargo_x:  { label:'Massive Cargo', tech:4, price:26000, thrust:115, turn:70,  max:170, shield:100, armor:260, regen:6,  r:30, cargo:400, mass:300, slots:[3,1,4,4], guns:0, dmg:0,  cd:0.5,  shape:[[22,0],[12,-15],[-22,-15],[-22,15],[12,15]], engines:[[-22,-8],[-22,0],[-22,8]], blurb:'A moving warehouse. Slow, huge, and worth escorting.' },
-      unique:   { label:'Unique',        tech:4, price:30000, thrust:240, turn:190, max:300, shield:170, armor:190, regen:10, r:20, cargo:60,  mass:280, slots:[4,1,4,4], guns:4, dmg:13, cd:0.28, shape:[[22,0],[2,-6],[-8,-16],[-14,-6],[-10,0],[-14,6],[-8,16],[2,6]], engines:[[-14,-6],[-14,6]], blurb:'A one-of-a-kind flagship design. Few are ever built.' }
+    artDir: '/assets/ships/',     // opening the game from disk? use a relative path like 'assets/ships/'
+    classes: { racer:"Racer", fighter:"Fighter", cruiser:"Cruiser", destroyer:"Destroyer", carrier:"Carrier", science:"Science Vessel", cargo_s:"Light Cargo", cargo_m:"Medium Cargo", cargo_h:"Heavy Cargo", cargo_x:"Massive Cargo", unique:"Unique" },
+    hulls: {
+      racer: [[18,0],[-8,-6],[-4,0],[-8,6]],
+      fighter: [[16,0],[-10,-9],[-5,0],[-10,9]],
+      cruiser: [[20,0],[4,-8],[-12,-11],[-8,0],[-12,11],[4,8]],
+      destroyer: [[24,0],[-4,-8],[-16,-14],[-12,0],[-16,14],[-4,8]],
+      carrier: [[22,0],[10,-14],[-18,-16],[-18,16],[10,14]],
+      science: [[14,0],[4,-10],[-6,-12],[-14,-5],[-14,5],[-6,12],[4,10]],
+      cargo_s: [[14,0],[6,-8],[-12,-8],[-12,8],[6,8]],
+      cargo_m: [[16,0],[8,-10],[-14,-10],[-14,10],[8,10]],
+      cargo_h: [[18,0],[10,-12],[-18,-12],[-18,12],[10,12]],
+      cargo_x: [[22,0],[12,-15],[-22,-15],[-22,15],[12,15]],
+      unique: [[22,0],[2,-6],[-8,-16],[-14,-6],[-10,0],[-14,6],[-8,16],[2,6]],
+      raider: [[14,0],[-9,-10],[-3,-3],[-12,0],[-3,3],[-9,10]],
     },
-    // Per-faction lineup: names (unique per faction), flavor tag, and multipliers: price, spd (thrust/turn/max), def (shield/armor), cargo, dmg.
-    // `bias` multiplies on top of `style` for one class.
-    lineups: {
-      peacekeepers: { tag:'Built to Peacekeeper doctrine: sturdy, armed, and easy to spot.',
-        style:{ price:1.15, spd:0.95, def:1.1, cargo:0.9, dmg:1.1 },
-        bias:{ destroyer:{def:1.25,dmg:1.25,price:0.9}, cruiser:{def:1.2,dmg:1.2,price:0.9}, racer:{spd:0.9,price:1.2}, science:{def:0.9}, unique:{def:1.3,dmg:1.2,price:1.2} },
-        names:{ racer:'Dispatch', fighter:'Warden', cruiser:'Marshal', destroyer:'Bulwark', carrier:'Garrison', science:'Surveyor', cargo_s:'Tender', cargo_m:'Convoy', cargo_h:'Stalwart', cargo_x:'Atlas', unique:'Paragon' } },
-      junkers: { tag:'Junker-built from salvage. Cheap, loud, and held together by optimism.',
-        style:{ price:0.65, spd:1, def:0.8, cargo:1.05, dmg:0.85 },
-        bias:{ racer:{spd:1.1}, science:{def:0.7,price:0.9}, unique:{cargo:1.5,def:1.25,price:1.1} },
-        names:{ racer:'Skiff', fighter:'Scrapper', cruiser:'Brawler', destroyer:'Wrecker', carrier:'Rustbelt', science:'Tinkerer', cargo_s:'Pickup', cargo_m:'Patchwork', cargo_h:'Hoarder', cargo_x:'Heap', unique:'Jackpot' } },
-      corpos: { tag:'A Corpos design: expensive, precise, and leased in spirit even when sold.',
-        style:{ price:1.6, spd:1.1, def:1.15, cargo:1.1, dmg:1.1 },
-        bias:{ science:{def:1.3,spd:1.2,price:1.2}, racer:{spd:1.3,dmg:1.2,price:1.2}, unique:{spd:1.3,def:1.4,dmg:1.4,price:1.5} },
-        names:{ racer:'Dividend', fighter:'Arbiter', cruiser:'Executive', destroyer:'Enforcer', carrier:'Holding', science:'Analyst', cargo_s:'Parcel', cargo_m:'Ledger', cargo_h:'Syndicate', cargo_x:'Conglomerate', unique:'Chairman' } },
-      lattice: { tag:'A Lattice hull: small, quick, and coordinated by something you never see.',
-        style:{ price:1, spd:1.1, def:0.9, cargo:0.8, dmg:1 },
-        bias:{ carrier:{def:1.35,dmg:1.3,price:0.75}, racer:{spd:1.15,price:0.8}, fighter:{spd:1.1,dmg:1.15,price:0.8}, destroyer:{def:0.8,price:1.2}, cruiser:{def:0.85,price:1.2}, unique:{spd:1.25,dmg:1.25,price:1.2} },
-        names:{ racer:'Glint', fighter:'Mote', cruiser:'Prism', destroyer:'Lance', carrier:'Hive', science:'Lens', cargo_s:'Pod', cargo_m:'Ferry', cargo_h:'Vault', cargo_x:'Cathedral', unique:'Apex' } },
-      independent: { tag:'An independent yard build. No logo, no leash.',
-        names:{ racer:'Wayfarer', fighter:'Drifter', science:'Cartographer', cargo_s:'Packet', cargo_m:'Trader', cargo_h:'Bulker' } },
-      pirates: { tag:'A pirate refit. Someone else paid for it first.',
-        style:{ price:0.75, spd:1.1, def:0.8, cargo:0.9, dmg:1.15 }, bias:{ unique:{def:1.3,dmg:1.3,price:1.3} },
-        names:{ racer:'Cutter', fighter:'Raider', cruiser:'Marauder', cargo_s:'Smuggler', unique:'Reaver' } }
-    },
-    // Hand edits for single ships. Any field of the final record can be set here: lore, art, price, thrust, shield, slots, ...
-    overrides: {
-      peacekeepers_fighter:  { lore:'The Peacekeeper patrol standard. Plain, sturdy, and painted so you can see it coming.' },
-      peacekeepers_destroyer:{ lore:'What the Peacekeepers send when order needs to be enforced loudly.' },
-      junkers_fighter:       { lore:'Junker-built from three wrecks and a grudge. Fast, loud, and held together by optimism.' },
-      junkers_cargo_m:       { lore:'A Junker hauler stitched from derelict hulls. Every bay was a different ship once.' },
-      corpos_fighter:        { lore:'A Corpos escort frame, leased rather than sold, in theory. Its guns settle disputes before they start.' },
-      corpos_cargo_m:        { lore:'A Corpos bulk freighter built around one idea: more cargo per credit than anyone else.' }
-    },
-    // Enemy-only ships: never sold, so no shop fields needed.
-    npc: {
-      raider: { name:'Raider', sold:false, thrust:210, turn:170, max:280, shield:30, armor:50, regen:3, r:13, color:'#ff7b7b',
-        shape:[[14,0],[-9,-10],[-3,-3],[-12,0],[-3,3],[-9,10]], engines:[[-12,0]], weapons:[{ dmg:6, speed:460, life:0.8, cd:0.4, off:[10,0], color:'#ff7b7b' }] }
+    table: {
+      // ---- PEACEKEEPERS ----
+      peacekeepers_racer: { name:"Dispatch", class:"racer", faction:"peacekeepers", tech:1, price:3050, massCap:42, cargo:9, slots:[1,1,1,1], thrust:282, turn:239, max:359, shield:33, armor:44, regen:5, radius:12, guns:1, dmg:5.5, cd:0.3, hull:"racer", engines:[[-8,0]], artSize:[39.6,13.2], art:"", lore:"A stripped-down speed frame built to outrun trouble. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
+      peacekeepers_fighter: { name:"Warden", class:"fighter", faction:"peacekeepers", tech:1, price:2300, massCap:63, cargo:14, slots:[2,1,1,1], thrust:257, turn:219, max:314, shield:61, armor:77, regen:5, radius:14, guns:2, dmg:7.7, cd:0.3, hull:"fighter", engines:[[-9,-4],[-9,4]], artSize:[35.2,19.8], art:"", lore:"The Peacekeeper patrol standard. Plain, sturdy, and painted so you can see it coming." },
+      peacekeepers_cruiser: { name:"Marshal", class:"cruiser", faction:"peacekeepers", tech:3, price:9300, massCap:230, cargo:36, slots:[4,1,2,3], thrust:181, turn:133, max:247, shield:145, armor:198, regen:6, radius:19, guns:3, dmg:11.9, cd:0.35, hull:"cruiser", engines:[[-12,-6],[-12,6]], artSize:[44,24.2], art:"", lore:"A balanced warship with real armor and real guns. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
+      peacekeepers_destroyer: { name:"Bulwark", class:"destroyer", faction:"peacekeepers", tech:3, price:12400, massCap:305, cargo:27, slots:[5,1,2,4], thrust:166, turn:114, max:228, shield:193, armor:275, regen:7, radius:22, guns:4, dmg:15.1, cd:0.35, hull:"destroyer", engines:[[-14,-8],[-12,0],[-14,8]], artSize:[52.8,30.8], art:"", lore:"What the Peacekeepers send when order needs to be enforced loudly." },
+      peacekeepers_carrier: { name:"Garrison", class:"carrier", faction:"peacekeepers", tech:4, price:25300, massCap:357, cargo:72, slots:[3,1,4,5], thrust:124, turn:86, max:190, shield:176, armor:286, regen:8, radius:28, guns:2, dmg:8.8, cd:0.4, hull:"carrier", engines:[[-18,-9],[-18,0],[-18,9]], artSize:[48.4,35.2], art:"", lore:"A fleet anchor with hangar space and a thick hull. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
+      peacekeepers_science: { name:"Surveyor", class:"science", faction:"peacekeepers", tech:3, price:9800, massCap:179, cargo:45, slots:[1,1,5,2], thrust:190, turn:152, max:257, shield:89, armor:69, regen:8, radius:17, guns:1, dmg:6.6, cd:0.4, hull:"science", engines:[[-14,-3],[-14,3]], artSize:[30.8,26.4], art:"", lore:"Sensor-heavy and utility-rich, with room for strange cargo. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
+      peacekeepers_cargo_s: { name:"Tender", class:"cargo_s", faction:"peacekeepers", tech:1, price:3450, massCap:94, cargo:45, slots:[1,1,2,1], thrust:200, turn:143, max:247, shield:44, armor:77, regen:3, radius:15, guns:0, dmg:0, cd:0, hull:"cargo_s", engines:[[-12,-4],[-12,4]], artSize:[30.8,17.6], art:"", lore:"A small hauler for short runs and tight margins. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
+      peacekeepers_cargo_m: { name:"Convoy", class:"cargo_m", faction:"peacekeepers", tech:2, price:6900, massCap:147, cargo:90, slots:[2,1,3,2], thrust:171, turn:119, max:219, shield:55, armor:110, regen:4, radius:18, guns:0, dmg:0, cd:0, hull:"cargo_m", engines:[[-14,-5],[-14,5]], artSize:[35.2,22], art:"", lore:"The standard freighter of the lanes. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
+      peacekeepers_cargo_h: { name:"Stalwart", class:"cargo_h", faction:"peacekeepers", tech:3, price:13800, massCap:210, cargo:180, slots:[2,1,3,3], thrust:143, turn:95, max:190, shield:77, armor:165, regen:5, radius:22, guns:0, dmg:0, cd:0, hull:"cargo_h", engines:[[-18,-6],[-18,6]], artSize:[39.6,26.4], art:"", lore:"A bulk carrier that trades speed for tonnage. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
+      peacekeepers_cargo_x: { name:"Atlas", class:"cargo_x", faction:"peacekeepers", tech:4, price:29900, massCap:315, cargo:360, slots:[3,1,4,4], thrust:109, turn:67, max:162, shield:110, armor:286, regen:6, radius:30, guns:0, dmg:0, cd:0, hull:"cargo_x", engines:[[-22,-8],[-22,0],[-22,8]], artSize:[48.4,33], art:"", lore:"A moving warehouse. Slow, huge, and worth escorting. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
+      peacekeepers_unique: { name:"Paragon", class:"unique", faction:"peacekeepers", tech:4, price:41400, massCap:335, cargo:54, slots:[4,1,4,4], thrust:228, turn:181, max:285, shield:243, armor:272, regen:10, radius:20, guns:4, dmg:17.2, cd:0.28, hull:"unique", engines:[[-14,-6],[-14,6]], artSize:[48.4,35.2], art:"", lore:"A one-of-a-kind flagship design. Few are ever built. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
+      // ---- JUNKERS ----
+      junkers_racer: { name:"Skiff", class:"racer", faction:"junkers", tech:1, price:1450, massCap:36, cargo:11, slots:[1,1,1,1], thrust:363, turn:308, max:462, shield:24, armor:32, regen:5, radius:12, guns:1, dmg:4.3, cd:0.3, hull:"racer", engines:[[-8,0]], artSize:[39.6,13.2], art:"", lore:"A stripped-down speed frame built to outrun trouble. Junker-built from salvage. Cheap, loud, and held together by optimism." },
+      junkers_fighter: { name:"Scrapper", class:"fighter", faction:"junkers", tech:1, price:1300, massCap:54, cargo:16, slots:[2,1,1,1], thrust:270, turn:230, max:330, shield:44, armor:56, regen:5, radius:14, guns:2, dmg:6, cd:0.3, hull:"fighter", engines:[[-9,-4],[-9,4]], artSize:[35.2,19.8], art:"", lore:"Junker-built from three wrecks and a grudge. Fast, loud, and held together by optimism." },
+      junkers_cruiser: { name:"Brawler", class:"cruiser", faction:"junkers", tech:3, price:5850, massCap:179, cargo:42, slots:[4,1,2,3], thrust:190, turn:140, max:260, shield:88, armor:120, regen:6, radius:19, guns:3, dmg:7.6, cd:0.35, hull:"cruiser", engines:[[-12,-6],[-12,6]], artSize:[44,24.2], art:"", lore:"A balanced warship with real armor and real guns. Junker-built from salvage. Cheap, loud, and held together by optimism." },
+      junkers_destroyer: { name:"Wrecker", class:"destroyer", faction:"junkers", tech:3, price:7800, massCap:233, cargo:32, slots:[5,1,2,4], thrust:175, turn:120, max:240, shield:112, armor:160, regen:7, radius:22, guns:4, dmg:9.3, cd:0.35, hull:"destroyer", engines:[[-14,-8],[-12,0],[-14,8]], artSize:[52.8,30.8], art:"", lore:"A heavy gun platform built to break other warships. Junker-built from salvage. Cheap, loud, and held together by optimism." },
+      junkers_carrier: { name:"Rustbelt", class:"carrier", faction:"junkers", tech:4, price:14300, massCap:304, cargo:84, slots:[3,1,4,5], thrust:130, turn:90, max:200, shield:128, armor:208, regen:8, radius:28, guns:2, dmg:6.8, cd:0.4, hull:"carrier", engines:[[-18,-9],[-18,0],[-18,9]], artSize:[48.4,35.2], art:"", lore:"A fleet anchor with hangar space and a thick hull. Junker-built from salvage. Cheap, loud, and held together by optimism." },
+      junkers_science: { name:"Tinkerer", class:"science", faction:"junkers", tech:3, price:4950, massCap:135, cargo:53, slots:[1,1,5,2], thrust:200, turn:160, max:270, shield:50, armor:39, regen:8, radius:17, guns:1, dmg:5.1, cd:0.4, hull:"science", engines:[[-14,-3],[-14,3]], artSize:[30.8,26.4], art:"", lore:"Sensor-heavy and utility-rich, with room for strange cargo. Junker-built from salvage. Cheap, loud, and held together by optimism." },
+      junkers_cargo_s: { name:"Pickup", class:"cargo_s", faction:"junkers", tech:1, price:1950, massCap:80, cargo:53, slots:[1,1,2,1], thrust:210, turn:150, max:260, shield:32, armor:56, regen:3, radius:15, guns:0, dmg:0, cd:0, hull:"cargo_s", engines:[[-12,-4],[-12,4]], artSize:[30.8,17.6], art:"", lore:"A small hauler for short runs and tight margins. Junker-built from salvage. Cheap, loud, and held together by optimism." },
+      junkers_cargo_m: { name:"Patchwork", class:"cargo_m", faction:"junkers", tech:2, price:3900, massCap:125, cargo:105, slots:[2,1,3,2], thrust:180, turn:125, max:230, shield:40, armor:80, regen:4, radius:18, guns:0, dmg:0, cd:0, hull:"cargo_m", engines:[[-14,-5],[-14,5]], artSize:[35.2,22], art:"", lore:"A Junker hauler stitched from derelict hulls. Every bay was a different ship once." },
+      junkers_cargo_h: { name:"Hoarder", class:"cargo_h", faction:"junkers", tech:3, price:7800, massCap:179, cargo:210, slots:[2,1,3,3], thrust:150, turn:100, max:200, shield:56, armor:120, regen:5, radius:22, guns:0, dmg:0, cd:0, hull:"cargo_h", engines:[[-18,-6],[-18,6]], artSize:[39.6,26.4], art:"", lore:"A bulk carrier that trades speed for tonnage. Junker-built from salvage. Cheap, loud, and held together by optimism." },
+      junkers_cargo_x: { name:"Heap", class:"cargo_x", faction:"junkers", tech:4, price:16900, massCap:268, cargo:420, slots:[3,1,4,4], thrust:115, turn:70, max:170, shield:80, armor:208, regen:6, radius:30, guns:0, dmg:0, cd:0, hull:"cargo_x", engines:[[-22,-8],[-22,0],[-22,8]], artSize:[48.4,33], art:"", lore:"A moving warehouse. Slow, huge, and worth escorting. Junker-built from salvage. Cheap, loud, and held together by optimism." },
+      junkers_unique: { name:"Jackpot", class:"unique", faction:"junkers", tech:4, price:21450, massCap:280, cargo:95, slots:[4,1,4,4], thrust:240, turn:190, max:300, shield:170, armor:190, regen:10, radius:20, guns:4, dmg:11, cd:0.28, hull:"unique", engines:[[-14,-6],[-14,6]], artSize:[48.4,35.2], art:"", lore:"A one-of-a-kind flagship design. Few are ever built. Junker-built from salvage. Cheap, loud, and held together by optimism." },
+      // ---- CORPOS ----
+      corpos_racer: { name:"Dividend", class:"racer", faction:"corpos", tech:1, price:4200, massCap:43, cargo:11, slots:[1,1,1,1], thrust:472, turn:400, max:601, shield:35, armor:46, regen:5, radius:12, guns:1, dmg:6.6, cd:0.3, hull:"racer", engines:[[-8,0]], artSize:[39.6,13.2], art:"", lore:"A stripped-down speed frame built to outrun trouble. A Corpos design: expensive, precise, and leased in spirit even when sold." },
+      corpos_fighter: { name:"Arbiter", class:"fighter", faction:"corpos", tech:1, price:3200, massCap:64, cargo:17, slots:[2,1,1,1], thrust:297, turn:253, max:363, shield:63, armor:81, regen:5, radius:14, guns:2, dmg:7.7, cd:0.3, hull:"fighter", engines:[[-9,-4],[-9,4]], artSize:[35.2,19.8], art:"", lore:"A Corpos escort frame, leased rather than sold, in theory. Its guns settle disputes before they start." },
+      corpos_cruiser: { name:"Executive", class:"cruiser", faction:"corpos", tech:3, price:14400, massCap:214, cargo:44, slots:[4,1,2,3], thrust:209, turn:154, max:286, shield:126, armor:173, regen:6, radius:19, guns:3, dmg:9.9, cd:0.35, hull:"cruiser", engines:[[-12,-6],[-12,6]], artSize:[44,24.2], art:"", lore:"A balanced warship with real armor and real guns. A Corpos design: expensive, precise, and leased in spirit even when sold." },
+      corpos_destroyer: { name:"Enforcer", class:"destroyer", faction:"corpos", tech:3, price:19200, massCap:279, cargo:33, slots:[5,1,2,4], thrust:193, turn:132, max:264, shield:161, armor:230, regen:7, radius:22, guns:4, dmg:12.1, cd:0.35, hull:"destroyer", engines:[[-14,-8],[-12,0],[-14,8]], artSize:[52.8,30.8], art:"", lore:"A heavy gun platform built to break other warships. A Corpos design: expensive, precise, and leased in spirit even when sold." },
+      corpos_carrier: { name:"Holding", class:"carrier", faction:"corpos", tech:4, price:35200, massCap:365, cargo:88, slots:[3,1,4,5], thrust:143, turn:99, max:220, shield:184, armor:299, regen:8, radius:28, guns:2, dmg:8.8, cd:0.4, hull:"carrier", engines:[[-18,-9],[-18,0],[-18,9]], artSize:[48.4,35.2], art:"", lore:"A fleet anchor with hangar space and a thick hull. A Corpos design: expensive, precise, and leased in spirit even when sold." },
+      corpos_science: { name:"Analyst", class:"science", faction:"corpos", tech:3, price:16300, massCap:220, cargo:55, slots:[1,1,5,2], thrust:264, turn:211, max:356, shield:135, armor:105, regen:8, radius:17, guns:1, dmg:6.6, cd:0.4, hull:"science", engines:[[-14,-3],[-14,3]], artSize:[30.8,26.4], art:"", lore:"Sensor-heavy and utility-rich, with room for strange cargo. A Corpos design: expensive, precise, and leased in spirit even when sold." },
+      corpos_cargo_s: { name:"Parcel", class:"cargo_s", faction:"corpos", tech:1, price:4800, massCap:97, cargo:55, slots:[1,1,2,1], thrust:231, turn:165, max:286, shield:46, armor:81, regen:3, radius:15, guns:0, dmg:0, cd:0, hull:"cargo_s", engines:[[-12,-4],[-12,4]], artSize:[30.8,17.6], art:"", lore:"A small hauler for short runs and tight margins. A Corpos design: expensive, precise, and leased in spirit even when sold." },
+      corpos_cargo_m: { name:"Ledger", class:"cargo_m", faction:"corpos", tech:2, price:9600, massCap:150, cargo:110, slots:[2,1,3,2], thrust:198, turn:138, max:253, shield:57, armor:115, regen:4, radius:18, guns:0, dmg:0, cd:0, hull:"cargo_m", engines:[[-14,-5],[-14,5]], artSize:[35.2,22], art:"", lore:"A Corpos bulk freighter built around one idea: more cargo per credit than anyone else." },
+      corpos_cargo_h: { name:"Syndicate", class:"cargo_h", faction:"corpos", tech:3, price:19200, massCap:214, cargo:220, slots:[2,1,3,3], thrust:165, turn:110, max:220, shield:81, armor:173, regen:5, radius:22, guns:0, dmg:0, cd:0, hull:"cargo_h", engines:[[-18,-6],[-18,6]], artSize:[39.6,26.4], art:"", lore:"A bulk carrier that trades speed for tonnage. A Corpos design: expensive, precise, and leased in spirit even when sold." },
+      corpos_cargo_x: { name:"Conglomerate", class:"cargo_x", faction:"corpos", tech:4, price:41600, massCap:322, cargo:440, slots:[3,1,4,4], thrust:127, turn:77, max:187, shield:115, armor:299, regen:6, radius:30, guns:0, dmg:0, cd:0, hull:"cargo_x", engines:[[-22,-8],[-22,0],[-22,8]], artSize:[48.4,33], art:"", lore:"A moving warehouse. Slow, huge, and worth escorting. A Corpos design: expensive, precise, and leased in spirit even when sold." },
+      corpos_unique: { name:"Chairman", class:"unique", faction:"corpos", tech:4, price:72000, massCap:355, cargo:66, slots:[4,1,4,4], thrust:343, turn:272, max:429, shield:274, armor:306, regen:10, radius:20, guns:4, dmg:20, cd:0.28, hull:"unique", engines:[[-14,-6],[-14,6]], artSize:[48.4,35.2], art:"", lore:"A one-of-a-kind flagship design. Few are ever built. A Corpos design: expensive, precise, and leased in spirit even when sold." },
+      // ---- THE LATTICE ----
+      lattice_racer: { name:"Glint", class:"racer", faction:"lattice", tech:1, price:1750, massCap:38, cargo:8, slots:[1,1,1,1], thrust:417, turn:354, max:531, shield:27, armor:36, regen:5, radius:12, guns:1, dmg:5, cd:0.3, hull:"racer", engines:[[-8,0]], artSize:[39.6,13.2], art:"", lore:"A stripped-down speed frame built to outrun trouble. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_fighter: { name:"Mote", class:"fighter", faction:"lattice", tech:1, price:1600, massCap:57, cargo:12, slots:[2,1,1,1], thrust:327, turn:278, max:399, shield:50, armor:63, regen:5, radius:14, guns:2, dmg:8, cd:0.3, hull:"fighter", engines:[[-9,-4],[-9,4]], artSize:[35.2,19.8], art:"", lore:"A nimble all-rounder and the backbone of any patrol. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_cruiser: { name:"Prism", class:"cruiser", faction:"lattice", tech:3, price:10800, massCap:175, cargo:32, slots:[4,1,2,3], thrust:209, turn:154, max:286, shield:84, armor:115, regen:6, radius:19, guns:3, dmg:9, cd:0.35, hull:"cruiser", engines:[[-12,-6],[-12,6]], artSize:[44,24.2], art:"", lore:"A balanced warship with real armor and real guns. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_destroyer: { name:"Lance", class:"destroyer", faction:"lattice", tech:3, price:14400, massCap:221, cargo:24, slots:[5,1,2,4], thrust:193, turn:132, max:264, shield:101, armor:144, regen:7, radius:22, guns:4, dmg:11, cd:0.35, hull:"destroyer", engines:[[-14,-8],[-12,0],[-14,8]], artSize:[52.8,30.8], art:"", lore:"A heavy gun platform built to break other warships. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_carrier: { name:"Hive", class:"carrier", faction:"lattice", tech:4, price:16500, massCap:375, cargo:64, slots:[3,1,4,5], thrust:143, turn:99, max:220, shield:194, armor:316, regen:8, radius:28, guns:2, dmg:10.4, cd:0.4, hull:"carrier", engines:[[-18,-9],[-18,0],[-18,9]], artSize:[48.4,35.2], art:"", lore:"A fleet anchor with hangar space and a thick hull. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_science: { name:"Lens", class:"science", faction:"lattice", tech:3, price:8500, massCap:171, cargo:40, slots:[1,1,5,2], thrust:220, turn:176, max:297, shield:81, armor:63, regen:8, radius:17, guns:1, dmg:6, cd:0.4, hull:"science", engines:[[-14,-3],[-14,3]], artSize:[30.8,26.4], art:"", lore:"Sensor-heavy and utility-rich, with room for strange cargo. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_cargo_s: { name:"Pod", class:"cargo_s", faction:"lattice", tech:1, price:3000, massCap:85, cargo:40, slots:[1,1,2,1], thrust:231, turn:165, max:286, shield:36, armor:63, regen:3, radius:15, guns:0, dmg:0, cd:0, hull:"cargo_s", engines:[[-12,-4],[-12,4]], artSize:[30.8,17.6], art:"", lore:"A small hauler for short runs and tight margins. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_cargo_m: { name:"Ferry", class:"cargo_m", faction:"lattice", tech:2, price:6000, massCap:133, cargo:80, slots:[2,1,3,2], thrust:198, turn:138, max:253, shield:45, armor:90, regen:4, radius:18, guns:0, dmg:0, cd:0, hull:"cargo_m", engines:[[-14,-5],[-14,5]], artSize:[35.2,22], art:"", lore:"The standard freighter of the lanes. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_cargo_h: { name:"Vault", class:"cargo_h", faction:"lattice", tech:3, price:12000, massCap:190, cargo:160, slots:[2,1,3,3], thrust:165, turn:110, max:220, shield:63, armor:135, regen:5, radius:22, guns:0, dmg:0, cd:0, hull:"cargo_h", engines:[[-18,-6],[-18,6]], artSize:[39.6,26.4], art:"", lore:"A bulk carrier that trades speed for tonnage. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_cargo_x: { name:"Cathedral", class:"cargo_x", faction:"lattice", tech:4, price:26000, massCap:285, cargo:320, slots:[3,1,4,4], thrust:127, turn:77, max:187, shield:90, armor:234, regen:6, radius:30, guns:0, dmg:0, cd:0, hull:"cargo_x", engines:[[-22,-8],[-22,0],[-22,8]], artSize:[48.4,33], art:"", lore:"A moving warehouse. Slow, huge, and worth escorting. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_unique: { name:"Apex", class:"unique", faction:"lattice", tech:4, price:36000, massCap:266, cargo:48, slots:[4,1,4,4], thrust:330, turn:261, max:413, shield:153, armor:171, regen:10, radius:20, guns:4, dmg:16.3, cd:0.28, hull:"unique", engines:[[-14,-6],[-14,6]], artSize:[48.4,35.2], art:"", lore:"A one-of-a-kind flagship design. Few are ever built. A Lattice hull: small, quick, and coordinated by something you never see." },
+      // ---- INDEPENDENT ----
+      independent_racer: { name:"Wayfarer", class:"racer", faction:"independent", tech:1, price:2200, massCap:40, cargo:10, slots:[1,1,1,1], thrust:330, turn:280, max:420, shield:30, armor:40, regen:5, radius:12, guns:1, dmg:5, cd:0.3, hull:"racer", engines:[[-8,0]], artSize:[39.6,13.2], art:"", lore:"A stripped-down speed frame built to outrun trouble. An independent yard build. No logo, no leash." },
+      independent_fighter: { name:"Drifter", class:"fighter", faction:"independent", tech:1, price:2000, massCap:60, cargo:15, slots:[2,1,1,1], thrust:270, turn:230, max:330, shield:55, armor:70, regen:5, radius:14, guns:2, dmg:7, cd:0.3, hull:"fighter", engines:[[-9,-4],[-9,4]], artSize:[35.2,19.8], art:"", lore:"A nimble all-rounder and the backbone of any patrol. An independent yard build. No logo, no leash." },
+      independent_science: { name:"Cartographer", class:"science", faction:"independent", tech:3, price:8500, massCap:180, cargo:50, slots:[1,1,5,2], thrust:200, turn:160, max:270, shield:90, armor:70, regen:8, radius:17, guns:1, dmg:6, cd:0.4, hull:"science", engines:[[-14,-3],[-14,3]], artSize:[30.8,26.4], art:"", lore:"Sensor-heavy and utility-rich, with room for strange cargo. An independent yard build. No logo, no leash." },
+      independent_cargo_s: { name:"Packet", class:"cargo_s", faction:"independent", tech:1, price:3000, massCap:90, cargo:50, slots:[1,1,2,1], thrust:210, turn:150, max:260, shield:40, armor:70, regen:3, radius:15, guns:0, dmg:0, cd:0, hull:"cargo_s", engines:[[-12,-4],[-12,4]], artSize:[30.8,17.6], art:"", lore:"A small hauler for short runs and tight margins. An independent yard build. No logo, no leash." },
+      independent_cargo_m: { name:"Trader", class:"cargo_m", faction:"independent", tech:2, price:6000, massCap:140, cargo:100, slots:[2,1,3,2], thrust:180, turn:125, max:230, shield:50, armor:100, regen:4, radius:18, guns:0, dmg:0, cd:0, hull:"cargo_m", engines:[[-14,-5],[-14,5]], artSize:[35.2,22], art:"", lore:"The standard freighter of the lanes. An independent yard build. No logo, no leash." },
+      independent_cargo_h: { name:"Bulker", class:"cargo_h", faction:"independent", tech:3, price:12000, massCap:200, cargo:200, slots:[2,1,3,3], thrust:150, turn:100, max:200, shield:70, armor:150, regen:5, radius:22, guns:0, dmg:0, cd:0, hull:"cargo_h", engines:[[-18,-6],[-18,6]], artSize:[39.6,26.4], art:"", lore:"A bulk carrier that trades speed for tonnage. An independent yard build. No logo, no leash." },
+      // ---- PIRATES ----
+      pirates_racer: { name:"Cutter", class:"racer", faction:"pirates", tech:1, price:1650, massCap:36, cargo:9, slots:[1,1,1,1], thrust:363, turn:308, max:462, shield:24, armor:32, regen:5, radius:12, guns:1, dmg:5.8, cd:0.3, hull:"racer", engines:[[-8,0]], artSize:[39.6,13.2], art:"", lore:"A stripped-down speed frame built to outrun trouble. A pirate refit. Someone else paid for it first." },
+      pirates_fighter: { name:"Raider", class:"fighter", faction:"pirates", tech:1, price:1500, massCap:54, cargo:14, slots:[2,1,1,1], thrust:297, turn:253, max:363, shield:44, armor:56, regen:5, radius:14, guns:2, dmg:8, cd:0.3, hull:"fighter", engines:[[-9,-4],[-9,4]], artSize:[35.2,19.8], art:"", lore:"A nimble all-rounder and the backbone of any patrol. A pirate refit. Someone else paid for it first." },
+      pirates_cruiser: { name:"Marauder", class:"cruiser", faction:"pirates", tech:3, price:6750, massCap:179, cargo:36, slots:[4,1,2,3], thrust:209, turn:154, max:286, shield:88, armor:120, regen:6, radius:19, guns:3, dmg:10.3, cd:0.35, hull:"cruiser", engines:[[-12,-6],[-12,6]], artSize:[44,24.2], art:"", lore:"A balanced warship with real armor and real guns. A pirate refit. Someone else paid for it first." },
+      pirates_cargo_s: { name:"Smuggler", class:"cargo_s", faction:"pirates", tech:1, price:2250, massCap:80, cargo:45, slots:[1,1,2,1], thrust:231, turn:165, max:286, shield:32, armor:56, regen:3, radius:15, guns:0, dmg:0, cd:0, hull:"cargo_s", engines:[[-12,-4],[-12,4]], artSize:[30.8,17.6], art:"", lore:"A small hauler for short runs and tight margins. A pirate refit. Someone else paid for it first." },
+      pirates_unique: { name:"Reaver", class:"unique", faction:"pirates", tech:4, price:29250, massCap:286, cargo:54, slots:[4,1,4,4], thrust:264, turn:209, max:330, shield:177, armor:198, regen:10, radius:20, guns:4, dmg:19.4, cd:0.28, hull:"unique", engines:[[-14,-6],[-14,6]], artSize:[48.4,35.2], art:"", lore:"A one-of-a-kind flagship design. Few are ever built. A pirate refit. Someone else paid for it first." },
+      // ---- ENEMY-ONLY (never sold) ----
+      raider: { name:"Raider", class:"fighter", faction:null, sold:false, color:"#ff7b7b", thrust:210, turn:170, max:280, shield:30, armor:50, regen:3, radius:13, guns:1, dmg:6, cd:0.4, speed:460, life:0.8, hull:"raider", engines:[[-12,0]], artSize:[30.8,22], art:"", lore:"A cheap wild raider hull. Fast enough to be a problem and little else." }
     }
   },
   factions: [
@@ -225,28 +258,26 @@ const COMM = Object.fromEntries(CONTENT.commodities.map(c=>[c.id,c.base])), FUEL
 let CARGO_MAX=20;
 const hs = s => { let h=0; for(const ch of s) h=(h*31+ch.charCodeAt(0))%997; return h/997; };
 const PATROL = Object.fromEntries(CONTENT.factions.map(f=>[f.id,f.patrol?f.id+'_'+f.patrol:null]));
-// SHIP_DB: one complete record per ship (built from CONTENT.ships). SHIPS = flight model view, FRAMES = shop/outfitting view.
+// SHIP_DB: one complete record per ship, read straight from CONTENT.ships.table. SHIPS = flight model view, FRAMES = shop/outfitting view.
 const SHIP_DB = {}, FRAMES = {};
 function buildShips(){
-  const D = CONTENT.ships, r5 = (v,n=1) => Math.round(v/n)*n;
-  for (const [fid,L] of Object.entries(D.lineups)) for (const [cls,name] of Object.entries(L.names)){
-    const C = D.classes[cls], b = { price:1, spd:1, def:1, cargo:1, dmg:1, ...L.style }, o = L.bias?.[cls] || {}, m = k => b[k]*(o[k] ?? 1), id = fid+'_'+cls;
-    const rec = { id, name, cls, classLabel:C.label, fac:fid, color:CONTENT.factions.find(f=>f.id===fid).c, tech:C.tech,
-      price:r5(C.price*m('price'),50), massCap:r5(C.mass*Math.sqrt(m('def'))), cargo:r5(C.cargo*m('cargo')),
-      slots:{ weapon:C.slots[0], engine:C.slots[1], utility:C.slots[2], hull:C.slots[3] },
-      thrust:r5(C.thrust*m('spd')), turn:r5(C.turn*m('spd')), max:r5(C.max*m('spd')), shield:r5(C.shield*m('def')), armor:r5(C.armor*m('def')), regen:C.regen, r:C.r, shape:C.shape,
-      weapons:Array.from({length:C.guns}, (_,i) => ({ dmg:+(C.dmg*m('dmg')).toFixed(1), speed:500, life:0.9, cd:C.cd, off:[10,(i-(C.guns-1)/2)*8], color:CONTENT.factions.find(f=>f.id===fid).c })),
-      artSize:C.artSize, engines:C.engines, lore:(C.blurb+' '+(L.tag||'')).trim(), ...D.overrides[id] };
-    SHIP_DB[id] = rec;
+  const D = CONTENT.ships, facs = Object.fromEntries(CONTENT.factions.map(f => [f.id,f]));
+  const need = ['name','class','thrust','turn','max','shield','armor','regen','radius','guns','dmg','cd','hull','engines','artSize'];
+  for (const [id,e] of Object.entries(D.table)){
+    for (const k of need) if (e[k]==null) throw new Error('Ship '+id+' is missing "'+k+'"');
+    if (!D.hulls[e.hull]) throw new Error('Ship '+id+' has unknown hull "'+e.hull+'"');
+    if (e.sold!==false) for (const k of ['faction','tech','price','massCap','cargo','slots']) if (e[k]==null) throw new Error('Ship '+id+' is missing "'+k+'"');
+    const color = e.color || facs[e.faction].c, file = e.art || id+'.png';
+    SHIP_DB[id] = { id, name:e.name, cls:e.class, classLabel:D.classes[e.class], fac:e.faction, tech:e.tech, price:e.price, massCap:e.massCap, cargo:e.cargo,
+      slots:e.slots ? { weapon:e.slots[0], engine:e.slots[1], utility:e.slots[2], hull:e.slots[3] } : null,
+      thrust:e.thrust, turn:e.turn, max:e.max, shield:e.shield, armor:e.armor, regen:e.regen, r:e.radius, color, shape:D.hulls[e.hull],
+      weapons:Array.from({length:e.guns}, (_,i) => ({ dmg:e.dmg, speed:e.speed ?? 500, life:e.life ?? 0.9, cd:e.cd, off:[10,(i-(e.guns-1)/2)*8], color })),
+      engines:e.engines, artSize:e.artSize, art:(file.includes('/') || file.startsWith('data:')) ? file : D.artDir + file, lore:e.lore || '', sold:e.sold };
   }
-  for (const [id,n] of Object.entries(D.npc)) SHIP_DB[id] = { id, ...n };
   for (const r of Object.values(SHIP_DB)){
-    const ext = (k,f) => Math.round(f*Math.max(...r.shape.map(p=>Math.abs(p[k])))*2*10)/10;
-    r.artSize = r.artSize || [ext(0,1.1), ext(1,1.1)]; r.engines = r.engines || [[-r.r,0]];
-    const file = r.art || r.id+'.png'; r.art = (file.includes('/') || file.startsWith('data:')) ? file : D.artDir + file;
-    SHIPS[r.id] = { name:r.name, thrust:r.thrust, turn:r.turn, max:r.max, shield:r.shield, armor:r.armor, regen:r.regen, r:r.r, color:r.color, shape:r.shape, weapons:r.weapons, id:r.id, artSize:r.artSize, engines:r.engines };
+    SHIPS[r.id] = { id:r.id, name:r.name, thrust:r.thrust, turn:r.turn, max:r.max, shield:r.shield, armor:r.armor, regen:r.regen, r:r.r, color:r.color, shape:r.shape, weapons:r.weapons, artSize:r.artSize, engines:r.engines };
     if (r.sold !== false) FRAMES[r.id] = { name:r.name, cls:r.cls, fac:r.fac, tech:r.tech, price:r.price, massCap:r.massCap, cargo:r.cargo, slots:r.slots, lore:r.lore };
-    if (r.art) ART[r.id] = r.art;
+    ART[r.id] = r.art;
   }
 }
 buildShips();
