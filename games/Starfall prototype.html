@@ -360,7 +360,11 @@ function outAct(k,c,x){
   }
   renderLand();
 }
-const ART = {};   // id -> image URL. Drop real artwork in here later and it replaces the placeholders.
+const ART = {
+  corpo_cruiser = 'assets/Corpo_Crsr.png',
+  corpo_destroyer = 'assets/Corpo_dstr.png',
+  corpo_carrier = 'assets/Corpo_Carrier.png',
+};   // id -> image URL. Drop real artwork in here later and it replaces the placeholders.
 const LORE = {
   courier:'The workhorse of the border lanes. Nobody builds Couriers anymore. They just keep getting rebuilt.',
   scrapper:'Junker-built from three wrecks and a grudge. Fast, loud, and held together by optimism.',
