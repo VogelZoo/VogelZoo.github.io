@@ -38,6 +38,10 @@ button{position:fixed;border-radius:50%;font:600 14px system-ui,sans-serif;color
 #gp h2{margin:0 0 4px;font-size:22px}
 #gp .sub{margin-bottom:10px}
 #gp button{position:static;width:auto;height:auto;border-radius:8px;padding:10px 14px;margin:4px 6px 4px 0;border:1px solid #4a6078;background:#0f1a30}
+#gp button.big{display:block;width:100%;text-align:left;padding:14px 16px;margin:8px 0;font-size:16px}
+#gp button:disabled{opacity:.4}
+#gp input[type=text]{width:100%;box-sizing:border-box;background:#0f1a30;color:var(--ink);border:1px solid #2a3a55;border-radius:8px;padding:10px;font:14px system-ui;margin:6px 0;touch-action:auto}
+#gp label{display:block;margin:10px 0}
 #gp textarea{width:100%;height:110px;box-sizing:border-box;background:#0f1a30;color:var(--ink);border:1px solid #2a3a55;border-radius:8px;font:12px monospace;margin:6px 0;touch-action:auto}
 </style>
 </head>
@@ -48,7 +52,7 @@ button{position:fixed;border-radius:50%;font:600 14px system-ui,sans-serif;color
 <button id="jump">Jump</button>
 <button id="map">Map</button>
 <button id="landb">Land</button>
-<button id="menu">File</button>
+<button id="menu">Menu</button>
 <div id="lp" hidden></div>
 <div id="gp" hidden></div>
 <script>
@@ -532,7 +536,7 @@ function tryLand(){
   reveal(nearP);
   const o=nearP.faction;
   if(standing[o]<=-25) return toast('Docking denied: '+FACTIONS[o].name+' standing is hostile');
-  landed=nearP; lpView='main'; outSel=null; player.sh=player.d.shield; player.ar=player.d.armor; player.vx=player.vy=0; document.body.classList.add('maponly'); renderLand();
+  landed=nearP; lpView='main'; outSel=null; player.sh=player.d.shield; player.ar=player.d.armor; player.vx=player.vy=0; document.body.classList.add('maponly'); renderLand(); cacheGame();   // cache the game every time you land
 }
 function renderLand(){
   if (lpInfo) return renderInfo();
@@ -543,14 +547,14 @@ function renderLand(){
    `<div class='row'><span>Credits ${credits}</span><span>Fuel ${fuel}/${FUEL_MAX}</span><span>Cargo ${used()}/${CARGO_MAX}</span></div>`+
    `<div class='row'><span>Fuel, ${FUEL_PRICE} each</span><span><button data-a='fuel1'>Buy 1</button><button data-a='fuelF'>Fill</button></span></div>`;
   for(const c in COMM) h+=`<div class='row'><span>${c[0].toUpperCase()+c.slice(1)}: ${price(landed,c)} each, held ${cargo[c]}</span><span><button data-a='b1:${c}'>Buy 1</button><button data-a='b5:${c}'>Buy 5</button><button data-a='s:${c}'>Sell all</button></span></div>`;
-  lp.innerHTML=h+`<div class='row'><span><button data-a='outf'>Outfitter</button><button data-a='yard'>Shipyard</button><button data-a='game'>Save / Load</button><button data-a='off'>Take off</button></span></div></div>`; lp.hidden=false;
+  lp.innerHTML=h+`<div class='row'><span><button data-a='outf'>Outfitter</button><button data-a='yard'>Shipyard</button><button data-a='game'>Menu</button><button data-a='off'>Take off</button></span></div></div>`; lp.hidden=false;
 }
 lp.addEventListener('click', e=>{
   const a=e.target.dataset&&e.target.dataset.a; if(!a||!landed) return;
   const [k,c,x]=a.split(':');
-  if (k==='game') return openGame();
+  if (k==='game') return openMenu('main');
   if (['outf','back','slot','inst','rem','convp','convm','yard','buyship','info'].includes(k)) return outAct(k,c,x);
-  if(k==='off'){ landed=null; lp.hidden=true; document.body.classList.remove('maponly'); return; }
+  if(k==='off'){ landed=null; lp.hidden=true; document.body.classList.remove('maponly'); cacheGame(); return; }
   if(k==='fuel1'||k==='fuelF'){ const n=k==='fuel1'?1:FUEL_MAX-fuel; for(let i=0;i<n&&fuel<FUEL_MAX&&credits>=FUEL_PRICE;i++){ fuel++; credits-=FUEL_PRICE; } }
   else if(k==='s'){ credits+=cargo[c]*price(landed,c); cargo[c]=0; }
   else { const n=k==='b5'?5:1, pr=price(landed,c); for(let i=0;i<n&&used()<CARGO_MAX&&credits>=pr;i++){ cargo[c]++; credits-=pr; } }
@@ -839,12 +843,12 @@ function drawMap(){
   g.textAlign='center';
 }
 let last=performance.now(), acc=0;
-function frame(t){ acc+=Math.min(.1,(t-last)/1000); last=t; while(acc>=1/60){ update(1/60); acc-=1/60; } draw(); drawOverlays(); requestAnimationFrame(frame); }
+function frame(t){ acc+=Math.min(.1,(t-last)/1000); last=t; while(acc>=1/60){ if (gp.hidden) update(1/60); acc-=1/60; } /* paused while the menu is open */ draw(); drawOverlays(); requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
 
 // ---------- SAVE / LOAD (export / import JSON) ----------
 // The universe is never stored: a save holds the seed plus your changes. Loading a save with a different seed reloads the page with ?seed=.
-const SAVE_V = 1, gp = document.getElementById('gp');
+const SAVE_V = 1, gp = document.getElementById('gp'); let started = false;   // started = a game is in progress (so the menu can offer Resume / Save)
 function makeSave(){
   return { game:'starfall', v:SAVE_V, contentVersion:CONTENT.version, seed:SEED, savedAt:new Date().toISOString(), state:{
     sysId, dest, fuel, credits, kills, time:Math.round(time), conv, cargo:{...cargo}, frameId, loadout:JSON.parse(JSON.stringify(loadout)),
@@ -878,36 +882,81 @@ function applySave(d){   // returns null on success, otherwise a message for the
     mapOpen=false; mapB.textContent='Map'; document.body.classList.remove('maponly');
     landed=null; lpView='main'; lpInfo=null; outSel=null; lp.hidden=true;
     const L=UNI.planets[S.landed]; if (L && !L.barren){ landed=L; renderLand(); }
+    started=true; cacheGame();
     return null;
   } catch (e) { return typeof e==='string' ? e : 'Could not read that save: '+e.message; }
 }
+// ---------- START / PAUSE MENU + BROWSER CACHE ----------
+// The cache is the same JSON a save file holds, kept in the browser's localStorage and refreshed on every landing and takeoff.
+const CACHE_KEY = 'starfall_cache', OPT_KEY = 'starfall_opts';
+const opts = (() => { try { return { autocache:true, seed:'', ...JSON.parse(localStorage.getItem(OPT_KEY)||'{}') }; } catch(e) { return { autocache:true, seed:'' }; } })();
+const saveOpts = () => { try { localStorage.setItem(OPT_KEY, JSON.stringify(opts)); } catch(e) {} };
+function cacheGame(){ if (!opts.autocache || !started) return; try { localStorage.setItem(CACHE_KEY, JSON.stringify(makeSave())); } catch(e) {} }
+const readCache = () => { try { const t=localStorage.getItem(CACHE_KEY); return t ? JSON.parse(t) : null; } catch(e) { return null; } };
+const escH = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+function newGame(){
+  const seed = (opts.seed||'').trim() || Math.random().toString(36).slice(2,8), q = '?seed='+encodeURIComponent(seed);
+  try { localStorage.removeItem(CACHE_KEY); sessionStorage.setItem('starfall_new','1'); } catch(e) {}
+  if (location.search===q) location.reload(); else location.search=q;
+}
 function doLoad(text){
-  let d; try { d=JSON.parse(text); } catch(e) { return openGame('That is not valid JSON'); }
-  const err=applySave(d); if (err) return openGame(err);
+  let d; try { d=JSON.parse(text); } catch(e) { return openMenu('load','That is not valid JSON'); }
+  const err=applySave(d); if (err) return openMenu('load',err);
   gp.hidden=true; toast('Game loaded');
 }
-function openGame(note=''){
-  const json=JSON.stringify(makeSave(),null,1).replace(/&/g,'&amp;').replace(/</g,'&lt;');
-  gp.innerHTML=`<div class='in'><h2>Save / Load</h2><div class='sub'>Universe seed ${SEED}</div>`+(note?`<div class='sub' style='color:#ffb347'>${note}</div>`:'')+
-    `<div><button data-g='dl'>Export save file</button><button data-g='copy'>Copy JSON</button></div><textarea id='gjson' readonly>${json}</textarea>`+
-    `<h2 style='font-size:18px;margin-top:16px'>Load</h2><div class='sub'><input id='gfile' type='file' accept='.json,application/json'></div>`+
-    `<textarea id='gpaste' placeholder='…or paste save JSON here'></textarea><div><button data-g='load'>Load pasted JSON</button><button data-g='close'>Close</button></div></div>`;
-  gp.hidden=false;
+function openMenu(page='main', note=''){
+  const c=readCache(), b=(g,label,cls,dis) => `<button class='${cls||''}' data-g='${g}'${dis?' disabled':''}>${label}</button>`;
+  let h=`<div class='in'><h2>STARFALL</h2><div class='sub'>Universe ${escH(SEED)}</div>`+(note?`<div class='sub' style='color:#ffb347'>${escH(note)}</div>`:'');
+  if (page==='main'){
+    const info = c ? new Date(c.savedAt).toLocaleString()+' · '+escH(FRAMES[c.state.frameId]?.name||'ship')+' · '+Math.round(c.state.credits)+' cr' : 'No cached game yet';
+    h+=(started?b('resume','Resume','big'):'')+b('continue','Continue game<br><span class="sub">'+info+'</span>','big',!c)+b('new','New game','big')+
+       b('page:save','Save game (export file)','big',!started)+b('page:load','Load game (import file)','big')+b('page:options','Options','big');
+  } else if (page==='confirm'){
+    h+=`<div class='sub'>Starting a new game replaces your cached game. Export a save file first if you want to keep it.</div>`+b('newok','Start new game','big')+b('page:main','Cancel','big');
+  } else if (page==='save'){
+    const json=escH(JSON.stringify(makeSave(),null,1));
+    h+=`<h2 style='font-size:18px'>Save game</h2><div>${b('dl','Export save file')}${b('copy','Copy JSON')}</div><textarea id='gjson' readonly>${json}</textarea>${b('page:main','Back','big')}`;
+  } else if (page==='load'){
+    h+=`<h2 style='font-size:18px'>Load game</h2><div class='sub'><input id='gfile' type='file' accept='.json,application/json'></div><textarea id='gpaste' placeholder='…or paste save JSON here'></textarea><div>${b('load','Load pasted JSON')}</div>${b('page:main','Back','big')}`;
+  } else if (page==='options'){
+    h+=`<h2 style='font-size:18px'>Options</h2><label>Seed for the next new game (blank = random)<input type='text' id='oseed' value='${escH(opts.seed)}' placeholder='random'></label>`+
+       `<label><input type='checkbox' id='oauto' ${opts.autocache?'checked':''}> Cache the game in this browser on every landing and takeoff</label>`+
+       b('clear','Clear cached game','',!c)+b('page:main','Back','big');
+  }
+  gp.innerHTML=h+'</div>'; gp.hidden=false;
 }
 gp.addEventListener('click', e => {
   const g=e.target.dataset && e.target.dataset.g; if (!g) return;
-  if (g==='close') gp.hidden=true;
+  if (g.startsWith('page:')) openMenu(g.slice(5));
+  else if (g==='resume') gp.hidden=true;
+  else if (g==='continue'){ const d=readCache(); if (!d) return openMenu('main'); const err=applySave(d); if (err) return openMenu('main',err); gp.hidden=true; toast('Game loaded'); }
+  else if (g==='new') readCache() ? openMenu('confirm') : newGame();
+  else if (g==='newok') newGame();
+  else if (g==='clear'){ try { localStorage.removeItem(CACHE_KEY); } catch(err) {} openMenu('options','Cached game cleared'); }
   else if (g==='load') doLoad(document.getElementById('gpaste').value);
   else if (g==='copy'){ const ta=document.getElementById('gjson'); ta.select(); try { navigator.clipboard.writeText(ta.value); } catch(err) { document.execCommand('copy'); } }
   else if (g==='dl'){
     try { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(makeSave(),null,1)],{type:'application/json'})); a.download='starfall-'+SEED+'.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
     catch(err) {}
-    openGame('Export started. If no file appeared, copy the JSON below instead.');
+    openMenu('save','Export started. If no file appeared, copy the JSON below instead.');
   }
 });
-gp.addEventListener('change', e => { if (e.target.id==='gfile' && e.target.files[0]) e.target.files[0].text().then(doLoad); });
-document.getElementById('menu').addEventListener('pointerdown', () => openGame());
-try { const pend=sessionStorage.getItem('starfall_pending'); if (pend){ sessionStorage.removeItem('starfall_pending'); const err=applySave(JSON.parse(pend)); toast(err||'Game loaded'); } } catch(e) {}
+gp.addEventListener('change', e => {
+  if (e.target.id==='gfile' && e.target.files[0]) e.target.files[0].text().then(doLoad);
+  if (e.target.id==='oauto'){ opts.autocache=e.target.checked; saveOpts(); }
+});
+gp.addEventListener('input', e => { if (e.target.id==='oseed'){ opts.seed=e.target.value; saveOpts(); } });
+document.getElementById('menu').addEventListener('pointerdown', () => openMenu('main'));
+addEventListener('keydown', e => { if (e.code==='Escape' && started){ if (gp.hidden) openMenu('main'); else gp.hidden=true; } });
+// Boot: a pending save (from loading a save for another universe) or a new game starts straight away; otherwise show the start menu.
+let boot='menu', bootMsg='';
+try {
+  const pend=sessionStorage.getItem('starfall_pending'), nw=sessionStorage.getItem('starfall_new');
+  sessionStorage.removeItem('starfall_pending'); sessionStorage.removeItem('starfall_new');
+  if (pend){ const err=applySave(JSON.parse(pend)); if (err) bootMsg=err; else { boot='play'; bootMsg='Game loaded'; } }
+  else if (nw){ started=true; boot='play'; bootMsg='New game'; }
+} catch(e) {}
+if (boot==='menu') openMenu('main', bootMsg); else toast(bootMsg);
 </script>
 </body>
 </html>
