@@ -1,0 +1,10 @@
+Next Steps:
+- Add ship bays with the ability to dock ships under a certain mass (small ships). Carrier has multiple by default, each bay can store a number of small ships, other large ships can buy one if needed but it takes too much mass for small ships.
+- large ships should allow more escorts, small ships limited number.
+- Add escort controls button (below and to right of radar) which should open a menu that gives options like dock (toggles to deploy), dismiss (remove an escort which allows you to choose one to remove), attack (sends ships roaming outwards farther), defend (stay in formation and attack nearby enemies) and passive (dont attack)
+- Allow to use escort cargo space (treat as part of your space but lose stored cargo if the ship is destroyed).
+- Add animation for jump showing ship turning and zooming in jump direction.
+- Add local and global reputation. Easier to lose local reputation and harder to lose faction reputation.
+- Add outfitter option for solar panels (very slowly recharges fuel), fission reactor (faster charge), fusion reactor (very fast charge)
+- Add option to set weapon positions on ship (similar to setting engine position)
+- Add an ion cannon that does more damage to shields and less to armor.
