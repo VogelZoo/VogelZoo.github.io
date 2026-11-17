@@ -30,7 +30,8 @@ button{position:fixed;border-radius:50%;font:600 14px system-ui,sans-serif;color
 .ic{width:52px;height:42px;flex:none;border-radius:8px;background:#0f1a30;border:1px solid #2a3a55;object-fit:cover}
 .pic{display:block;width:100%;max-width:320px;height:auto;margin:0 auto 10px;background:#0f1a30;border:1px solid #2a3a55;border-radius:12px;object-fit:cover}
 #lp .lore{color:#9fb6c6;line-height:1.45;margin:6px 0 12px}
-.maponly #fire,.maponly #tgt,.maponly #jump,.maponly #landb{display:none}
+.maponly #fire,.maponly #tgt,.maponly #jump,.maponly #landb,.maponly #esc{display:none}
+#esc{width:56px;height:56px;right:calc(14px + env(safe-area-inset-right,0px));top:calc(138px + env(safe-area-inset-top,0px));border:2px solid var(--cool);background:rgba(111,227,193,.12);font-size:11px}
 #menu{display:none;left:calc(14px + env(safe-area-inset-left,0px));top:calc(14px + env(safe-area-inset-top,0px));width:56px;height:56px;border:2px solid var(--ink);background:rgba(207,232,240,.1)}
 .maponly #menu{display:block}
 #gp{position:fixed;inset:0;z-index:10;background:rgba(10,16,32,.98);overflow:auto;touch-action:pan-y;padding:calc(18px + env(safe-area-inset-top,0px)) 18px 24px;box-sizing:border-box;user-select:text;-webkit-user-select:text}
@@ -53,6 +54,7 @@ button{position:fixed;border-radius:50%;font:600 14px system-ui,sans-serif;color
 <button id="map">Map</button>
 <button id="landb">Land</button>
 <button id="menu">Menu</button>
+<button id="esc">Escorts</button>
 <div id="lp" hidden></div>
 <div id="gp" hidden></div>
 <script>
@@ -83,7 +85,10 @@ const CONTENT = {
   //                        The image is centered on the ship with its nose pointing right.
   //   engines              exhaust points [[x,y],..] as offsets from the art's center, in world units (the same units as artWidth).
   //                        +x = toward the nose, +y = toward starboard (down on an image whose nose points right).
-  //   art                  "" = artDir + id + ".png". A bare filename is looked up in artDir. A value containing "/" (or a data: URI) is used as the full path.
+  //   drone                true = small autonomous hull (Lattice): takes half a hangar space and half an escort slot, and may dock up to mass 200
+//   mounts               gun positions [[x,y],..] in the same units and axes as engines. Gun i uses mounts[i]: AI ships use the first `guns`; the player uses one per
+//                        weapon slot (cargo-bay conversions add slots, so list a couple of spares). Missing entries fall back to an even spread across the nose.
+//   art                  "" = artDir + id + ".png". A bare filename is looked up in artDir. A value containing "/" (or a data: URI) is used as the full path.
   //                        If the file is missing the drawn outline/placeholder is shown instead.
   //   lore                 text on the info screen
   //   optional: sold:false (never in shops), color (default = faction color), speed/life (shot speed/lifetime, default 500 / 0.9)
@@ -106,68 +111,68 @@ const CONTENT = {
     },
     table: {
       // ---- PEACEKEEPER ----
-      peacekeeper_racer: { name:"Dispatch", class:"racer", faction:"peacekeeper", tech:1, price:3050, massCap:42, cargo:9, bunks:2, slots:[1,1,1,1], thrust:282, turn:239, max:359, shield:33, armor:44, regen:5, guns:1, dmg:5.5, cd:0.3, hull:"racer", engines:[[-7.1,0]], artWidth:35, art:"", lore:"A stripped-down speed frame built to outrun trouble. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
-      peacekeeper_fighter: { name:"Warden", class:"fighter", faction:"peacekeeper", tech:1, price:2300, massCap:63, cargo:14, bunks:5, slots:[2,1,1,1], thrust:257, turn:219, max:314, shield:61, armor:77, regen:5, guns:2, dmg:7.7, cd:0.3, hull:"fighter", engines:[[-10.2,-4.5],[-10.2,4.5]], artWidth:40, art:"", lore:"The Peacekeeper patrol standard. Plain, sturdy, and painted so you can see it coming." },
-      peacekeeper_cruiser: { name:"Marshal", class:"cruiser", faction:"peacekeeper", tech:3, price:9300, massCap:230, cargo:36, bunks:15, slots:[4,2,2,3], thrust:181, turn:133, max:247, shield:145, armor:198, regen:6, guns:3, dmg:11.9, cd:0.35, hull:"cruiser", engines:[[-24.5,-12.3],[-24.5,12.3]], artWidth:90, art:"", lore:"A balanced warship with real armor and real guns. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
-      peacekeeper_destroyer: { name:"Bulwark", class:"destroyer", faction:"peacekeeper", tech:3, price:12400, massCap:305, cargo:27, bunks:20, slots:[5,2,2,4], thrust:166, turn:114, max:228, shield:193, armor:275, regen:7, guns:4, dmg:15.1, cd:0.35, hull:"destroyer", engines:[[-37.1,-21.2],[-31.8,0],[-37.1,21.2]], artWidth:140, art:"", lore:"What the Peacekeeper send when order needs to be enforced loudly." },
-      peacekeeper_carrier: { name:"Garrison", class:"carrier", faction:"peacekeeper", tech:4, price:25300, massCap:357, cargo:72, bunks:50, slots:[3,2,4,5], thrust:124, turn:86, max:190, shield:176, armor:286, regen:8, guns:2, dmg:8.8, cd:0.4, hull:"carrier", engines:[[-93,-46.5],[-93,0],[-93,46.5]], artWidth:250, art:"", lore:"A fleet anchor with hangar space and a thick hull. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
-      peacekeeper_science: { name:"Surveyor", class:"science", faction:"peacekeeper", tech:3, price:9800, massCap:179, cargo:45, bunks:10, slots:[1,3,5,2], thrust:190, turn:152, max:257, shield:89, armor:69, regen:8, guns:1, dmg:6.6, cd:0.4, hull:"science", engines:[[-40.9,-8.8],[-40.9,8.8]], artWidth:90, art:"", lore:"Sensor-heavy and utility-rich, with room for strange cargo. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
-      peacekeeper_cargo_s: { name:"Tender", class:"cargo_s", faction:"peacekeeper", tech:1, price:3450, massCap:94, cargo:45, bunks:5, slots:[1,1,2,1], thrust:200, turn:143, max:247, shield:44, armor:77, regen:3, guns:0, dmg:0, cd:0, hull:"cargo_s", engines:[[-39,-13],[-39,13]], artWidth:100, art:"", lore:"A small hauler for short runs and tight margins. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
-      peacekeeper_cargo_m: { name:"Convoy", class:"cargo_m", faction:"peacekeeper", tech:2, price:6900, massCap:147, cargo:90, bunks:10, slots:[2,2,3,2], thrust:171, turn:119, max:219, shield:55, armor:110, regen:4, guns:0, dmg:0, cd:0, hull:"cargo_m", engines:[[-59.7,-21.3],[-59.7,21.3]], artWidth:150, art:"", lore:"The standard freighter of the lanes. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
-      peacekeeper_cargo_h: { name:"Stalwart", class:"cargo_h", faction:"peacekeeper", tech:3, price:13800, massCap:210, cargo:180, bunks:15, slots:[2,2,3,3], thrust:143, turn:95, max:190, shield:77, armor:165, regen:5, guns:0, dmg:0, cd:0, hull:"cargo_h", engines:[[-90.9,-30.3],[-90.9,30.3]], artWidth:200, art:"", lore:"A bulk carrier that trades speed for tonnage. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
-      peacekeeper_cargo_x: { name:"Atlas", class:"cargo_x", faction:"peacekeeper", tech:4, price:29900, massCap:315, cargo:360, bunks:20, slots:[3,3,4,4], thrust:109, turn:67, max:162, shield:110, armor:286, regen:6, guns:0, dmg:0, cd:0, hull:"cargo_x", engines:[[-113.6,-41.3],[-113.6,0],[-113.6,41.3]], artWidth:250, art:"", lore:"A moving warehouse. Slow, huge, and worth escorting. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
-      peacekeeper_unique: { name:"Paragon", class:"unique", faction:"peacekeeper", tech:4, price:41400, massCap:335, cargo:54, bunks:25, slots:[4,3,4,4], thrust:228, turn:181, max:285, shield:243, armor:272, regen:10, guns:4, dmg:17.2, cd:0.28, hull:"unique", engines:[[-72.3,-31],[-72.3,31]], artWidth:250, art:"", lore:"A one-of-a-kind flagship design. Few are ever built. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
+      peacekeeper_racer: { name:"Dispatch", class:"racer", faction:"peacekeeper", tech:1, price:75000, massCap:42, cargo:9, bunks:2, slots:[1,1,1,1], thrust:282, turn:239, max:359, shield:33, armor:44, regen:5, guns:1, dmg:5.5, cd:0.3, hull:"racer", engines:[[-7.1,0]], mounts:[[14,0],[8,-5],[8,5]], artWidth:35, art:"", lore:"A stripped-down speed frame built to outrun trouble. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
+      peacekeeper_fighter: { name:"Warden", class:"fighter", faction:"peacekeeper", tech:1, price:48000, massCap:63, cargo:14, bunks:5, slots:[2,1,1,1], thrust:257, turn:219, max:314, shield:61, armor:77, regen:5, guns:2, dmg:7.7, cd:0.3, hull:"fighter", engines:[[-10.2,-4.5],[-10.2,4.5]], mounts:[[14,-6],[14,6],[6,-9],[6,9]], artWidth:40, art:"", lore:"The Peacekeeper patrol standard. Plain, sturdy, and painted so you can see it coming." },
+      peacekeeper_cruiser: { name:"Marshal", class:"cruiser", faction:"peacekeeper", tech:3, price:423000, massCap:230, cargo:36, bunks:15, slots:[4,2,2,3], thrust:181, turn:133, max:247, shield:145, armor:198, regen:6, guns:3, dmg:11.9, cd:0.35, hull:"cruiser", engines:[[-24.5,-12.3],[-24.5,12.3]], mounts:[[34,-6],[34,6],[18,-18],[18,18],[4,-26],[4,26]], artWidth:90, art:"", lore:"A balanced warship with real armor and real guns. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
+      peacekeeper_destroyer: { name:"Bulwark", class:"destroyer", faction:"peacekeeper", tech:3, price:661000, massCap:305, cargo:27, bunks:20, slots:[5,2,2,4], thrust:166, turn:114, max:228, shield:193, armor:275, regen:7, guns:4, dmg:15.1, cd:0.35, hull:"destroyer", engines:[[-37.1,-21.2],[-31.8,0],[-37.1,21.2]], mounts:[[56,-8],[56,8],[34,-22],[34,22],[60,0],[10,-34],[10,34]], artWidth:140, art:"", lore:"What the Peacekeeper send when order needs to be enforced loudly." },
+      peacekeeper_carrier: { name:"Garrison", class:"carrier", faction:"peacekeeper", tech:4, price:2000000, massCap:357, cargo:72, bunks:50, slots:[3,2,4,5], thrust:124, turn:86, max:190, shield:176, armor:286, regen:8, guns:2, dmg:8.8, cd:0.4, hull:"carrier", engines:[[-93,-46.5],[-93,0],[-93,46.5]], mounts:[[95,-30],[95,30],[110,0],[40,-60],[40,60]], artWidth:250, art:"", lore:"A fleet anchor with hangar space and a thick hull. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
+      peacekeeper_science: { name:"Surveyor", class:"science", faction:"peacekeeper", tech:3, price:459000, massCap:179, cargo:45, bunks:10, slots:[1,3,5,2], thrust:190, turn:152, max:257, shield:89, armor:69, regen:8, guns:1, dmg:6.6, cd:0.4, hull:"science", engines:[[-40.9,-8.8],[-40.9,8.8]], mounts:[[34,0],[10,-14],[10,14]], artWidth:90, art:"", lore:"Sensor-heavy and utility-rich, with room for strange cargo. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
+      peacekeeper_cargo_s: { name:"Tender", class:"cargo_s", faction:"peacekeeper", tech:1, price:91000, massCap:94, cargo:45, bunks:5, slots:[1,1,2,1], thrust:200, turn:143, max:247, shield:44, armor:77, regen:3, guns:0, dmg:0, cd:0, hull:"cargo_s", engines:[[-39,-13],[-39,13]], mounts:[[38,0],[10,-18],[10,18]], artWidth:100, art:"", lore:"A small hauler for short runs and tight margins. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
+      peacekeeper_cargo_m: { name:"Convoy", class:"cargo_m", faction:"peacekeeper", tech:2, price:266000, massCap:147, cargo:90, bunks:10, slots:[2,2,3,2], thrust:171, turn:119, max:219, shield:55, armor:110, regen:4, guns:0, dmg:0, cd:0, hull:"cargo_m", engines:[[-59.7,-21.3],[-59.7,21.3]], mounts:[[58,-10],[58,10],[20,-28],[20,28]], artWidth:150, art:"", lore:"The standard freighter of the lanes. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
+      peacekeeper_cargo_h: { name:"Stalwart", class:"cargo_h", faction:"peacekeeper", tech:3, price:781000, massCap:210, cargo:180, bunks:15, slots:[2,2,3,3], thrust:143, turn:95, max:190, shield:77, armor:165, regen:5, guns:0, dmg:0, cd:0, hull:"cargo_h", engines:[[-90.9,-30.3],[-90.9,30.3]], mounts:[[78,-14],[78,14],[30,-36],[30,36]], artWidth:200, art:"", lore:"A bulk carrier that trades speed for tonnage. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
+      peacekeeper_cargo_x: { name:"Atlas", class:"cargo_x", faction:"peacekeeper", tech:4, price:2364000, massCap:315, cargo:360, bunks:20, slots:[3,3,4,4], thrust:109, turn:67, max:162, shield:110, armor:286, regen:6, guns:0, dmg:0, cd:0, hull:"cargo_x", engines:[[-113.6,-41.3],[-113.6,0],[-113.6,41.3]], mounts:[[96,-20],[96,20],[104,0],[40,-50],[40,50]], artWidth:250, art:"", lore:"A moving warehouse. Slow, huge, and worth escorting. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
+      peacekeeper_unique: { name:"Paragon", class:"unique", faction:"peacekeeper", tech:4, price:3273000, massCap:335, cargo:54, bunks:25, slots:[4,3,4,4], thrust:228, turn:181, max:285, shield:243, armor:272, regen:10, guns:4, dmg:17.2, cd:0.28, hull:"unique", engines:[[-72.3,-31],[-72.3,31]], mounts:[[90,-10],[90,10],[60,-34],[60,34],[20,-44],[20,44]], artWidth:250, art:"", lore:"A one-of-a-kind flagship design. Few are ever built. Built to Peacekeeper doctrine: sturdy, armed, and easy to spot." },
       // ---- JUNKER ----
-      junker_racer: { name:"Skiff", class:"racer", faction:"junker", tech:1, price:1450, massCap:36, cargo:11, bunks:2, slots:[1,1,1,1], thrust:363, turn:308, max:462, shield:24, armor:32, regen:5, guns:1, dmg:4.3, cd:0.3, hull:"racer", engines:[[-7.1,0]], artWidth:35, art:"", lore:"A stripped-down speed frame built to outrun trouble. Junker-built from salvage. Cheap, loud, and held together by optimism." },
-      junker_fighter: { name:"Scrapper", class:"fighter", faction:"junker", tech:1, price:1300, massCap:54, cargo:16, bunks:4, slots:[2,1,1,1], thrust:270, turn:230, max:330, shield:44, armor:56, regen:5, guns:2, dmg:6, cd:0.3, hull:"fighter", engines:[[-10.2,-4.5],[-10.2,4.5]], artWidth:40, art:"", lore:"Junker-built from three wrecks and a grudge. Fast, loud, and held together by optimism." },
-      junker_cruiser: { name:"Brawler", class:"cruiser", faction:"junker", tech:3, price:5850, massCap:179, cargo:42, bunks:12, slots:[4,2,2,3], thrust:190, turn:140, max:260, shield:88, armor:120, regen:6, guns:3, dmg:7.6, cd:0.35, hull:"cruiser", engines:[[-24.5,-12.3],[-24.5,12.3]], artWidth:90, art:"", lore:"A balanced warship with real armor and real guns. Junker-built from salvage. Cheap, loud, and held together by optimism." },
-      junker_destroyer: { name:"Wrecker", class:"destroyer", faction:"junker", tech:3, price:7800, massCap:233, cargo:32, bunks:16, slots:[5,2,2,4], thrust:175, turn:120, max:240, shield:112, armor:160, regen:7, guns:4, dmg:9.3, cd:0.35, hull:"destroyer", engines:[[-37.1,-21.2],[-31.8,0],[-37.1,21.2]], artWidth:140, art:"", lore:"A heavy gun platform built to break other warships. Junker-built from salvage. Cheap, loud, and held together by optimism." },
-      junker_carrier: { name:"Rustbelt", class:"carrier", faction:"junker", tech:4, price:14300, massCap:304, cargo:84, bunks:40, slots:[3,2,4,5], thrust:130, turn:90, max:200, shield:128, armor:208, regen:8, guns:2, dmg:6.8, cd:0.4, hull:"carrier", engines:[[-93,-46.5],[-93,0],[-93,46.5]], artWidth:250, art:"", lore:"A fleet anchor with hangar space and a thick hull. Junker-built from salvage. Cheap, loud, and held together by optimism." },
-      junker_science: { name:"Tinkerer", class:"science", faction:"junker", tech:3, price:4950, massCap:135, cargo:53, bunks:8, slots:[1,3,5,2], thrust:200, turn:160, max:270, shield:50, armor:39, regen:8, guns:1, dmg:5.1, cd:0.4, hull:"science", engines:[[-40.9,-8.8],[-40.9,8.8]], artWidth:90, art:"", lore:"Sensor-heavy and utility-rich, with room for strange cargo. Junker-built from salvage. Cheap, loud, and held together by optimism." },
-      junker_cargo_s: { name:"Pickup", class:"cargo_s", faction:"junker", tech:1, price:1950, massCap:80, cargo:53, bunks:4, slots:[1,1,2,1], thrust:210, turn:150, max:260, shield:32, armor:56, regen:3, guns:0, dmg:0, cd:0, hull:"cargo_s", engines:[[-39,-13],[-39,13]], artWidth:100, art:"", lore:"A small hauler for short runs and tight margins. Junker-built from salvage. Cheap, loud, and held together by optimism." },
-      junker_cargo_m: { name:"Patchwork", class:"cargo_m", faction:"junker", tech:2, price:3900, massCap:125, cargo:105, bunks:8, slots:[2,2,3,2], thrust:180, turn:125, max:230, shield:40, armor:80, regen:4, guns:0, dmg:0, cd:0, hull:"cargo_m", engines:[[-59.7,-21.3],[-59.7,21.3]], artWidth:150, art:"", lore:"A Junker hauler stitched from derelict hulls. Every bay was a different ship once." },
-      junker_cargo_h: { name:"Hoarder", class:"cargo_h", faction:"junker", tech:3, price:7800, massCap:179, cargo:210, bunks:12, slots:[2,2,3,3], thrust:150, turn:100, max:200, shield:56, armor:120, regen:5, guns:0, dmg:0, cd:0, hull:"cargo_h", engines:[[-90.9,-30.3],[-90.9,30.3]], artWidth:200, art:"", lore:"A bulk carrier that trades speed for tonnage. Junker-built from salvage. Cheap, loud, and held together by optimism." },
-      junker_cargo_x: { name:"Heap", class:"cargo_x", faction:"junker", tech:4, price:16900, massCap:268, cargo:420, bunks:16, slots:[3,3,4,4], thrust:115, turn:70, max:170, shield:80, armor:208, regen:6, guns:0, dmg:0, cd:0, hull:"cargo_x", engines:[[-113.6,-41.3],[-113.6,0],[-113.6,41.3]], artWidth:250, art:"", lore:"A moving warehouse. Slow, huge, and worth escorting. Junker-built from salvage. Cheap, loud, and held together by optimism." },
-      junker_unique: { name:"Jackpot", class:"unique", faction:"junker", tech:4, price:21450, massCap:280, cargo:95, bunks:20, slots:[4,3,4,4], thrust:240, turn:190, max:300, shield:170, armor:190, regen:10, guns:4, dmg:11, cd:0.28, hull:"unique", engines:[[-72.3,-31],[-72.3,31]], artWidth:250, art:"", lore:"A one-of-a-kind flagship design. Few are ever built. Junker-built from salvage. Cheap, loud, and held together by optimism." },
+      junker_racer: { name:"Skiff", class:"racer", faction:"junker", tech:1, price:24000, massCap:36, cargo:11, bunks:2, slots:[1,1,1,1], thrust:363, turn:308, max:462, shield:24, armor:32, regen:5, guns:1, dmg:4.3, cd:0.3, hull:"racer", engines:[[-7.1,0]], mounts:[[14,0],[8,-5],[8,5]], artWidth:35, art:"", lore:"A stripped-down speed frame built to outrun trouble. Junker-built from salvage. Cheap, loud, and held together by optimism." },
+      junker_fighter: { name:"Scrapper", class:"fighter", faction:"junker", tech:1, price:20000, massCap:54, cargo:16, bunks:4, slots:[2,1,1,1], thrust:270, turn:230, max:330, shield:44, armor:56, regen:5, guns:2, dmg:6, cd:0.3, hull:"fighter", engines:[[-10.2,-4.5],[-10.2,4.5]], mounts:[[14,-6],[14,6],[6,-9],[6,9]], artWidth:40, art:"", lore:"Junker-built from three wrecks and a grudge. Fast, loud, and held together by optimism." },
+      junker_cruiser: { name:"Brawler", class:"cruiser", faction:"junker", tech:3, price:206000, massCap:179, cargo:42, bunks:12, slots:[4,2,2,3], thrust:190, turn:140, max:260, shield:88, armor:120, regen:6, guns:3, dmg:7.6, cd:0.35, hull:"cruiser", engines:[[-24.5,-12.3],[-24.5,12.3]], mounts:[[34,-6],[34,6],[18,-18],[18,18],[4,-26],[4,26]], artWidth:90, art:"", lore:"A balanced warship with real armor and real guns. Junker-built from salvage. Cheap, loud, and held together by optimism." },
+      junker_destroyer: { name:"Wrecker", class:"destroyer", faction:"junker", tech:3, price:322000, massCap:233, cargo:32, bunks:16, slots:[5,2,2,4], thrust:175, turn:120, max:240, shield:112, armor:160, regen:7, guns:4, dmg:9.3, cd:0.35, hull:"destroyer", engines:[[-37.1,-21.2],[-31.8,0],[-37.1,21.2]], mounts:[[56,-8],[56,8],[34,-22],[34,22],[60,0],[10,-34],[10,34]], artWidth:140, art:"", lore:"A heavy gun platform built to break other warships. Junker-built from salvage. Cheap, loud, and held together by optimism." },
+      junker_carrier: { name:"Rustbelt", class:"carrier", faction:"junker", tech:4, price:824000, massCap:304, cargo:84, bunks:40, slots:[3,2,4,5], thrust:130, turn:90, max:200, shield:128, armor:208, regen:8, guns:2, dmg:6.8, cd:0.4, hull:"carrier", engines:[[-93,-46.5],[-93,0],[-93,46.5]], mounts:[[95,-30],[95,30],[110,0],[40,-60],[40,60]], artWidth:250, art:"", lore:"A fleet anchor with hangar space and a thick hull. Junker-built from salvage. Cheap, loud, and held together by optimism." },
+      junker_science: { name:"Tinkerer", class:"science", faction:"junker", tech:3, price:159000, massCap:135, cargo:53, bunks:8, slots:[1,3,5,2], thrust:200, turn:160, max:270, shield:50, armor:39, regen:8, guns:1, dmg:5.1, cd:0.4, hull:"science", engines:[[-40.9,-8.8],[-40.9,8.8]], mounts:[[34,0],[10,-14],[10,14]], artWidth:90, art:"", lore:"Sensor-heavy and utility-rich, with room for strange cargo. Junker-built from salvage. Cheap, loud, and held together by optimism." },
+      junker_cargo_s: { name:"Pickup", class:"cargo_s", faction:"junker", tech:1, price:37000, massCap:80, cargo:53, bunks:4, slots:[1,1,2,1], thrust:210, turn:150, max:260, shield:32, armor:56, regen:3, guns:0, dmg:0, cd:0, hull:"cargo_s", engines:[[-39,-13],[-39,13]], mounts:[[38,0],[10,-18],[10,18]], artWidth:100, art:"", lore:"A small hauler for short runs and tight margins. Junker-built from salvage. Cheap, loud, and held together by optimism." },
+      junker_cargo_m: { name:"Patchwork", class:"cargo_m", faction:"junker", tech:2, price:110000, massCap:125, cargo:105, bunks:8, slots:[2,2,3,2], thrust:180, turn:125, max:230, shield:40, armor:80, regen:4, guns:0, dmg:0, cd:0, hull:"cargo_m", engines:[[-59.7,-21.3],[-59.7,21.3]], mounts:[[58,-10],[58,10],[20,-28],[20,28]], artWidth:150, art:"", lore:"A Junker hauler stitched from derelict hulls. Every bay was a different ship once." },
+      junker_cargo_h: { name:"Hoarder", class:"cargo_h", faction:"junker", tech:3, price:322000, massCap:179, cargo:210, bunks:12, slots:[2,2,3,3], thrust:150, turn:100, max:200, shield:56, armor:120, regen:5, guns:0, dmg:0, cd:0, hull:"cargo_h", engines:[[-90.9,-30.3],[-90.9,30.3]], mounts:[[78,-14],[78,14],[30,-36],[30,36]], artWidth:200, art:"", lore:"A bulk carrier that trades speed for tonnage. Junker-built from salvage. Cheap, loud, and held together by optimism." },
+      junker_cargo_x: { name:"Heap", class:"cargo_x", faction:"junker", tech:4, price:1069000, massCap:268, cargo:420, bunks:16, slots:[3,3,4,4], thrust:115, turn:70, max:170, shield:80, armor:208, regen:6, guns:0, dmg:0, cd:0, hull:"cargo_x", engines:[[-113.6,-41.3],[-113.6,0],[-113.6,41.3]], mounts:[[96,-20],[96,20],[104,0],[40,-50],[40,50]], artWidth:250, art:"", lore:"A moving warehouse. Slow, huge, and worth escorting. Junker-built from salvage. Cheap, loud, and held together by optimism." },
+      junker_unique: { name:"Jackpot", class:"unique", faction:"junker", tech:4, price:1548000, massCap:280, cargo:95, bunks:20, slots:[4,3,4,4], thrust:240, turn:190, max:300, shield:170, armor:190, regen:10, guns:4, dmg:11, cd:0.28, hull:"unique", engines:[[-72.3,-31],[-72.3,31]], mounts:[[90,-10],[90,10],[60,-34],[60,34],[20,-44],[20,44]], artWidth:250, art:"", lore:"A one-of-a-kind flagship design. Few are ever built. Junker-built from salvage. Cheap, loud, and held together by optimism." },
       // ---- CORPO ----
-      corpo_racer: { name:"Dividend", class:"racer", faction:"corpo", tech:1, price:4200, massCap:43, cargo:11, bunks:2, slots:[1,1,1,1], thrust:472, turn:400, max:601, shield:35, armor:46, regen:5, guns:1, dmg:6.6, cd:0.3, hull:"racer", engines:[[-7.1,0]], artWidth:35, art:"", lore:"A stripped-down speed frame built to outrun trouble. A Corpo design: expensive, precise, and leased in spirit even when sold." },
-      corpo_fighter: { name:"Arbiter", class:"fighter", faction:"corpo", tech:1, price:3200, massCap:64, cargo:17, bunks:3, slots:[2,1,1,1], thrust:297, turn:253, max:363, shield:63, armor:81, regen:5, guns:2, dmg:7.7, cd:0.3, hull:"fighter", engines:[[-10.2,-4.5],[-10.2,4.5]], artWidth:40, art:"", lore:"A Corpo escort frame, leased rather than sold, in theory. Its guns settle disputes before they start." },
-      corpo_cruiser: { name:"Executive", class:"cruiser", faction:"corpo", tech:3, price:14400, massCap:214, cargo:44, bunks:9, slots:[4,2,2,3], thrust:209, turn:154, max:286, shield:126, armor:173, regen:6, guns:3, dmg:9.9, cd:0.35, hull:"cruiser", engines:[[-24.5,-12.3],[-24.5,12.3]], artWidth:90, art:"", lore:"A balanced warship with real armor and real guns. A Corpo design: expensive, precise, and leased in spirit even when sold." },
-      corpo_destroyer: { name:"Enforcer", class:"destroyer", faction:"corpo", tech:3, price:19200, massCap:279, cargo:33, bunks:12, slots:[5,2,2,4], thrust:193, turn:132, max:264, shield:161, armor:230, regen:7, guns:4, dmg:12.1, cd:0.35, hull:"destroyer", engines:[[-37.1,-21.2],[-31.8,0],[-37.1,21.2]], artWidth:140, art:"", lore:"A heavy gun platform built to break other warships. A Corpo design: expensive, precise, and leased in spirit even when sold." },
-      corpo_carrier: { name:"Holding", class:"carrier", faction:"corpo", tech:4, price:35200, massCap:365, cargo:88, bunks:30, slots:[3,2,4,5], thrust:143, turn:99, max:220, shield:184, armor:299, regen:8, guns:2, dmg:8.8, cd:0.4, hull:"carrier", engines:[[-93,-46.5],[-93,0],[-93,46.5]], artWidth:250, art:"", lore:"A fleet anchor with hangar space and a thick hull. A Corpo design: expensive, precise, and leased in spirit even when sold." },
-      corpo_science: { name:"Analyst", class:"science", faction:"corpo", tech:3, price:16300, massCap:220, cargo:55, bunks:6, slots:[1,3,5,2], thrust:264, turn:211, max:356, shield:135, armor:105, regen:8, guns:1, dmg:6.6, cd:0.4, hull:"science", engines:[[-40.9,-8.8],[-40.9,8.8]], artWidth:90, art:"", lore:"Sensor-heavy and utility-rich, with room for strange cargo. A Corpo design: expensive, precise, and leased in spirit even when sold." },
-      corpo_cargo_s: { name:"Parcel", class:"cargo_s", faction:"corpo", tech:1, price:4800, massCap:97, cargo:55, bunks:3, slots:[1,1,2,1], thrust:231, turn:165, max:286, shield:46, armor:81, regen:3, guns:0, dmg:0, cd:0, hull:"cargo_s", engines:[[-39,-13],[-39,13]], artWidth:100, art:"", lore:"A small hauler for short runs and tight margins. A Corpo design: expensive, precise, and leased in spirit even when sold." },
-      corpo_cargo_m: { name:"Ledger", class:"cargo_m", faction:"corpo", tech:2, price:9600, massCap:150, cargo:110, bunks:6, slots:[2,2,3,2], thrust:198, turn:138, max:253, shield:57, armor:115, regen:4, guns:0, dmg:0, cd:0, hull:"cargo_m", engines:[[-59.7,-21.3],[-59.7,21.3]], artWidth:150, art:"", lore:"A Corpo bulk freighter built around one idea: more cargo per credit than anyone else." },
-      corpo_cargo_h: { name:"Syndicate", class:"cargo_h", faction:"corpo", tech:3, price:19200, massCap:214, cargo:220, bunks:9, slots:[2,2,3,3], thrust:165, turn:110, max:220, shield:81, armor:173, regen:5, guns:0, dmg:0, cd:0, hull:"cargo_h", engines:[[-90.9,-30.3],[-90.9,30.3]], artWidth:200, art:"", lore:"A bulk carrier that trades speed for tonnage. A Corpo design: expensive, precise, and leased in spirit even when sold." },
-      corpo_cargo_x: { name:"Conglomerate", class:"cargo_x", faction:"corpo", tech:4, price:41600, massCap:322, cargo:440, bunks:12, slots:[3,3,4,4], thrust:127, turn:77, max:187, shield:115, armor:299, regen:6, guns:0, dmg:0, cd:0, hull:"cargo_x", engines:[[-113.6,-41.3],[-113.6,0],[-113.6,41.3]], artWidth:250, art:"", lore:"A moving warehouse. Slow, huge, and worth escorting. A Corpo design: expensive, precise, and leased in spirit even when sold." },
-      corpo_unique: { name:"Chairman", class:"unique", faction:"corpo", tech:4, price:72000, massCap:355, cargo:66, bunks:15, slots:[4,3,4,4], thrust:343, turn:272, max:429, shield:274, armor:306, regen:10, guns:4, dmg:20, cd:0.28, hull:"unique", engines:[[-72.3,-31],[-72.3,31]], artWidth:250, art:"", lore:"A one-of-a-kind flagship design. Few are ever built. A Corpo design: expensive, precise, and leased in spirit even when sold." },
+      corpo_racer: { name:"Dividend", class:"racer", faction:"corpo", tech:1, price:123000, massCap:43, cargo:11, bunks:2, slots:[1,1,1,1], thrust:472, turn:400, max:601, shield:35, armor:46, regen:5, guns:1, dmg:6.6, cd:0.3, hull:"racer", engines:[[-7.1,0]], mounts:[[14,0],[8,-5],[8,5]], artWidth:35, art:"", lore:"A stripped-down speed frame built to outrun trouble. A Corpo design: expensive, precise, and leased in spirit even when sold." },
+      corpo_fighter: { name:"Arbiter", class:"fighter", faction:"corpo", tech:1, price:81000, massCap:64, cargo:17, bunks:3, slots:[2,1,1,1], thrust:297, turn:253, max:363, shield:63, armor:81, regen:5, guns:2, dmg:7.7, cd:0.3, hull:"fighter", engines:[[-10.2,-4.5],[-10.2,4.5]], mounts:[[14,-6],[14,6],[6,-9],[6,9]], artWidth:40, art:"", lore:"A Corpo escort frame, leased rather than sold, in theory. Its guns settle disputes before they start." },
+      corpo_cruiser: { name:"Executive", class:"cruiser", faction:"corpo", tech:3, price:833000, massCap:214, cargo:44, bunks:9, slots:[4,2,2,3], thrust:209, turn:154, max:286, shield:126, armor:173, regen:6, guns:3, dmg:9.9, cd:0.35, hull:"cruiser", engines:[[-24.5,-12.3],[-24.5,12.3]], mounts:[[34,-6],[34,6],[18,-18],[18,18],[4,-26],[4,26]], artWidth:90, art:"", lore:"A balanced warship with real armor and real guns. A Corpo design: expensive, precise, and leased in spirit even when sold." },
+      corpo_destroyer: { name:"Enforcer", class:"destroyer", faction:"corpo", tech:3, price:1303000, massCap:279, cargo:33, bunks:12, slots:[5,2,2,4], thrust:193, turn:132, max:264, shield:161, armor:230, regen:7, guns:4, dmg:12.1, cd:0.35, hull:"destroyer", engines:[[-37.1,-21.2],[-31.8,0],[-37.1,21.2]], mounts:[[56,-8],[56,8],[34,-22],[34,22],[60,0],[10,-34],[10,34]], artWidth:140, art:"", lore:"A heavy gun platform built to break other warships. A Corpo design: expensive, precise, and leased in spirit even when sold." },
+      corpo_carrier: { name:"Holding", class:"carrier", faction:"corpo", tech:4, price:2783000, massCap:365, cargo:88, bunks:30, slots:[3,2,4,5], thrust:143, turn:99, max:220, shield:184, armor:299, regen:8, guns:2, dmg:8.8, cd:0.4, hull:"carrier", engines:[[-93,-46.5],[-93,0],[-93,46.5]], mounts:[[95,-30],[95,30],[110,0],[40,-60],[40,60]], artWidth:250, art:"", lore:"A fleet anchor with hangar space and a thick hull. A Corpo design: expensive, precise, and leased in spirit even when sold." },
+      corpo_science: { name:"Analyst", class:"science", faction:"corpo", tech:3, price:1011000, massCap:220, cargo:55, bunks:6, slots:[1,3,5,2], thrust:264, turn:211, max:356, shield:135, armor:105, regen:8, guns:1, dmg:6.6, cd:0.4, hull:"science", engines:[[-40.9,-8.8],[-40.9,8.8]], mounts:[[34,0],[10,-14],[10,14]], artWidth:90, art:"", lore:"Sensor-heavy and utility-rich, with room for strange cargo. A Corpo design: expensive, precise, and leased in spirit even when sold." },
+      corpo_cargo_s: { name:"Parcel", class:"cargo_s", faction:"corpo", tech:1, price:151000, massCap:97, cargo:55, bunks:3, slots:[1,1,2,1], thrust:231, turn:165, max:286, shield:46, armor:81, regen:3, guns:0, dmg:0, cd:0, hull:"cargo_s", engines:[[-39,-13],[-39,13]], mounts:[[38,0],[10,-18],[10,18]], artWidth:100, art:"", lore:"A small hauler for short runs and tight margins. A Corpo design: expensive, precise, and leased in spirit even when sold." },
+      corpo_cargo_m: { name:"Ledger", class:"cargo_m", faction:"corpo", tech:2, price:444000, massCap:150, cargo:110, bunks:6, slots:[2,2,3,2], thrust:198, turn:138, max:253, shield:57, armor:115, regen:4, guns:0, dmg:0, cd:0, hull:"cargo_m", engines:[[-59.7,-21.3],[-59.7,21.3]], mounts:[[58,-10],[58,10],[20,-28],[20,28]], artWidth:150, art:"", lore:"A Corpo bulk freighter built around one idea: more cargo per credit than anyone else." },
+      corpo_cargo_h: { name:"Syndicate", class:"cargo_h", faction:"corpo", tech:3, price:1303000, massCap:214, cargo:220, bunks:9, slots:[2,2,3,3], thrust:165, turn:110, max:220, shield:81, armor:173, regen:5, guns:0, dmg:0, cd:0, hull:"cargo_h", engines:[[-90.9,-30.3],[-90.9,30.3]], mounts:[[78,-14],[78,14],[30,-36],[30,36]], artWidth:200, art:"", lore:"A bulk carrier that trades speed for tonnage. A Corpo design: expensive, precise, and leased in spirit even when sold." },
+      corpo_cargo_x: { name:"Conglomerate", class:"cargo_x", faction:"corpo", tech:4, price:3289000, massCap:322, cargo:440, bunks:12, slots:[3,3,4,4], thrust:127, turn:77, max:187, shield:115, armor:299, regen:6, guns:0, dmg:0, cd:0, hull:"cargo_x", engines:[[-113.6,-41.3],[-113.6,0],[-113.6,41.3]], mounts:[[96,-20],[96,20],[104,0],[40,-50],[40,50]], artWidth:250, art:"", lore:"A moving warehouse. Slow, huge, and worth escorting. A Corpo design: expensive, precise, and leased in spirit even when sold." },
+      corpo_unique: { name:"Chairman", class:"unique", faction:"corpo", tech:4, price:5692000, massCap:355, cargo:66, bunks:15, slots:[4,3,4,4], thrust:343, turn:272, max:429, shield:274, armor:306, regen:10, guns:4, dmg:20, cd:0.28, hull:"unique", engines:[[-72.3,-31],[-72.3,31]], mounts:[[90,-10],[90,10],[60,-34],[60,34],[20,-44],[20,44]], artWidth:250, art:"", lore:"A one-of-a-kind flagship design. Few are ever built. A Corpo design: expensive, precise, and leased in spirit even when sold." },
       // ---- THE LATTICE ----
-      lattice_racer: { name:"Glint", class:"racer", faction:"lattice", tech:1, price:1750, massCap:38, cargo:8, bunks:1, slots:[1,1,1,1], thrust:417, turn:354, max:531, shield:27, armor:36, regen:5, guns:1, dmg:5, cd:0.3, hull:"racer", engines:[[-7.1,0]], artWidth:35, art:"", lore:"A stripped-down speed frame built to outrun trouble. A Lattice hull: small, quick, and coordinated by something you never see." },
-      lattice_fighter: { name:"Mote", class:"fighter", faction:"lattice", tech:1, price:1600, massCap:57, cargo:12, bunks:2, slots:[2,1,1,1], thrust:327, turn:278, max:399, shield:50, armor:63, regen:5, guns:2, dmg:8, cd:0.3, hull:"fighter", engines:[[-10.2,-4.5],[-10.2,4.5]], artWidth:40, art:"", lore:"A nimble all-rounder and the backbone of any patrol. A Lattice hull: small, quick, and coordinated by something you never see." },
-      lattice_cruiser: { name:"Prism", class:"cruiser", faction:"lattice", tech:3, price:10800, massCap:175, cargo:32, bunks:6, slots:[4,2,2,3], thrust:209, turn:154, max:286, shield:84, armor:115, regen:6, guns:3, dmg:9, cd:0.35, hull:"cruiser", engines:[[-24.5,-12.3],[-24.5,12.3]], artWidth:90, art:"", lore:"A balanced warship with real armor and real guns. A Lattice hull: small, quick, and coordinated by something you never see." },
-      lattice_destroyer: { name:"Lance", class:"destroyer", faction:"lattice", tech:3, price:14400, massCap:221, cargo:24, bunks:8, slots:[5,2,2,4], thrust:193, turn:132, max:264, shield:101, armor:144, regen:7, guns:4, dmg:11, cd:0.35, hull:"destroyer", engines:[[-37.1,-21.2],[-31.8,0],[-37.1,21.2]], artWidth:140, art:"", lore:"A heavy gun platform built to break other warships. A Lattice hull: small, quick, and coordinated by something you never see." },
-      lattice_carrier: { name:"Hive", class:"carrier", faction:"lattice", tech:4, price:16500, massCap:375, cargo:64, bunks:20, slots:[3,2,4,5], thrust:143, turn:99, max:220, shield:194, armor:316, regen:8, guns:2, dmg:10.4, cd:0.4, hull:"carrier", engines:[[-93,-46.5],[-93,0],[-93,46.5]], artWidth:250, art:"", lore:"A fleet anchor with hangar space and a thick hull. A Lattice hull: small, quick, and coordinated by something you never see." },
-      lattice_science: { name:"Lens", class:"science", faction:"lattice", tech:3, price:8500, massCap:171, cargo:40, bunks:4, slots:[1,3,5,2], thrust:220, turn:176, max:297, shield:81, armor:63, regen:8, guns:1, dmg:6, cd:0.4, hull:"science", engines:[[-40.9,-8.8],[-40.9,8.8]], artWidth:90, art:"", lore:"Sensor-heavy and utility-rich, with room for strange cargo. A Lattice hull: small, quick, and coordinated by something you never see." },
-      lattice_cargo_s: { name:"Pod", class:"cargo_s", faction:"lattice", tech:1, price:3000, massCap:85, cargo:40, bunks:2, slots:[1,1,2,1], thrust:231, turn:165, max:286, shield:36, armor:63, regen:3, guns:0, dmg:0, cd:0, hull:"cargo_s", engines:[[-39,-13],[-39,13]], artWidth:100, art:"", lore:"A small hauler for short runs and tight margins. A Lattice hull: small, quick, and coordinated by something you never see." },
-      lattice_cargo_m: { name:"Ferry", class:"cargo_m", faction:"lattice", tech:2, price:6000, massCap:133, cargo:80, bunks:4, slots:[2,2,3,2], thrust:198, turn:138, max:253, shield:45, armor:90, regen:4, guns:0, dmg:0, cd:0, hull:"cargo_m", engines:[[-59.7,-21.3],[-59.7,21.3]], artWidth:150, art:"", lore:"The standard freighter of the lanes. A Lattice hull: small, quick, and coordinated by something you never see." },
-      lattice_cargo_h: { name:"Vault", class:"cargo_h", faction:"lattice", tech:3, price:12000, massCap:190, cargo:160, bunks:6, slots:[2,2,3,3], thrust:165, turn:110, max:220, shield:63, armor:135, regen:5, guns:0, dmg:0, cd:0, hull:"cargo_h", engines:[[-90.9,-30.3],[-90.9,30.3]], artWidth:200, art:"", lore:"A bulk carrier that trades speed for tonnage. A Lattice hull: small, quick, and coordinated by something you never see." },
-      lattice_cargo_x: { name:"Cathedral", class:"cargo_x", faction:"lattice", tech:4, price:26000, massCap:285, cargo:320, bunks:8, slots:[3,3,4,4], thrust:127, turn:77, max:187, shield:90, armor:234, regen:6, guns:0, dmg:0, cd:0, hull:"cargo_x", engines:[[-113.6,-41.3],[-113.6,0],[-113.6,41.3]], artWidth:250, art:"", lore:"A moving warehouse. Slow, huge, and worth escorting. A Lattice hull: small, quick, and coordinated by something you never see." },
-      lattice_unique: { name:"Apex", class:"unique", faction:"lattice", tech:4, price:36000, massCap:266, cargo:48, bunks:10, slots:[4,3,4,4], thrust:330, turn:261, max:413, shield:153, armor:171, regen:10, guns:4, dmg:16.3, cd:0.28, hull:"unique", engines:[[-72.3,-31],[-72.3,31]], artWidth:250, art:"", lore:"A one-of-a-kind flagship design. Few are ever built. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_racer: { name:"Glint", class:"racer", faction:"lattice", tech:1, price:31000, massCap:38, cargo:8, bunks:1, slots:[1,1,1,1], thrust:417, turn:354, max:531, shield:27, armor:36, regen:5, guns:1, dmg:5, cd:0.3, hull:"racer", engines:[[-5,0]], mounts:[[9.8,0],[5.6,-3.5],[5.6,3.5]], artWidth:24, drone:true, art:"", lore:"A stripped-down speed frame built to outrun trouble. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_fighter: { name:"Mote", class:"fighter", faction:"lattice", tech:1, price:27000, massCap:57, cargo:12, bunks:2, slots:[2,1,1,1], thrust:327, turn:278, max:399, shield:50, armor:63, regen:5, guns:2, dmg:8, cd:0.3, hull:"fighter", engines:[[-7.1,-3.1],[-7.1,3.1]], mounts:[[9.8,-4.2],[9.8,4.2],[4.2,-6.3],[4.2,6.3]], artWidth:28, drone:true, art:"", lore:"A nimble all-rounder and the backbone of any patrol. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_cruiser: { name:"Prism", class:"cruiser", faction:"lattice", tech:3, price:534000, massCap:175, cargo:32, bunks:6, slots:[4,2,2,3], thrust:209, turn:154, max:286, shield:84, armor:115, regen:6, guns:3, dmg:9, cd:0.35, hull:"cruiser", engines:[[-17.1,-8.6],[-17.1,8.6]], mounts:[[23.8,-4.2],[23.8,4.2],[12.6,-12.6],[12.6,12.6],[2.8,-18.2],[2.8,18.2]], artWidth:63, drone:true, art:"", lore:"A balanced warship with real armor and real guns. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_destroyer: { name:"Lance", class:"destroyer", faction:"lattice", tech:3, price:833000, massCap:221, cargo:24, bunks:8, slots:[5,2,2,4], thrust:193, turn:132, max:264, shield:101, armor:144, regen:7, guns:4, dmg:11, cd:0.35, hull:"destroyer", engines:[[-26,-14.8],[-22.3,0],[-26,14.8]], mounts:[[39.2,-5.6],[39.2,5.6],[23.8,-15.4],[23.8,15.4],[42,0],[7,-23.8],[7,23.8]], artWidth:98, drone:true, art:"", lore:"A heavy gun platform built to break other warships. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_carrier: { name:"Hive", class:"carrier", faction:"lattice", tech:4, price:1030000, massCap:375, cargo:64, bunks:20, slots:[3,2,4,5], thrust:143, turn:99, max:220, shield:194, armor:316, regen:8, guns:2, dmg:10.4, cd:0.4, hull:"carrier", engines:[[-65.1,-32.5],[-65.1,0],[-65.1,32.5]], mounts:[[66.5,-21],[66.5,21],[77,0],[28,-42],[28,42]], artWidth:175, drone:true, art:"", lore:"A fleet anchor with hangar space and a thick hull. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_science: { name:"Lens", class:"science", faction:"lattice", tech:3, price:368000, massCap:171, cargo:40, bunks:4, slots:[1,3,5,2], thrust:220, turn:176, max:297, shield:81, armor:63, regen:8, guns:1, dmg:6, cd:0.4, hull:"science", engines:[[-28.6,-6.2],[-28.6,6.2]], mounts:[[23.8,0],[7,-9.8],[7,9.8]], artWidth:63, drone:true, art:"", lore:"Sensor-heavy and utility-rich, with room for strange cargo. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_cargo_s: { name:"Pod", class:"cargo_s", faction:"lattice", tech:1, price:73000, massCap:85, cargo:40, bunks:2, slots:[1,1,2,1], thrust:231, turn:165, max:286, shield:36, armor:63, regen:3, guns:0, dmg:0, cd:0, hull:"cargo_s", engines:[[-27.3,-9.1],[-27.3,9.1]], mounts:[[26.6,0],[7,-12.6],[7,12.6]], artWidth:70, drone:true, art:"", lore:"A small hauler for short runs and tight margins. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_cargo_m: { name:"Ferry", class:"cargo_m", faction:"lattice", tech:2, price:214000, massCap:133, cargo:80, bunks:4, slots:[2,2,3,2], thrust:198, turn:138, max:253, shield:45, armor:90, regen:4, guns:0, dmg:0, cd:0, hull:"cargo_m", engines:[[-41.8,-14.9],[-41.8,14.9]], mounts:[[40.6,-7],[40.6,7],[14,-19.6],[14,19.6]], artWidth:105, drone:true, art:"", lore:"The standard freighter of the lanes. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_cargo_h: { name:"Vault", class:"cargo_h", faction:"lattice", tech:3, price:629000, massCap:190, cargo:160, bunks:6, slots:[2,2,3,3], thrust:165, turn:110, max:220, shield:63, armor:135, regen:5, guns:0, dmg:0, cd:0, hull:"cargo_h", engines:[[-63.6,-21.2],[-63.6,21.2]], mounts:[[54.6,-9.8],[54.6,9.8],[21,-25.2],[21,25.2]], artWidth:140, drone:true, art:"", lore:"A bulk carrier that trades speed for tonnage. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_cargo_x: { name:"Cathedral", class:"cargo_x", faction:"lattice", tech:4, price:2055000, massCap:285, cargo:320, bunks:8, slots:[3,3,4,4], thrust:127, turn:77, max:187, shield:90, armor:234, regen:6, guns:0, dmg:0, cd:0, hull:"cargo_x", engines:[[-79.5,-28.9],[-79.5,0],[-79.5,28.9]], mounts:[[67.2,-14],[67.2,14],[72.8,0],[28,-35],[28,35]], artWidth:175, drone:true, art:"", lore:"A moving warehouse. Slow, huge, and worth escorting. A Lattice hull: small, quick, and coordinated by something you never see." },
+      lattice_unique: { name:"Apex", class:"unique", faction:"lattice", tech:4, price:2846000, massCap:266, cargo:48, bunks:10, slots:[4,3,4,4], thrust:330, turn:261, max:413, shield:153, armor:171, regen:10, guns:4, dmg:16.3, cd:0.28, hull:"unique", engines:[[-50.6,-21.7],[-50.6,21.7]], mounts:[[63,-7],[63,7],[42,-23.8],[42,23.8],[14,-30.8],[14,30.8]], artWidth:175, drone:true, art:"", lore:"A one-of-a-kind flagship design. Few are ever built. A Lattice hull: small, quick, and coordinated by something you never see." },
       // ---- INDEPENDENT ----
-      independent_racer: { name:"Wayfarer", class:"racer", faction:"independent", tech:1, price:2200, massCap:40, cargo:10, bunks:2, slots:[1,1,1,1], thrust:330, turn:280, max:420, shield:30, armor:40, regen:5, guns:1, dmg:5, cd:0.3, hull:"racer", engines:[[-7.1,0]], artWidth:35, art:"", lore:"A stripped-down speed frame built to outrun trouble. An independent yard build. No logo, no leash." },
-      independent_fighter: { name:"Drifter", class:"fighter", faction:"independent", tech:1, price:2000, massCap:60, cargo:15, bunks:4, slots:[2,1,1,1], thrust:270, turn:230, max:330, shield:55, armor:70, regen:5, guns:2, dmg:7, cd:0.3, hull:"fighter", engines:[[-10.2,-4.5],[-10.2,4.5]], artWidth:40, art:"", lore:"A nimble all-rounder and the backbone of any patrol. An independent yard build. No logo, no leash." },
-      independent_science: { name:"Cartographer", class:"science", faction:"independent", tech:3, price:8500, massCap:180, cargo:50, bunks:8, slots:[1,3,5,2], thrust:200, turn:160, max:270, shield:90, armor:70, regen:8, guns:1, dmg:6, cd:0.4, hull:"science", engines:[[-40.9,-8.8],[-40.9,8.8]], artWidth:90, art:"", lore:"Sensor-heavy and utility-rich, with room for strange cargo. An independent yard build. No logo, no leash." },
-      independent_cargo_s: { name:"Packet", class:"cargo_s", faction:"independent", tech:1, price:3000, massCap:90, cargo:50, bunks:4, slots:[1,1,2,1], thrust:210, turn:150, max:260, shield:40, armor:70, regen:3, guns:0, dmg:0, cd:0, hull:"cargo_s", engines:[[-39,-13],[-39,13]], artWidth:100, art:"", lore:"A small hauler for short runs and tight margins. An independent yard build. No logo, no leash." },
-      independent_cargo_m: { name:"Trader", class:"cargo_m", faction:"independent", tech:2, price:6000, massCap:140, cargo:100, bunks:8, slots:[2,2,3,2], thrust:180, turn:125, max:230, shield:50, armor:100, regen:4, guns:0, dmg:0, cd:0, hull:"cargo_m", engines:[[-59.7,-21.3],[-59.7,21.3]], artWidth:150, art:"", lore:"The standard freighter of the lanes. An independent yard build. No logo, no leash." },
-      independent_cargo_h: { name:"Bulker", class:"cargo_h", faction:"independent", tech:3, price:12000, massCap:200, cargo:200, bunks:12, slots:[2,2,3,3], thrust:150, turn:100, max:200, shield:70, armor:150, regen:5, guns:0, dmg:0, cd:0, hull:"cargo_h", engines:[[-90.9,-30.3],[-90.9,30.3]], artWidth:200, art:"", lore:"A bulk carrier that trades speed for tonnage. An independent yard build. No logo, no leash." },
+      independent_racer: { name:"Wayfarer", class:"racer", faction:"independent", tech:1, price:45000, massCap:40, cargo:10, bunks:2, slots:[1,1,1,1], thrust:330, turn:280, max:420, shield:30, armor:40, regen:5, guns:1, dmg:5, cd:0.3, hull:"racer", engines:[[-7.1,0]], mounts:[[14,0],[8,-5],[8,5]], artWidth:35, art:"", lore:"A stripped-down speed frame built to outrun trouble. An independent yard build. No logo, no leash." },
+      independent_fighter: { name:"Drifter", class:"fighter", faction:"independent", tech:1, price:39000, massCap:60, cargo:15, bunks:4, slots:[2,1,1,1], thrust:270, turn:230, max:330, shield:55, armor:70, regen:5, guns:2, dmg:7, cd:0.3, hull:"fighter", engines:[[-10.2,-4.5],[-10.2,4.5]], mounts:[[14,-6],[14,6],[6,-9],[6,9]], artWidth:40, art:"", lore:"A nimble all-rounder and the backbone of any patrol. An independent yard build. No logo, no leash." },
+      independent_science: { name:"Cartographer", class:"science", faction:"independent", tech:3, price:368000, massCap:180, cargo:50, bunks:8, slots:[1,3,5,2], thrust:200, turn:160, max:270, shield:90, armor:70, regen:8, guns:1, dmg:6, cd:0.4, hull:"science", engines:[[-40.9,-8.8],[-40.9,8.8]], mounts:[[34,0],[10,-14],[10,14]], artWidth:90, art:"", lore:"Sensor-heavy and utility-rich, with room for strange cargo. An independent yard build. No logo, no leash." },
+      independent_cargo_s: { name:"Packet", class:"cargo_s", faction:"independent", tech:1, price:73000, massCap:90, cargo:50, bunks:4, slots:[1,1,2,1], thrust:210, turn:150, max:260, shield:40, armor:70, regen:3, guns:0, dmg:0, cd:0, hull:"cargo_s", engines:[[-39,-13],[-39,13]], mounts:[[38,0],[10,-18],[10,18]], artWidth:100, art:"", lore:"A small hauler for short runs and tight margins. An independent yard build. No logo, no leash." },
+      independent_cargo_m: { name:"Trader", class:"cargo_m", faction:"independent", tech:2, price:214000, massCap:140, cargo:100, bunks:8, slots:[2,2,3,2], thrust:180, turn:125, max:230, shield:50, armor:100, regen:4, guns:0, dmg:0, cd:0, hull:"cargo_m", engines:[[-59.7,-21.3],[-59.7,21.3]], mounts:[[58,-10],[58,10],[20,-28],[20,28]], artWidth:150, art:"", lore:"The standard freighter of the lanes. An independent yard build. No logo, no leash." },
+      independent_cargo_h: { name:"Bulker", class:"cargo_h", faction:"independent", tech:3, price:629000, massCap:200, cargo:200, bunks:12, slots:[2,2,3,3], thrust:150, turn:100, max:200, shield:70, armor:150, regen:5, guns:0, dmg:0, cd:0, hull:"cargo_h", engines:[[-90.9,-30.3],[-90.9,30.3]], mounts:[[78,-14],[78,14],[30,-36],[30,36]], artWidth:200, art:"", lore:"A bulk carrier that trades speed for tonnage. An independent yard build. No logo, no leash." },
       // ---- PIRATES ----
-      pirates_racer: { name:"Cutter", class:"racer", faction:"pirates", tech:1, price:1650, massCap:36, cargo:9, bunks:2, slots:[1,1,1,1], thrust:363, turn:308, max:462, shield:24, armor:32, regen:5, guns:1, dmg:5.8, cd:0.3, hull:"racer", engines:[[-7.1,0]], artWidth:35, art:"", lore:"A stripped-down speed frame built to outrun trouble. A pirate refit. Someone else paid for it first." },
-      pirates_fighter: { name:"Raider", class:"fighter", faction:"pirates", tech:1, price:1500, massCap:54, cargo:14, bunks:5, slots:[2,1,1,1], thrust:297, turn:253, max:363, shield:44, armor:56, regen:5, guns:2, dmg:8, cd:0.3, hull:"fighter", engines:[[-10.2,-4.5],[-10.2,4.5]], artWidth:40, art:"", lore:"A nimble all-rounder and the backbone of any patrol. A pirate refit. Someone else paid for it first." },
-      pirates_cruiser: { name:"Marauder", class:"cruiser", faction:"pirates", tech:3, price:6750, massCap:179, cargo:36, bunks:15, slots:[4,2,2,3], thrust:209, turn:154, max:286, shield:88, armor:120, regen:6, guns:3, dmg:10.3, cd:0.35, hull:"cruiser", engines:[[-24.5,-12.3],[-24.5,12.3]], artWidth:90, art:"", lore:"A balanced warship with real armor and real guns. A pirate refit. Someone else paid for it first." },
-      pirates_cargo_s: { name:"Smuggler", class:"cargo_s", faction:"pirates", tech:1, price:2250, massCap:80, cargo:45, bunks:5, slots:[1,1,2,1], thrust:231, turn:165, max:286, shield:32, armor:56, regen:3, guns:0, dmg:0, cd:0, hull:"cargo_s", engines:[[-39,-13],[-39,13]], artWidth:100, art:"", lore:"A small hauler for short runs and tight margins. A pirate refit. Someone else paid for it first." },
-      pirates_unique: { name:"Reaver", class:"unique", faction:"pirates", tech:4, price:29250, massCap:286, cargo:54, bunks:25, slots:[4,3,4,4], thrust:264, turn:209, max:330, shield:177, armor:198, regen:10, guns:4, dmg:19.4, cd:0.28, hull:"unique", engines:[[-72.3,-31],[-72.3,31]], artWidth:250, art:"", lore:"A one-of-a-kind flagship design. Few are ever built. A pirate refit. Someone else paid for it first." },
+      pirates_racer: { name:"Cutter", class:"racer", faction:"pirates", tech:1, price:29000, massCap:36, cargo:9, bunks:2, slots:[1,1,1,1], thrust:363, turn:308, max:462, shield:24, armor:32, regen:5, guns:1, dmg:5.8, cd:0.3, hull:"racer", engines:[[-7.1,0]], mounts:[[14,0],[8,-5],[8,5]], artWidth:35, art:"", lore:"A stripped-down speed frame built to outrun trouble. A pirate refit. Someone else paid for it first." },
+      pirates_fighter: { name:"Raider", class:"fighter", faction:"pirates", tech:1, price:25000, massCap:54, cargo:14, bunks:5, slots:[2,1,1,1], thrust:297, turn:253, max:363, shield:44, armor:56, regen:5, guns:2, dmg:8, cd:0.3, hull:"fighter", engines:[[-10.2,-4.5],[-10.2,4.5]], mounts:[[14,-6],[14,6],[6,-9],[6,9]], artWidth:40, art:"", lore:"A nimble all-rounder and the backbone of any patrol. A pirate refit. Someone else paid for it first." },
+      pirates_cruiser: { name:"Marauder", class:"cruiser", faction:"pirates", tech:3, price:257000, massCap:179, cargo:36, bunks:15, slots:[4,2,2,3], thrust:209, turn:154, max:286, shield:88, armor:120, regen:6, guns:3, dmg:10.3, cd:0.35, hull:"cruiser", engines:[[-24.5,-12.3],[-24.5,12.3]], mounts:[[34,-6],[34,6],[18,-18],[18,18],[4,-26],[4,26]], artWidth:90, art:"", lore:"A balanced warship with real armor and real guns. A pirate refit. Someone else paid for it first." },
+      pirates_cargo_s: { name:"Smuggler", class:"cargo_s", faction:"pirates", tech:1, price:47000, massCap:80, cargo:45, bunks:5, slots:[1,1,2,1], thrust:231, turn:165, max:286, shield:32, armor:56, regen:3, guns:0, dmg:0, cd:0, hull:"cargo_s", engines:[[-39,-13],[-39,13]], mounts:[[38,0],[10,-18],[10,18]], artWidth:100, art:"", lore:"A small hauler for short runs and tight margins. A pirate refit. Someone else paid for it first." },
+      pirates_unique: { name:"Reaver", class:"unique", faction:"pirates", tech:4, price:2312000, massCap:286, cargo:54, bunks:25, slots:[4,3,4,4], thrust:264, turn:209, max:330, shield:177, armor:198, regen:10, guns:4, dmg:19.4, cd:0.28, hull:"unique", engines:[[-72.3,-31],[-72.3,31]], mounts:[[90,-10],[90,10],[60,-34],[60,34],[20,-44],[20,44]], artWidth:250, art:"", lore:"A one-of-a-kind flagship design. Few are ever built. A pirate refit. Someone else paid for it first." },
       // ---- ENEMY-ONLY (never sold) ----
-      raider: { name:"Raider", class:"fighter", faction:null, sold:false, color:"#ff7b7b", thrust:210, turn:170, max:280, shield:30, armor:50, regen:3, guns:1, dmg:6, cd:0.4, speed:460, life:0.8, hull:"raider", engines:[[-15.6,0]], artWidth:40, art:"", lore:"A cheap wild raider hull. Fast enough to be a problem and little else." }
+      raider: { name:"Raider", class:"fighter", faction:null, sold:false, color:"#ff7b7b", thrust:210, turn:170, max:280, shield:30, armor:50, regen:3, guns:1, dmg:6, cd:0.4, speed:460, life:0.8, hull:"raider", engines:[[-15.6,0]], mounts:[[16,0]], artWidth:40, art:"", lore:"A cheap wild raider hull. Fast enough to be a problem and little else." }
     }
   },
   factions: [
@@ -185,10 +190,21 @@ const CONTENT = {
   ],
   // price = base * (1 + techSlope*(3-planetTech) + sum of tag mods) * slow noise. Negative tag mod = producers sell cheap.
   commodities: [
-    { id:'food',     base:20, techSlope: 0.10, tags:{ agri:-0.30 } },
-    { id:'ore',      base:35, techSlope: 0,    tags:{ mining:-0.30 } },
-    { id:'tech',     base:90, techSlope:-0.15, tags:{ industrial:-0.25 } },
-    { id:'medicine', base:60, techSlope:-0.15, tags:{ industrial:-0.15 } }
+    { id:'food',     base:200, techSlope: 0.10, tags:{ agri:-0.30 } },
+    { id:'ore',      base:350, techSlope: 0,    tags:{ mining:-0.30 } },
+    { id:'tech',     base:900, techSlope:-0.15, tags:{ industrial:-0.25 } },
+    { id:'medicine', base:600, techSlope:-0.15, tags:{ industrial:-0.15 } },
+    { id:'water', base:120, techSlope:0.05, tags:{ agri:-0.2 } },
+    { id:'textiles', base:300, techSlope:0, tags:{ agri:-0.2 } },
+    { id:'spice', base:800, techSlope:0, tags:{ agri:-0.25 } },
+    { id:'alloys', base:550, techSlope:0, tags:{ mining:-0.2 } },
+    { id:'gems', base:1200, techSlope:0, tags:{ mining:-0.3 } },
+    { id:'cells', base:450, techSlope:-0.1, tags:{ industrial:-0.2 } },
+    { id:'machinery', base:700, techSlope:-0.15, tags:{ industrial:-0.25 } },
+    { id:'electronics', base:1000, techSlope:-0.2, tags:{ industrial:-0.25 } },
+    { id:'plastics', base:280, techSlope:-0.05, tags:{ industrial:-0.2 } },
+    { id:'luxury', base:1500, techSlope:-0.1, tags:{ agri:-0.1 } },
+    { id:'arms', base:1100, techSlope:-0.1, tags:{ industrial:-0.2 } }
   ],
   // Quest steps are queries, not planet ids. Skipped entirely if a required faction isn't in the universe.
   quests: [
@@ -262,8 +278,11 @@ const questState = {};   // questId -> current step index
 const match = (p,w) => Object.entries(w).every(([k,v]) => k==='tag' ? p.tags.includes(v) : (v && typeof v==='object') ? (!('lt' in v)||p[k]<v.lt) && (!('gt' in v)||p[k]>v.gt) && (!('in' in v)||v.in.includes(p[k])) : p[k]===v);
 const activeQuests = () => CONTENT.quests.filter(q => q.requires.factions.every(f => UNIVERSE.includes(f)));
 const questOffers = p => activeQuests().filter(q => { const i=questState[q.id]??0, st=q.steps[i]; return st && match(p,st.where) && noise(UNI.seed,q.id,i,p.id)<st.chance; });
+const localRep = {};   // per-system standing offset: easy to lose, easy to regain; global faction standing moves far less
+const eff = (f,sys=sysId) => Math.max(-100,Math.min(100,standing[f]+(localRep[sys]||0)));
+function addRep(f,n,sys=sysId){ if (n<0){ localRep[sys]=Math.max(-60,(localRep[sys]||0)+n); standing[f]=Math.max(-100,standing[f]+n*0.35); } else { localRep[sys]=Math.min(30,(localRep[sys]||0)+n); standing[f]=Math.min(100,standing[f]+n*0.5); } }
 const band = v => v<=-25?'Hostile':v>=60?'Allied':v>=25?'Friendly':'Neutral';
-const COMM = Object.fromEntries(CONTENT.commodities.map(c=>[c.id,c.base])), FUEL_MAX=6, FUEL_PRICE=25;
+const COMM = Object.fromEntries(CONTENT.commodities.map(c=>[c.id,c.base])), FUEL_MAX=6, FUEL_PRICE=2000;
 let CARGO_MAX=20;
 const hs = s => { let h=0; for(const ch of s) h=(h*31+ch.charCodeAt(0))%997; return h/997; };
 const PATROL = Object.fromEntries(CONTENT.factions.map(f=>[f.id,f.patrol?f.id+'_'+f.patrol:null]));
@@ -282,17 +301,17 @@ function buildShips(){
     SHIP_DB[id] = { id, name:e.name, cls:e.class, classLabel:D.classes[e.class], fac:e.faction, tech:e.tech, price:e.price, massCap:e.massCap, cargo:e.cargo, bunks:e.bunks,
       slots:e.slots ? { weapon:e.slots[0], addon:e.slots[1], utility:e.slots[2], hull:e.slots[3] } : null,
       thrust:e.thrust, turn:e.turn, max:e.max, shield:e.shield, armor:e.armor, regen:e.regen, r:rad, color, shape:pts, muzzle:mz,
-      weapons:Array.from({length:e.guns}, (_,i) => ({ dmg:e.dmg, speed:e.speed ?? 500, life:e.life ?? 0.9, cd:e.cd, off:[mz[0],(i-(e.guns-1)/2)*mz[1]], color })),
-      engines:e.engines, artWidth:e.artWidth, art:(file.includes('/') || file.startsWith('data:')) ? file : D.artDir + file, lore:e.lore || '', sold:e.sold };
+      weapons:Array.from({length:e.guns}, (_,i) => ({ dmg:e.dmg, speed:e.speed ?? 500, life:e.life ?? 0.9, cd:e.cd, off:(e.mounts&&e.mounts[i])||[mz[0],(i-(e.guns-1)/2)*mz[1]], color })),
+      engines:e.engines, drone:!!e.drone, mounts:e.mounts||null, artWidth:e.artWidth, art:(file.includes('/') || file.startsWith('data:')) ? file : D.artDir + file, lore:e.lore || '', sold:e.sold };
   }
   for (const r of Object.values(SHIP_DB)){
-    SHIPS[r.id] = { id:r.id, name:r.name, thrust:r.thrust, turn:r.turn, max:r.max, shield:r.shield, armor:r.armor, regen:r.regen, r:r.r, color:r.color, shape:r.shape, weapons:r.weapons, muzzle:r.muzzle, artWidth:r.artWidth, engines:r.engines };
+    SHIPS[r.id] = { id:r.id, name:r.name, thrust:r.thrust, turn:r.turn, max:r.max, shield:r.shield, armor:r.armor, regen:r.regen, r:r.r, color:r.color, shape:r.shape, weapons:r.weapons, muzzle:r.muzzle, artWidth:r.artWidth, engines:r.engines, mounts:r.mounts };
     if (r.sold !== false) FRAMES[r.id] = { name:r.name, cls:r.cls, fac:r.fac, tech:r.tech, price:r.price, massCap:r.massCap, cargo:r.cargo, bunks:r.bunks, slots:r.slots, lore:r.lore };
     ART[r.id] = r.art;
   }
 }
 buildShips();
-const frameConf = id => { const f=FRAMES[id]; return { massCap:f.massCap, cargo:f.cargo, convRate:10, convFee:600, convMax:Math.min(2,Math.floor(f.cargo/10)), slots:f.slots, bunks:f.bunks }; };
+const frameConf = id => { const f=FRAMES[id]; return { massCap:f.massCap, cargo:f.cargo, convRate:10, convFee:48000, convMax:Math.min(2,Math.floor(f.cargo/10)), slots:f.slots, bunks:f.bunks }; };
 let frameId = sysOwner(UNI.start)+'_fighter', FRAME = frameConf(frameId);   // you start in a fighter built by the faction whose capital you spawn at
 function setFrame(id){
   frameId=id; FRAME=frameConf(id); conv=0;
@@ -302,33 +321,52 @@ function setFrame(id){
 const shipValue = () => Math.round(0.7*(FRAMES[frameId].price+Object.values(loadout).flat().filter(Boolean).reduce((a,k)=>a+OUT[k].price,0)));
 const OUT = {
   blaster:{ name:'Blaster', type:'weapon', tech:1, mass:8, price:0, w:{ dmg:8, speed:520, life:0.9, cd:0.22, color:'#ffb347' } },
-  pulse:  { name:'Pulse gun', type:'weapon', tech:2, mass:10, price:400, w:{ dmg:4, speed:560, life:0.8, cd:0.11, color:'#6fe3c1' } },
-  cannon: { name:'Cannon', type:'weapon', tech:3, mass:16, price:900, w:{ dmg:20, speed:480, life:1.1, cd:0.6, color:'#ff7b7b' } },
+  pulse:  { name:'Pulse gun', type:'weapon', tech:2, mass:10, price:31600, w:{ dmg:4, speed:560, life:0.8, cd:0.11, color:'#6fe3c1' } },
+  cannon: { name:'Cannon', type:'weapon', tech:3, mass:16, price:71100, w:{ dmg:20, speed:480, life:1.1, cd:0.6, color:'#ff7b7b' } },
   // Add-ons modify the ship's base engine performance. thrust/turn/speed are fractional bonuses (0.25 = +25%) and add together.
-  retune: { name:'Engine retune', type:'addon', tech:1, mass:4,  price:300, thrust:0.08, turn:0.08, speed:0.05 },
-  jets:   { name:'Maneuvering jets', type:'addon', tech:2, mass:6,  price:450, turn:0.25 },
-  burner: { name:'Afterburner', type:'addon', tech:2, mass:10, price:600, thrust:0.25, speed:0.15 },
-  injector:{ name:'Ion injector', type:'addon', tech:3, mass:14, price:900, thrust:0.30, turn:0.10, speed:0.25 },
-  cell:   { name:'Shield cell', type:'utility', tech:2, mass:8, price:500, shield:30, regen:3 },
-  pod:    { name:'Cargo pod', type:'utility', tech:1, mass:6, price:300, cargo:10 },
-  plate:  { name:'Armor plating', type:'hull', tech:2, mass:12, price:450, armor:40 }
+  retune: { name:'Engine retune', type:'addon', tech:1, mass:4,  price:23700, thrust:0.08, turn:0.08, speed:0.05 },
+  jets:   { name:'Maneuvering jets', type:'addon', tech:2, mass:6,  price:35550, turn:0.25 },
+  burner: { name:'Afterburner', type:'addon', tech:2, mass:10, price:47400, thrust:0.25, speed:0.15 },
+  injector:{ name:'Ion injector', type:'addon', tech:3, mass:14, price:71100, thrust:0.30, turn:0.10, speed:0.25 },
+  ioncan: { name:'Ion cannon', type:'weapon', tech:3, mass:12, price:63200, w:{ dmg:9, speed:500, life:1, cd:0.3, color:'#6fb5e3', shieldMul:2.5, armorMul:0.4 } },
+  solar:  { name:'Solar panels', type:'utility', tech:1, mass:6, price:27650, fuelRate:0.004 },
+  fission:{ name:'Fission reactor', type:'utility', tech:3, mass:100, price:86900, fuelRate:0.012 },
+  fusion: { name:'Fusion reactor', type:'utility', tech:4, mass:200, price:205400, fuelRate:0.04 },
+  cell:   { name:'Shield cell', type:'utility', tech:2, mass:8, price:39500, shield:30, regen:3 },
+  bay:    { name:'Hangar bay', type:'utility', tech:2, mass:60, price:200000, bays:1 },
+  pod:    { name:'Cargo pod', type:'utility', tech:1, mass:6, price:23700, cargo:10 },
+  plate:  { name:'Armor plating', type:'hull', tech:2, mass:12, price:35550, armor:40 }
 };
 const loadout = Object.fromEntries(['weapon','addon','utility','hull'].map(t => [t, Array(FRAME.slots[t]).fill(null)])); loadout.weapon[0]='blaster';
 let conv = 0, marines = 0;   // marines live in ship bunks; needed to commandeer, and they boost loot slightly
-const MARINE_PRICE = 150, MARINE_REFUND = 100, MAX_ESCORTS = 3, DISABLE_AT = 0.10, DESTROY_AT = 0;   // a ship is disabled at 10% armor and destroyed at 0%
+const MARINE_PRICE = 12000, MARINE_REFUND = 8000, DISABLE_AT = 0.10, DESTROY_AT = 0;   // a ship is disabled at 10% armor and destroyed at 0%
+const ESC_CAP = { racer:1, fighter:2, science:3, cargo_s:2, cargo_m:3, cargo_h:3, cruiser:4, destroyer:5, cargo_x:6, unique:6, carrier:8 };
+Object.defineProperty(globalThis,'MAX_ESCORTS',{ get:()=>ESC_CAP[SHIP_DB[frameId].cls]||2 });   // bigger flagships command more escorts
+let order='defend', escOpen=false, jumpA=0;
+const docked = [];   // small escorts stored in hangar bays: {id, ar, sh}
+const bayCap = () => 2*((SHIP_DB[frameId].cls==='carrier'?3:0)+loadout.utility.filter(k=>k==='bay').length);   // 2 small ships per bay; carriers have 3 built in
+const slotSize = id => SHIP_DB[id].drone ? 0.5 : 1;   // drones are small: two fit in one hangar space or escort slot
+const canDock = id => SHIP_DB[id].massCap <= (SHIP_DB[id].drone ? 200 : 100);
+const dockUsed = () => docked.reduce((a,e)=>a+slotSize(e.id),0);
+const escCount = () => escorts().reduce((a,s)=>a+slotSize(s.d.id),0)+dockUsed();
+const escCargo = () => ships.filter(s=>s.escort&&!s.dead).reduce((a,s)=>a+SHIP_DB[s.d.id].cargo,0)+docked.reduce((a,e)=>a+SHIP_DB[e.id].cargo,0);   // escort holds count as yours
+function deploy(n){ docked.splice(0,n).forEach((e,k)=>{ const o=mk(e.id,player.x-60-k*30,player.y,true); Object.assign(o,{escort:true,team:0,role:'escort',col:SHIPS[e.id].color,a:player.a,vx:player.vx,vy:player.vy,ar:e.ar,sh:e.sh}); ships.push(o); }); }
+function dockEscort(e){ docked.push({id:e.d.id,ar:Math.round(e.ar),sh:Math.round(e.sh)}); e.dead=true; }
 const cap = s => s[0].toUpperCase()+s.slice(1), slotName = t => ({weapon:'Weapon',addon:'Add-on',utility:'Utility',hull:'Hull'})[t];
 const massUsed = () => Object.values(loadout).flat().filter(Boolean).reduce((a,k)=>a+OUT[k].mass,0);
-const cargoMax = () => FRAME.cargo-FRAME.convRate*conv+loadout.utility.filter(Boolean).reduce((a,k)=>a+(OUT[k].cargo||0),0);
+const cargoMax = () => escCargo()+FRAME.cargo-FRAME.convRate*conv+loadout.utility.filter(Boolean).reduce((a,k)=>a+(OUT[k].cargo||0),0);
 const check = () => massUsed()>FRAME.massCap ? 'Over the mass limit' : (used()>cargoMax() ? 'Cargo hold too full. Sell cargo first' : null);
 const wouldErr = (t,i,key) => { const old=loadout[t][i]; loadout[t][i]=key; const e=check(); loadout[t][i]=old; return e; };
 const trySet = (t,i,key) => { const e=wouldErr(t,i,key); if(!e) loadout[t][i]=key; return e; };
 const pct = v => (v>0?'+':'')+Math.round(v*100)+'%';
-const desc = o => o.w ? `dmg ${o.w.dmg}, ${(1/o.w.cd).toFixed(1)}/s` : [o.thrust&&`${pct(o.thrust)} accel`,o.turn&&`${pct(o.turn)} turn`,o.speed&&`${pct(o.speed)} speed`,o.shield&&`+${o.shield} shield`,o.armor&&`+${o.armor} armor`,o.cargo&&`+${o.cargo} cargo`].filter(Boolean).join(', ');
+const desc = o => o.w ? `dmg ${o.w.dmg}, ${(1/o.w.cd).toFixed(1)}/s` : [o.thrust&&`${pct(o.thrust)} accel`,o.turn&&`${pct(o.turn)} turn`,o.speed&&`${pct(o.speed)} speed`,o.shield&&`+${o.shield} shield`,o.armor&&`+${o.armor} armor`,o.cargo&&`+${o.cargo} cargo`,o.bays&&`+${o.bays} bay (2 small ships)`,o.fuelRate&&`+${Math.round(o.fuelRate*600)/10} fuel/min`].filter(Boolean).join(', ');
+const mountOff = (B,i,n) => (B.mounts&&B.mounts[i]) || [B.muzzle[0],(i-(n-1)/2)*B.muzzle[1]];
 function applyLoadout(){
   const it=t=>loadout[t].filter(Boolean).map(k=>OUT[k]), sum=(a,k)=>a.reduce((s,o)=>s+(o[k]||0),0);
   const B=SHIPS[frameId], ad=it('addon'), ws=it('weapon'), us=it('utility'), hl=it('hull');
-  player.d=Object.assign({},B,{ thrust:B.thrust*(1+sum(ad,'thrust')), turn:B.turn*(1+sum(ad,'turn')), max:B.max*(1+sum(ad,'speed')), shield:B.shield+sum(us,'shield'), regen:B.regen+sum(us,'regen'), armor:B.armor+sum(hl,'armor'), weapons:ws.map((o,i)=>({...o.w, off:[B.muzzle[0],(i-(ws.length-1)/2)*B.muzzle[1]]})) });
+  player.d=Object.assign({},B,{ thrust:B.thrust*(1+sum(ad,'thrust')), turn:B.turn*(1+sum(ad,'turn')), max:B.max*(1+sum(ad,'speed')), shield:B.shield+sum(us,'shield'), regen:B.regen+sum(us,'regen'), armor:B.armor+sum(hl,'armor'), weapons:ws.map((o,i)=>({...o.w, off:mountOff(B,i,ws.length)})) });
   CARGO_MAX=cargoMax(); player.cd=player.d.weapons.map(()=>0); player.sh=player.d.shield; player.ar=player.d.armor;
+  while (docked.length && dockUsed()>bayCap()) deploy(1);
 }
 const WPN = (dmg,cd,c) => [{ dmg, speed:500, life:0.9, cd, off:[10,0], color:c }];
 
@@ -348,7 +386,7 @@ const angDiff = (a,b) => { let d=b-a; while(d>Math.PI)d-=2*Math.PI; while(d<-Mat
 
 let ships=[], shots=[], parts=[], player, kills=0, time=0, spawnT=1, respawnT=0;
 let sysId=UNI.start, dest=null, mapOpen=false, jumpT=0, flash=0, msg='Fly close to a planet and tap Land', msgT=6;
-let fuel=5, credits=500; const cargo=Object.fromEntries(Object.keys(COMM).map(k=>[k,0])); let popT=12;
+let fuel=5, credits=10000; const cargo=Object.fromEntries(Object.keys(COMM).map(k=>[k,0])); let popT=12;
 const cam = {x:0,y:0};
 const stars = [0,1,2].map(l => Array.from({length:[60,45,30][l]}, () => [Math.random(),Math.random(),Math.random()]));
 const PAR = [0.12,0.3,0.55];
@@ -541,6 +579,7 @@ function renderOutfit(){
   lp.innerHTML=h+`<div class='row'><button data-a='back'>Back</button></div></div>`; lp.hidden=false;
 }
 landB.addEventListener('pointerdown', tryLand);
+const trades=(p,c)=>noise(UNI.seed,'trade',p.id,c)<0.7;   // each planet only deals in some goods
 const used=()=>Object.values(cargo).reduce((a,b)=>a+b,0);
 const price=(p,c)=>{ const k=CONTENT.commodities.find(x=>x.id===c); let m=1+k.techSlope*(3-p.tech); for(const t of p.tags) m+=k.tags?.[t]||0; return Math.max(1,Math.round(k.base*m*(0.85+0.3*vnoise(time/120,UNI.seed,p.id,c)))); };
 function tryLand(){
@@ -550,7 +589,7 @@ function tryLand(){
   if(Math.hypot(player.vx,player.vy)>110) return toast('Too fast to land. Ease off the thrust');
   reveal(nearP);
   const o=nearP.faction;
-  if(standing[o]<=-25) return toast('Docking denied: '+FACTIONS[o].name+' standing is hostile');
+  if(eff(o)<=-25) return toast('Docking denied: '+FACTIONS[o].name+' standing is hostile');
   landed=nearP; lpView='main'; outSel=null; player.sh=player.d.shield; player.ar=player.d.armor; player.vx=player.vy=0; escorts().forEach(e=>{ e.sh=e.d.shield; e.ar=e.d.armor; }); document.body.classList.add('maponly'); renderLand(); cacheGame();   // cache the game every time you land
 }
 function renderLand(){
@@ -558,25 +597,42 @@ function renderLand(){
   if (lpView==='outfit') return renderOutfit();
   if (lpView==='yard') return renderYard();
   const o=landed.faction, F=FACTIONS[o];
-  let h=`<div class='in'><h2>${landed.name}</h2><div class='sub' style='color:${F.c}'>${F.name} · ${band(standing[o])} (${standing[o]}) · tech ${landed.tech} · ${landed.tags.join('/')}${questOffers(landed).map(q=>' · ★ '+q.name).join('')}</div>`+
-   `<div class='row'><span>Credits ${credits}</span><span>Fuel ${fuel}/${FUEL_MAX}</span><span>Cargo ${used()}/${CARGO_MAX}</span></div>`+
+  let h=`<div class='in'><h2>${landed.name}</h2><div class='sub' style='color:${F.c}'>${F.name} · ${band(eff(o))} (local ${Math.round(eff(o))}, global ${Math.round(standing[o])}) · tech ${landed.tech} · ${landed.tags.join('/')}${questOffers(landed).map(q=>' · ★ '+q.name).join('')}</div>`+
+   `<div class='row'><span>Credits ${credits}</span><span>Fuel ${Math.floor(fuel)}/${FUEL_MAX}</span><span>Cargo ${used()}/${CARGO_MAX}</span></div>`+
    `<div class='row'><span>Fuel, ${FUEL_PRICE} each</span><span><button data-a='fuel1'>Buy 1</button><button data-a='fuelF'>Fill</button></span></div>`;
-  for(const c in COMM) h+=`<div class='row'><span>${c[0].toUpperCase()+c.slice(1)}: ${price(landed,c)} each, held ${cargo[c]}</span><span><button data-a='b1:${c}'>Buy 1</button><button data-a='b5:${c}'>Buy 5</button><button data-a='s:${c}'>Sell all</button></span></div>`;
-  lp.innerHTML=h+`<div class='row'><span><button data-a='outf'>Outfitter</button><button data-a='yard'>Shipyard</button><button data-a='game'>Menu</button><button data-a='off'>Take off</button></span></div></div>`; lp.hidden=false;
+  for(const c in COMM) if(trades(landed,c)) h+=`<div class='row'><span>${c[0].toUpperCase()+c.slice(1)}: ${price(landed,c)} each, held ${cargo[c]}</span><span><button data-a='b1:${c}'>+1</button><button data-a='b5:${c}'>+5</button><button data-a='bF:${c}'>+fill</button><button data-a='s1:${c}'>-1</button><button data-a='s5:${c}'>-5</button><button data-a='s:${c}'>-all</button></span></div>`;
+  lp.innerHTML=h+`<div class='row'><span><button data-a='outf'>Outfitter</button><button data-a='yard'>Shipyard</button><button data-a='off'>Take off</button></span></div><div class='row' style='margin-top:28px'><span class='sub'>Game</span><button data-a='game'>Menu</button></div></div>`; lp.hidden=false;
 }
 lp.addEventListener('click', e=>{
   const a=e.target.dataset&&e.target.dataset.a;
+  if (a && escOpen && a.startsWith('e:')) return escAct(a);
   if (a && boarding && a.startsWith('b:')) return boardAct(a);
   if(!a||!landed) return;
   const [k,c,x]=a.split(':');
   if (k==='game') return openMenu('main');
   if (['outf','back','slot','inst','rem','convp','convm','yard','buyship','info','mar'].includes(k)) return outAct(k,c,x);
   if(k==='off'){ landed=null; lp.hidden=true; document.body.classList.remove('maponly'); cacheGame(); return; }
-  if(k==='fuel1'||k==='fuelF'){ const n=k==='fuel1'?1:FUEL_MAX-fuel; for(let i=0;i<n&&fuel<FUEL_MAX&&credits>=FUEL_PRICE;i++){ fuel++; credits-=FUEL_PRICE; } }
-  else if(k==='s'){ credits+=cargo[c]*price(landed,c); cargo[c]=0; }
-  else { const n=k==='b5'?5:1, pr=price(landed,c); for(let i=0;i<n&&used()<CARGO_MAX&&credits>=pr;i++){ cargo[c]++; credits-=pr; } }
+  if(k==='fuel1'||k==='fuelF'){ fuel=Math.floor(fuel); const n=k==='fuel1'?1:FUEL_MAX-fuel; for(let i=0;i<n&&fuel<FUEL_MAX&&credits>=FUEL_PRICE;i++){ fuel++; credits-=FUEL_PRICE; } }
+  else if(k[0]==='s'){ const q=Math.min(k==='s1'?1:k==='s5'?5:1e9,cargo[c]); credits+=q*price(landed,c); cargo[c]-=q; }
+  else { const n=k==='b5'?5:k==='bF'?1e9:1, pr=price(landed,c); for(let i=0;i<n&&used()<CARGO_MAX&&credits>=pr;i++){ cargo[c]++; credits-=pr; } }
   renderLand();
 });
+function escRender(){
+  const E=escorts(), T={attack:'roam far and hunt hostiles',defend:'hold formation, fight nearby foes',passive:'follow and never fire'}, bc=bayCap();
+  lp.innerHTML=`<div class='in'><h2>Escorts</h2><div class='sub'>${escCount()}/${MAX_ESCORTS} · Order: ${order} · Bays ${dockUsed()}/${bc} · Hold ${used()}/${CARGO_MAX} (escort holds included)</div>`+
+    Object.keys(T).map(o=>`<div class='row'><span>${cap(o)}: ${T[o]}</span><button data-a='e:${o}'${order===o?' disabled':''}>Set</button></div>`).join('')+
+    `<div class='row'><span>${bc?'Bays hold small ships (mass 100 or less; Lattice drones take half a space) within range':'No hangar bay. Carriers have them; other large ships can fit one in the outfitter'}</span><button data-a='e:dk'${bc?'':' disabled'}>${docked.length?'Deploy all':'Dock all'}</button></div>`+
+    E.map((e,k)=>`<div class='row'><span>${e.d.name} ${Math.round(100*e.ar/e.d.armor)}% armor</span><button data-a='e:d:${k}'>Dismiss</button></div>`).join('')+
+    docked.map((e,k)=>`<div class='row'><span>${SHIPS[e.id].name} (docked)</span><button data-a='e:dd:${k}'>Dismiss</button></div>`).join('')+`<div class='row'><button data-a='e:x'>Close</button></div></div>`; lp.hidden=false;
+}
+function escAct(a){ const [,c,k]=a.split(':');
+  if (c==='x'){ escOpen=false; lp.hidden=true; document.body.classList.remove('maponly'); return; }
+  if (c==='dk'){ if (docked.length) deploy(99); else escorts().filter(e=>canDock(e.d.id)&&dist(e,player)<500).forEach(e=>{ if (dockUsed()+slotSize(e.d.id)<=bayCap()) dockEscort(e); }); }
+  else if (c==='dd') docked.splice(+k,1);
+  else if (c==='d'){ const e=escorts()[+k]; if (e) e.dead=true; } else order=c;
+  escRender();
+}
+document.getElementById('esc').addEventListener('pointerdown', () => { if (landed||boarding||mapOpen||player.dead) return; escOpen=true; stick.id=null; fireUp(); document.body.classList.add('maponly'); escRender(); });
 function pickNode(x,y){
   let best=null, bd=40;
   for (const k of SYSTEMS[sysId].links){ const p=mapPos(SYSTEMS[k]), h=Math.hypot(p.x-x,p.y-y); if (h<bd){ bd=h; best=k; } }
@@ -587,7 +643,7 @@ function tryJump(){
   if (!dest) return toast('Open the map and pick a linked system');
   if (fuel<1) return toast('Out of fuel. Land on a world to refuel');
   if (Math.hypot(player.x,player.y)<JUMP_R) return toast('Fly outside the dashed ring to jump');
-  jumpT=1.2;
+  { const f=SYSTEMS[sysId], t=SYSTEMS[dest]; jumpA=Math.atan2(t.y-f.y,t.x-f.x); jumpT=1.2; }
 }
 function doJump(){
   const from=SYSTEMS[sysId], to=SYSTEMS[dest];
@@ -641,7 +697,7 @@ function stepShip(s,dt){
     if (i.fire && s.cd[n]<=0){
       s.cd[n]=w.cd;
       shots.push({ x:s.x+c*w.off[0]-sn*w.off[1], y:s.y+sn*w.off[0]+c*w.off[1],
-        vx:s.vx+c*w.speed, vy:s.vy+sn*w.speed, life:w.life, dmg:w.dmg, team:s.team, src:s, c:w.color });
+        vx:s.vx+c*w.speed, vy:s.vy+sn*w.speed, life:w.life, dmg:w.dmg, sm:w.shieldMul||1, am:w.armorMul||1, team:s.team, src:s, c:w.color });
     }
   });
 }
@@ -652,13 +708,13 @@ function hostile(a,b){
   if (fa==='pirate') return fb!=='pirate';
   if (fb==='pirate') return true;
   if (!fa) return false;
-  if (!fb) return standing[fa]<=-25 || !!a.angry;
+  if (!fb) return eff(fa)<=-25 || !!a.angry;
   return fa!==fb && pv(fa,fb)<=-50;
 }
 function pickTarget(s,range){
   let best=null, bd=range;
   for (const t of ships){ if(t===s||t.dead||t.disabled) continue;
-    if (s.escort ? (t.escort||t===player||!hostile(t,player)||dist(t,player)>900) : !hostile(s,t)) continue;   // escorts attack whatever is hostile to you
+    if (s.escort ? (t.escort||t===player||!hostile(t,player)||dist(t,player)>(order==='attack'?1800:900)) : !hostile(s,t)) continue;   // escorts attack whatever is hostile to you
     const d=Math.hypot(t.x-s.x,t.y-s.y); if(d<bd){ bd=d; best=t; } }
   return best;
 }
@@ -712,18 +768,19 @@ function fight(s,foe){
   i.aim=ang; i.thrust=dd>240?1:(dd<110?0:0.35); i.fire=dd<430&&Math.abs(angDiff(s.a,ang))<0.12;
 }
 function thinkEscort(s){
-  const i=s.in, foe=pickTarget(s,700);
+  const i=s.in, K=order==='attack'?4:1, foe=order==='passive'?null:pickTarget(s,order==='attack'?1400:700);
   if (foe && s.d.weapons.length) return fight(s,foe);
-  const O=[[-90,80],[-90,-80],[-170,0],[-170,150],[-170,-150]][Math.max(0,escorts().indexOf(s))%5], c=Math.cos(player.a), sn=Math.sin(player.a);   // formation slot behind you
-  const ex=player.x+c*O[0]-sn*O[1]-s.x+(player.vx-s.vx)*0.8, ey=player.y+sn*O[0]+c*O[1]-s.y+(player.vy-s.vy)*0.8, m=Math.hypot(ex,ey);
+  const O=[[-90,80],[-90,-80],[-170,0],[-170,150],[-170,-150],[-250,80],[-250,-80],[-250,0]][Math.max(0,escorts().indexOf(s))%8], c=Math.cos(player.a), sn=Math.sin(player.a);   // formation slot behind you
+  const ex=player.x+K*(c*O[0]-sn*O[1])-s.x+(player.vx-s.vx)*0.8, ey=player.y+K*(sn*O[0]+c*O[1])-s.y+(player.vy-s.vy)*0.8, m=Math.hypot(ex,ey);
   if (m>45){ i.aim=Math.atan2(ey,ex); i.thrust=Math.min(1,m/160); } else { i.aim=player.a; i.thrust=0; }
 }
 function boom(s){ s.dead=true; for(let k=0;k<36;k++){ const a=rnd(0,6.28), v=rnd(30,220); parts.push({x:s.x,y:s.y,vx:s.vx*.5+Math.cos(a)*v,vy:s.vy*.5+Math.sin(a)*v,life:rnd(.4,.9),max:.9,c:k%2?'#ffb347':'#cfe8f0'}); } }
+const ECON = 7.9;   // credit scale applied to loot and scrap so they keep pace with prices
 function makeLoot(s){
   const cg=(SHIP_DB[s.d.id]||{}).cargo||0, keys=Object.keys(COMM), L={credits:0,cargo:{}};
-  if (s.role==='trader'){ let left=Math.round(cg*rnd(0.3,0.8)); keys.slice().sort(()=>Math.random()-.5).slice(0,2).forEach(k=>{ const q=Math.round(left*rnd(0.3,0.7)); L.cargo[k]=q; left-=q; }); L.credits=Math.round(rnd(60,260)*(1+cg/100)); }
-  else if (s.role==='patrol') L.credits=Math.round(rnd(120,420));
-  else { L.credits=Math.round(rnd(100,350)); L.cargo[keys[Math.floor(rnd(0,keys.length))]]=Math.round(rnd(0,8)); }
+  if (s.role==='trader'){ let left=Math.round(cg*rnd(0.3,0.8)); keys.slice().sort(()=>Math.random()-.5).slice(0,2).forEach(k=>{ const q=Math.round(left*rnd(0.3,0.7)); L.cargo[k]=q; left-=q; }); L.credits=Math.round(rnd(60,260)*(1+cg/100)*ECON); }
+  else if (s.role==='patrol') L.credits=Math.round(rnd(120,420)*ECON);
+  else { L.credits=Math.round(rnd(100,350)*ECON); L.cargo[keys[Math.floor(rnd(0,keys.length))]]=Math.round(rnd(0,8)); }
   return L;
 }
 // Balance: defenders come from the target's bunks (a bigger ship has far more crew); the odds are steep in marines/defenders,
@@ -734,7 +791,7 @@ const takeChance = s => { const x=marines/crewOf(s), x2=x*x; return 0.95*x2/(1+x
 const pctTxt = p => p<0.01 ? '<1%' : Math.round(p*100)+'%';
 const lootScale = s => Math.max(0.15, Math.min(1, Math.sqrt(massOf(frameId)/massOf(s.d.id))));   // small ship vs big target < 1, never above 1
 const lootPct = s => (0.2+0.01*Math.min(marines,10))*lootScale(s);                              // 20% base, up to 30% with marines, then scaled
-function penalize(s,n){ if (s.fac && !FACTIONS[s.fac].outlaw) standing[s.fac]=Math.max(-100,standing[s.fac]-n); }
+function penalize(s,n){ if (s.fac && !FACTIONS[s.fac].outlaw) addRep(s.fac,-n); }
 function trimCargo(){ while (used()>cargoMax()){ const k=Object.keys(cargo).sort((a,b)=>cargo[b]-cargo[a])[0]; cargo[k]--; } }
 function closeBoard(){ boarding=null; lp.hidden=true; document.body.classList.remove('maponly'); }
 function tryBoard(){
@@ -743,21 +800,21 @@ function tryBoard(){
   s.loot = s.loot || makeLoot(s); boarding={ s, phase:'main', msg:'' }; document.body.classList.add('maponly'); renderBoard();
 }
 function renderBoard(){
-  const {s,phase,msg}=boarding, esc=escorts().length;
+  const {s,phase,msg}=boarding, esc=escCount();
   let h=`<div class='in'><h2>Boarding: ${s.fac?FACTIONS[s.fac].name+' ':''}${s.d.name}</h2><div class='sub'>Defenders about ${crewOf(s)} · Your marines ${marines}/${FRAME.bunks}</div>`;
   if (msg) h+=`<div class='sub' style='color:#ffb347'>${msg}</div>`;
   if (phase==='main'){
     h+=`<div class='row'><span>Loot: take about ${pctTxt(lootPct(s))} of its cargo and credits${lootScale(s)<1?' (your ship is small for this target)':''}. The ship is scuttled afterwards, so you can't commandeer it</span><button data-a='b:loot'>Loot</button></div>`+
        `<div class='row'><span>Commandeer: ${marines?pctTxt(takeChance(s))+' chance. Failure scuttles the ship and damages yours':'you need marines'}</span><button data-a='b:cmd'${marines?'':' disabled'}>Commandeer</button></div>`;
   } else {
-    const canFly=!!FRAMES[s.d.id], full=esc>=MAX_ESCORTS;
+    const canFly=!!FRAMES[s.d.id], full=esc+slotSize(s.d.id)>MAX_ESCORTS, fullF=esc+slotSize(frameId)>MAX_ESCORTS;
     h+=`<div class='row'><span>Take it as an escort (${esc}/${MAX_ESCORTS})</span><button data-a='b:esc'${full?' disabled':''}>Escort</button></div>`+
-       `<div class='row'><span>${canFly?'Fly it yourself. '+(full?'Your current ship will be sold.':'Your current ship becomes an escort.'):'This hull is too unusual to fly yourself'}</span><button data-a='b:main'${canFly?'':' disabled'}>Fly it</button></div>`+
+       `<div class='row'><span>${canFly?'Fly it yourself. '+(fullF?'Your current ship will be sold.':'Your current ship becomes an escort.'):'This hull is too unusual to fly yourself'}</span><button data-a='b:main'${canFly?'':' disabled'}>Fly it</button></div>`+
        `<div class='row'><span>Strip it for parts (+${scrapValue(s)} credits)</span><button data-a='b:scrap'>Scrap</button></div>`;
   }
   lp.innerHTML=h+(phase==='main'?`<div class='row'><button data-a='b:leave'>Leave</button></div>`:'')+`</div>`; lp.hidden=false;
 }
-const scrapValue = s => Math.round(((FRAMES[s.d.id]&&FRAMES[s.d.id].price)||400)*0.25);
+const scrapValue = s => Math.round(((FRAMES[s.d.id]&&FRAMES[s.d.id].price)||400*ECON)*0.25);
 function boardAct(a){
   const c=a.split(':')[1], B=boarding, s=B.s;
   if (c==='leave') return closeBoard();
@@ -773,11 +830,11 @@ function boardAct(a){
       let n=dmg; const ab=Math.min(player.sh,n); player.sh-=ab; n-=ab; player.ar-=Math.min(n,player.ar*0.6);   // the scuttling can't kill you outright
       boom(s); closeBoard(); toast('Commandeering failed! The crew scuttled the ship: '+dmg+' damage, '+lost+' marines lost'); return;
     }
-  } else if (c==='esc' && escorts().length<MAX_ESCORTS){
+  } else if (c==='esc' && escCount()+slotSize(s.d.id)<=MAX_ESCORTS){
     Object.assign(s,{ escort:true, disabled:false, team:0, role:'escort', angry:false, loot:null, ar:Math.max(s.ar,s.d.armor*0.3) }); delete s.fac; s.tgt=null;
     closeBoard(); toast(s.d.name+' joins your fleet'); return;
   } else if (c==='main' && FRAMES[s.d.id]){
-    const old=frameId, oldAr=player.ar, full=escorts().length>=MAX_ESCORTS, outfits=Object.values(loadout).flat().filter(Boolean).reduce((t,k)=>t+OUT[k].price,0);
+    const old=frameId, oldAr=player.ar, full=escCount()+slotSize(old)>MAX_ESCORTS, outfits=Object.values(loadout).flat().filter(Boolean).reduce((t,k)=>t+OUT[k].price,0);
     credits+=Math.round(0.7*outfits); if (full) credits+=Math.round(0.7*FRAMES[old].price);
     setFrame(s.d.id); player.ar=Math.min(player.d.armor,s.ar); player.sh=Math.min(player.d.shield,s.sh);   // the captured hull comes with its battle damage
     if (!full){ const e=mk(old,player.x-80,player.y,true); Object.assign(e,{ escort:true, team:0, role:'escort', col:SHIPS[old].color, a:player.a, vx:player.vx, vy:player.vy, ar:Math.min(oldAr,SHIPS[old].armor) }); ships.push(e); }
@@ -795,26 +852,26 @@ function hitShip(s,x0,y0,x1,y1){
   for (let i=0;i<=n;i++){ const dx=x0+(x1-x0)*i/n-s.x, dy=y0+(y1-y0)*i/n-s.y; if (inPoly(s.d.shape, dx*c+dy*sn, -dx*sn+dy*c)) return true; }
   return false;
 }
-function damage(s,n,src){
+function damage(s,n,src,sm=1,am=1){
   if (src===player && s.fac && !s.angry && !hostile(s,player)){
-    standing[s.fac]=Math.max(-100,standing[s.fac]-8);
+    addRep(s.fac,-8);
     Object.keys(standing).forEach(f => { if(f!==s.fac && pv(f,s.fac)<=-50) standing[f]=Math.min(100,standing[f]+2); });
     ships.forEach(o => { if(o.fac===s.fac) o.angry=true; });
     toast('Attacking '+FACTIONS[s.fac].name+' costs you standing');
   }
   s.hit=0.25;
-  if (s.sh>0){ const a=Math.min(s.sh,n); s.sh-=a; n-=a; }
-  s.ar-=n;
+  if (s.sh>0){ const a=Math.min(s.sh,n*sm); s.sh-=a; n-=a/sm; }   // ion weapons hit shields harder, armor softer
+  s.ar-=n*am;
   const frail = s===player || s.escort, floor = frail ? 0 : s.d.armor*DESTROY_AT;   // other ships can be disabled (10%..0% armor) before they are destroyed
   if (!frail && !s.disabled && s.ar>floor && s.ar<=s.d.armor*DISABLE_AT){ s.disabled=true; s.in.thrust=0; s.in.fire=false; s.in.aim=null; if (src===player||src&&src.escort) toast(s.d.name+' is disabled. Close in to board it'); }
   if (s.ar<=floor && !s.dead){
     s.dead=true;
     for(let k=0;k<36;k++){ const a=rnd(0,6.28), v=rnd(30,220); parts.push({x:s.x,y:s.y,vx:s.vx*.5+Math.cos(a)*v,vy:s.vy*.5+Math.sin(a)*v,life:rnd(.4,.9),max:.9,c:k%2?'#ffb347':'#cfe8f0'}); }
-    if (s.team===1){ spawnT=3; if(src===player){ kills++; const o=sysOwner(sysId); if(!FACTIONS[o].outlaw) standing[o]=Math.min(100,standing[o]+2); } } else if (s===player) respawnT=2.2; else if (s.fac && src===player) standing[s.fac]=Math.max(-100,standing[s.fac]-5);
+    if (s.team===1){ spawnT=3; if(src===player){ kills++; const o=sysOwner(sysId); if(!FACTIONS[o].outlaw) addRep(o,2); } } else if (s===player) respawnT=2.2; else if (s.fac && src===player) addRep(s.fac,-5);
   }
 }
 function update(dt){
-  if (mapOpen || landed || boarding) return;
+  if (mapOpen || landed || boarding || escOpen) return;
   msgT-=dt; flash=Math.max(0,flash-dt*1.5);
   if (jumpT>0){ jumpT-=dt; if(jumpT<=0) doJump(); }
   nearP=null; if(!player.dead) for(const p of SYSTEMS[sysId].planets) if(Math.hypot(player.x-p.x,player.y-p.y)<p.r+70) nearP=p;
@@ -822,15 +879,19 @@ function update(dt){
   landB.textContent = boardS ? 'Board' : 'Land'; landB.classList.toggle('show',!!(nearP||boardS));
   if ((popT-=dt)<=0){ popT=12; fillTraffic(false); }
   time+=dt;
-  if (player.dead){ respawnT-=dt; if(respawnT<=0){ spawnPlayer(); } } else readInput();
+  { const m=cargoMax(); if (m!==CARGO_MAX){ CARGO_MAX=m; if (used()>m){ trimCargo(); toast('Cargo lost with an escort'); } } }
+  fuel=Math.min(FUEL_MAX,fuel+dt*loadout.utility.filter(Boolean).reduce((a,k)=>a+(OUT[k].fuelRate||0),0));
+  if (player.dead){ respawnT-=dt; if(respawnT<=0){ spawnPlayer(); } } else { readInput(); if (jumpT>0){ const i=player.in; i.aim=jumpA; i.thrust=0; i.fire=false; } }   // jump: swing the nose round to the jump heading
   if (ships.filter(s=>s.team===1).length<SYSTEMS[sysId].danger && (spawnT-=dt)<=0){ spawnT=4;
     const a=rnd(0,6.28); ships.push(mk('raider',player.x+Math.cos(a)*750,player.y+Math.sin(a)*750,true));
   }
   ships.forEach(s => { if(s.ai) think(s); stepShip(s,dt); });
+  if (jumpT>0 && !player.dead){ const k=1-jumpT/1.2, sp=200+2600*k*k; if (Math.abs(angDiff(player.a,jumpA))<0.5){ player.x+=Math.cos(jumpA)*sp*dt; player.y+=Math.sin(jumpA)*sp*dt;
+    for (let n=0;n<3;n++) parts.push({x:player.x-Math.cos(jumpA)*rnd(0,60)+rnd(-8,8),y:player.y-Math.sin(jumpA)*rnd(0,60)+rnd(-8,8),vx:-Math.cos(jumpA)*sp*.5,vy:-Math.sin(jumpA)*sp*.5,life:.3,max:.3,c:'#6fe3c1'}); } }   // accelerate along the heading, trailing streaks
   shots.forEach(b => {
     const px=b.x, py=b.y; b.x+=b.vx*dt; b.y+=b.vy*dt; b.life-=dt;
     for (const s of ships) if (s!==b.src && !s.dead && shotOk(b.src,s) && hitShip(s,px,py,b.x,b.y)){
-      b.life=0; damage(s,b.dmg,b.src);
+      b.life=0; damage(s,b.dmg,b.src,b.sm,b.am);
       for(let k=0;k<4;k++) parts.push({x:b.x,y:b.y,vx:rnd(-80,80),vy:rnd(-80,80),life:.25,max:.25,c:b.c});
       break;
     }
@@ -889,7 +950,7 @@ function draw(){
   g.fillText('Shield', left, top); bar(left+52,top+3,110,player.sh/player.d.shield,'#6fe3c1');
   g.fillText('Armor', left, top+16); bar(left+52,top+19,110,player.ar/player.d.armor,'#ffb347');
   g.fillText('Fuel', left, top+32); bar(left+52,top+35,110,fuel/FUEL_MAX,'#cfe8f0');
-  g.fillText('Credits '+credits+'  Cargo '+used()+'/'+CARGO_MAX, left, top+50); g.fillText('Marines '+marines+'/'+FRAME.bunks+'  Escorts '+escorts().length+'/'+MAX_ESCORTS+'  Kills '+kills, left, top+64);
+  g.fillText('Credits '+credits+'  Cargo '+used()+'/'+CARGO_MAX, left, top+50); g.fillText('Marines '+marines+'/'+FRAME.bunks+'  Escorts '+escCount()+'/'+MAX_ESCORTS+'  Kills '+kills, left, top+64);
   if (t){
     g.fillText((t.fac?FACTIONS[t.fac].name+' ':'')+t.d.name+(t.disabled?' (disabled)':hostile(t,player)?' (hostile)':''), left, top+86); bar(left,top+104,162,t.sh/t.d.shield,'#6fe3c1'); bar(left,top+114,162,t.ar/t.d.armor,'#ff7b7b');
     const sx=W/2+(t.x-cam.x)*Z, sy=H/2+(t.y-cam.y)*Z;
@@ -921,7 +982,7 @@ function draw(){
 function drawOverlays(){
   g.setTransform(DPR,0,0,DPR,0,0); g.textBaseline='top'; g.textAlign='center'; g.font='600 13px system-ui,sans-serif';
   const top=SAFE_T+16;
-  const o=sysOwner(sysId), kn=sysKnown(sysId); g.fillStyle=kn?FACTIONS[o].c:'#7f9bb0'; g.fillText(SYSTEMS[sysId].name+' · '+(kn?FACTIONS[o].name+' ('+band(standing[o])+')':'Unsurveyed')+(dest?'  to  '+SYSTEMS[dest].name:''), W/2, top);
+  const o=sysOwner(sysId), kn=sysKnown(sysId); g.fillStyle=kn?FACTIONS[o].c:'#7f9bb0'; g.fillText(SYSTEMS[sysId].name+' · '+(kn?FACTIONS[o].name+' ('+band(eff(o))+')':'Unsurveyed')+(dest?'  to  '+SYSTEMS[dest].name:''), W/2, top);
   if (msgT>0){ g.fillStyle='#ffb347'; g.fillText(msg, W/2, top+20); }
   const fa = jumpT>0 ? 1-jumpT/1.2 : flash;
   if (fa>0){ g.fillStyle='rgba(207,232,240,'+fa+')'; g.fillRect(0,0,W,H); }
@@ -947,10 +1008,10 @@ function drawMap(){
   });
   g.textAlign='left'; g.font='600 12px system-ui,sans-serif';
   const by=H-(parseFloat(root.paddingBottom)||0)-20-LEG.length*18;
-  LEG.forEach((f,i) => { g.fillStyle=FACTIONS[f].c; g.fillRect(16,by+i*18+2,10,10); g.fillStyle='#cfe8f0'; g.fillText(FACTIONS[f].name+'  '+band(standing[f])+' ('+standing[f]+')',34,by+i*18); });
+  LEG.forEach((f,i) => { g.fillStyle=FACTIONS[f].c; g.fillRect(16,by+i*18+2,10,10); g.fillStyle='#cfe8f0'; g.fillText(FACTIONS[f].name+'  '+band(standing[f])+' ('+Math.round(standing[f])+')',34,by+i*18); });
   zbtns().forEach(b => { g.fillStyle='rgba(20,32,56,.9)'; g.strokeStyle='#4a6078'; g.lineWidth=2; g.beginPath(); g.arc(b.x,b.y,20,0,6.29); g.fill(); g.stroke(); g.fillStyle='#cfe8f0'; g.font='600 20px system-ui,sans-serif'; g.textAlign='center'; g.fillText(b.t,b.x,b.y+7); });
   g.textAlign='left'; g.font='600 12px system-ui,sans-serif';
-  g.fillStyle='#7f9bb0'; g.fillText('Fuel '+fuel+'/'+FUEL_MAX+'   Credits '+credits, 16, by-20);
+  g.fillStyle='#7f9bb0'; g.fillText('Fuel '+Math.floor(fuel)+'/'+FUEL_MAX+'   Credits '+credits, 16, by-20);
   g.textAlign='center';
 }
 let last=performance.now(), acc=0;
@@ -963,7 +1024,7 @@ const SAVE_V = 1, gp = document.getElementById('gp'); let started = false;   // 
 function makeSave(){
   return { game:'starfall', v:SAVE_V, contentVersion:CONTENT.version, seed:SEED, savedAt:new Date().toISOString(), state:{
     sysId, dest, fuel, credits, kills, time:Math.round(time), conv, cargo:{...cargo}, frameId, loadout:JSON.parse(JSON.stringify(loadout)),
-    standing:{...standing}, known:[...known], questState:{...questState}, landed:landed?landed.id:null, marines, escorts:escorts().map(e=>({ id:e.d.id, ar:Math.round(e.ar), sh:Math.round(e.sh) })),
+    standing:{...standing}, localRep:{...localRep}, docked:docked.map(e=>({...e})), known:[...known], questState:{...questState}, landed:landed?landed.id:null, marines, escorts:escorts().map(e=>({ id:e.d.id, ar:Math.round(e.ar), sh:Math.round(e.sh) })),
     player:{ x:player.x, y:player.y, vx:player.vx, vy:player.vy, a:player.a, sh:player.sh, ar:player.ar } } };
 }
 function applySave(d){   // returns null on success, otherwise a message for the player
@@ -988,6 +1049,7 @@ function applySave(d){   // returns null on success, otherwise a message for the
     frameId=S.frameId; FRAME=frameConf(frameId); conv=Math.min(FRAME.convMax,Math.max(0,+S.conv||0));
     for (const t in loadout){ loadout[t]=S.loadout[t].slice(); while (loadout[t].length<FRAME.slots[t]) loadout[t].push(null); }
     for (const k in standing) if (typeof S.standing?.[k]==='number') standing[k]=S.standing[k];
+    for (const k in localRep) delete localRep[k]; Object.assign(localRep,S.localRep||{});
     known.clear(); (S.known||[]).forEach(id => { if (UNI.planets[id]) known.add(id); });
     for (const k in questState) delete questState[k]; Object.assign(questState, S.questState||{});
     ships=[]; shots=[]; parts=[]; jumpT=0; spawnT=2; respawnT=0; spawnPlayer();
@@ -995,7 +1057,8 @@ function applySave(d){   // returns null on success, otherwise a message for the
     if (P.sh!=null) player.sh=Math.min(player.d.shield,Math.max(1,+P.sh)); if (P.ar!=null) player.ar=Math.min(player.d.armor,Math.max(1,+P.ar));
     cam.x=player.x; cam.y=player.y; popT=12; fillTraffic(true);
     marines=Math.min(FRAME.bunks||0,Math.max(0,Math.floor(+S.marines||0))); boarding=null; boardS=null;
-    (S.escorts||[]).slice(0,MAX_ESCORTS).forEach((e,k) => { if (!SHIPS[e.id]) return; const o=mk(e.id,player.x-100-k*50,player.y,true);
+    docked.length=0; (S.docked||[]).forEach(e=>{ if (SHIPS[e.id]) docked.push({id:e.id,ar:+e.ar||SHIPS[e.id].armor,sh:+e.sh||0}); }); while (docked.length && dockUsed()>bayCap()) docked.pop();
+    (S.escorts||[]).slice(0,MAX_ESCORTS*2).forEach((e,k) => { if (!SHIPS[e.id]) return; const o=mk(e.id,player.x-100-k*50,player.y,true);
       Object.assign(o,{ escort:true, team:0, role:'escort', col:SHIPS[e.id].color, a:player.a }); o.ar=Math.min(o.d.armor,+e.ar||o.d.armor); o.sh=Math.min(o.d.shield,+e.sh||0); ships.push(o); });
     mapOpen=false; mapB.textContent='Map'; document.body.classList.remove('maponly');
     landed=null; lpView='main'; lpInfo=null; outSel=null; lp.hidden=true;
