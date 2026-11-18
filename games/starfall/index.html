@@ -282,7 +282,7 @@ const localRep = {};   // per-system standing offset: easy to lose, easy to rega
 const eff = (f,sys=sysId) => Math.max(-100,Math.min(100,standing[f]+(localRep[sys]||0)));
 function addRep(f,n,sys=sysId){ if (n<0){ localRep[sys]=Math.max(-60,(localRep[sys]||0)+n); standing[f]=Math.max(-100,standing[f]+n*0.35); } else { localRep[sys]=Math.min(30,(localRep[sys]||0)+n); standing[f]=Math.min(100,standing[f]+n*0.5); } }
 const band = v => v<=-25?'Hostile':v>=60?'Allied':v>=25?'Friendly':'Neutral';
-const COMM = Object.fromEntries(CONTENT.commodities.map(c=>[c.id,c.base])), FUEL_MAX=6, FUEL_PRICE=2000;
+const COMM = Object.fromEntries(CONTENT.commodities.map(c=>[c.id,c.base])), FUEL_MAX=6, FUEL_PRICE=200;
 let CARGO_MAX=20;
 const hs = s => { let h=0; for(const ch of s) h=(h*31+ch.charCodeAt(0))%997; return h/997; };
 const PATROL = Object.fromEntries(CONTENT.factions.map(f=>[f.id,f.patrol?f.id+'_'+f.patrol:null]));
