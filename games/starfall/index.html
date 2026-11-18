@@ -320,22 +320,22 @@ function setFrame(id){
 }
 const shipValue = () => Math.round(0.7*(FRAMES[frameId].price+Object.values(loadout).flat().filter(Boolean).reduce((a,k)=>a+OUT[k].price,0)));
 const OUT = {
-  blaster:{ name:'Blaster', type:'weapon', tech:1, mass:8, price:0, w:{ dmg:8, speed:520, life:0.9, cd:0.22, color:'#ffb347' } },
-  pulse:  { name:'Pulse gun', type:'weapon', tech:2, mass:10, price:31600, w:{ dmg:4, speed:560, life:0.8, cd:0.11, color:'#6fe3c1' } },
-  cannon: { name:'Cannon', type:'weapon', tech:3, mass:16, price:71100, w:{ dmg:20, speed:480, life:1.1, cd:0.6, color:'#ff7b7b' } },
+  blaster:{ name:'Blaster', type:'weapon', tech:1, mass:8, price:5000, w:{ dmg:8, speed:500, life:0.7, cd:0.22, color:'#ffb347' } },
+  pulse:  { name:'Pulse gun', type:'weapon', tech:2, mass:10, price:32500, w:{ dmg:4, speed:580, life:0.6, cd:0.11, color:'#6fe3c1' } },
+  cannon: { name:'Cannon', type:'weapon', tech:3, mass:16, price:50000, w:{ dmg:20, speed:480, life:1.1, cd:0.6, color:'#ff7b7b' } },
   // Add-ons modify the ship's base engine performance. thrust/turn/speed are fractional bonuses (0.25 = +25%) and add together.
-  retune: { name:'Engine retune', type:'addon', tech:1, mass:4,  price:23700, thrust:0.08, turn:0.08, speed:0.05 },
-  jets:   { name:'Maneuvering jets', type:'addon', tech:2, mass:6,  price:35550, turn:0.25 },
-  burner: { name:'Afterburner', type:'addon', tech:2, mass:10, price:47400, thrust:0.25, speed:0.15 },
-  injector:{ name:'Ion injector', type:'addon', tech:3, mass:14, price:71100, thrust:0.30, turn:0.10, speed:0.25 },
-  ioncan: { name:'Ion cannon', type:'weapon', tech:3, mass:12, price:63200, w:{ dmg:9, speed:500, life:1, cd:0.3, color:'#6fb5e3', shieldMul:2.5, armorMul:0.4 } },
-  solar:  { name:'Solar panels', type:'utility', tech:1, mass:6, price:27650, fuelRate:0.004 },
-  fission:{ name:'Fission reactor', type:'utility', tech:3, mass:100, price:86900, fuelRate:0.012 },
-  fusion: { name:'Fusion reactor', type:'utility', tech:4, mass:200, price:205400, fuelRate:0.04 },
-  cell:   { name:'Shield cell', type:'utility', tech:2, mass:8, price:39500, shield:30, regen:3 },
+  retune: { name:'Engine retune', type:'addon', tech:1, mass:4,  price:20000, thrust:0.08, turn:0.08, speed:0.05 },
+  jets:   { name:'Maneuvering jets', type:'addon', tech:2, mass:6,  price:35000, turn:0.25 },
+  burner: { name:'Afterburner', type:'addon', tech:2, mass:10, price:50000, thrust:0.25, speed:0.15 },
+  injector:{ name:'Ion injector', type:'addon', tech:3, mass:14, price:75000, thrust:0.30, turn:0.10, speed:0.25 },
+  ioncan: { name:'Ion cannon', type:'weapon', tech:3, mass:12, price:25000, w:{ dmg:9, speed:500, life:1, cd:0.3, color:'#6fb5e3', shieldMul:2.5, armorMul:0.4 } },
+  solar:  { name:'Solar panels', type:'utility', tech:1, mass:6, price:10000, fuelRate:0.004 },
+  fission:{ name:'Fission reactor', type:'utility', tech:3, mass:100, price:125000, fuelRate:0.012 },
+  fusion: { name:'Fusion reactor', type:'utility', tech:4, mass:200, price:200000, fuelRate:0.04 },
+  cell:   { name:'Shield cell', type:'utility', tech:2, mass:8, price:25000, shield:30, regen:3 },
   bay:    { name:'Hangar bay', type:'utility', tech:2, mass:60, price:200000, bays:1 },
-  pod:    { name:'Cargo pod', type:'utility', tech:1, mass:6, price:23700, cargo:10 },
-  plate:  { name:'Armor plating', type:'hull', tech:2, mass:12, price:35550, armor:40 }
+  pod:    { name:'Cargo pod', type:'utility', tech:1, mass:6, price:5000, cargo:10 },
+  plate:  { name:'Armor plating', type:'hull', tech:2, mass:12, price:10000, armor:40 }
 };
 const loadout = Object.fromEntries(['weapon','addon','utility','hull'].map(t => [t, Array(FRAME.slots[t]).fill(null)])); loadout.weapon[0]='blaster';
 let conv = 0, marines = 0;   // marines live in ship bunks; needed to commandeer, and they boost loot slightly
