@@ -7,3 +7,4 @@ Next Steps:
 - Add an option for hostile takeover of a planet (with secondary confirmation). This sets your reputation to bottom at that location and deploys a continuous(steady deployment of new ships) fleet from the planet to destroy you. If you manage to destroy all fleet ships without dying than the planet becomes yours and pays you a per jump tribute and sets to max friendliness. Size of fleet is related to tech level and if it is the capital or not. tribute is similarly computed. dying resets your reputation to hostile the fleet goes away.
 - Add an outfitter option that takes up no slot for a auto-fuel which auto buys fuel each time you land
 - Add an outfitter option that takes up no slot for a local star chart (planets up to 3 jumps away and gives affiliation)
+- Kills by escorts should count asyour kill.
