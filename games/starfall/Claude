@@ -5,3 +5,5 @@ Next Steps:
 - Bottom right is a bad place for the menu button on the planet landing screen instead put it in top left.
 - Add option to hire escort ships. this will subtract a certain amount from your credits each time you jump. If credits fall below maintenance level the escorts will auto dismiss with a message on the screen.
 - Add an option for hostile takeover of a planet (with secondary confirmation). This sets your reputation to bottom at that location and deploys a continuous(steady deployment of new ships) fleet from the planet to destroy you. If you manage to destroy all fleet ships without dying than the planet becomes yours and pays you a per jump tribute and sets to max friendliness. Size of fleet is related to tech level and if it is the capital or not. tribute is similarly computed. dying resets your reputation to hostile the fleet goes away.
+- Add an outfitter option that takes up no slot for a auto-fuel which auto buys fuel each time you land
+- Add an outfitter option that takes up no slot for a local star chart (planets up to 3 jumps away and gives affiliation)
