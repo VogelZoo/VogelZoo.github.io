@@ -386,7 +386,7 @@ const angDiff = (a,b) => { let d=b-a; while(d>Math.PI)d-=2*Math.PI; while(d<-Mat
 
 let ships=[], shots=[], parts=[], player, kills=0, time=0, spawnT=1, respawnT=0;
 let sysId=UNI.start, dest=null, mapOpen=false, jumpT=0, flash=0, msg='Fly close to a planet and tap Land', msgT=6;
-let fuel=5, credits=10000; const cargo=Object.fromEntries(Object.keys(COMM).map(k=>[k,0])); let popT=12;
+let fuel=5, credits=10000000; const cargo=Object.fromEntries(Object.keys(COMM).map(k=>[k,0])); let popT=12;
 const cam = {x:0,y:0};
 const stars = [0,1,2].map(l => Array.from({length:[60,45,30][l]}, () => [Math.random(),Math.random(),Math.random()]));
 const PAR = [0.12,0.3,0.55];
