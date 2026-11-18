@@ -1,15 +1,5 @@
 Next Steps:
-- Add ship bays with the ability to dock ships under a certain mass (small ships). Carrier has multiple by default, each bay can store a number of small ships, other large ships can buy one if needed but it takes too much mass for small ships.
-- large ships should allow more escorts, small ships limited number.
-- Add escort controls button (below and to right of radar) which should open a menu that gives options like dock (toggles to deploy), dismiss (remove an escort which allows you to choose one to remove), attack (sends ships roaming outwards farther), defend (stay in formation and attack nearby enemies) and passive (dont attack)
-- Allow to use escort cargo space (treat as part of your space but lose stored cargo if the ship is destroyed).
-- Add animation for jump showing ship turning and zooming in jump direction.
-- Add local and global reputation. Easier to lose local reputation and harder to lose faction reputation.
-- Add outfitter option for solar panels (very slowly recharges fuel), fission reactor (faster charge), fusion reactor (very fast charge)
-- Add option to set weapon positions on ship (similar to setting engine position)
-- Add an ion cannon that does more damage to shields and less to armor.
-- Edit buy and sell screen replace buttons with +1, +5, +fill, -1, -5, -all
-- Add more options on the buy sell screen (maybe 15 total), not all planets will buy or sell all items
-- Move menu button to distinct location on planet menu to make it more seperate.
-
+- All ships should have a mass (raiders wont dock as of now)
 - Different fuel amounts for different ships (small ships 3-4 jumps, large ships 10-20 jumps)
+- All ships must have an assigned cargo space (escorts currently throw a NaN for cargo space)
+- Bottom right is a bad place for the menu button on the planet landing screen instead put it in top left.
