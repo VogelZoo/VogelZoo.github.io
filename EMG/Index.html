@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EMG elbow monitor</title>
+<style>
+:root{
+  --bg:#eef1f4;--panel:#fbfcfd;--ink:#14202b;--mute:#5d6b78;--grid:#d5dce3;--line:#c3ccd5;
+  --bic:#0b6bcb;--tri:#d6336c;--cmd:#17803f;--limb:#cfd7de;--joint:#14202b;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1a24;--panel:#162330;--ink:#e6edf3;--mute:#8fa0b0;--grid:#25374a;--line:#2f4357;
+  --bic:#4da3ff;--tri:#ff6b9d;--cmd:#4cd08a;--limb:#3a4e61;--joint:#e6edf3;}}
+:root[data-theme="dark"]{
+  --bg:#0f1a24;--panel:#162330;--ink:#e6edf3;--mute:#8fa0b0;--grid:#25374a;--line:#2f4357;
+  --bic:#4da3ff;--tri:#ff6b9d;--cmd:#4cd08a;--limb:#3a4e61;--joint:#e6edf3;}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1200px;margin:0 auto;padding:14px 14px 28px}
+header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+h1{font-size:28px;margin:0;font-weight:650;letter-spacing:-.01em}
+.status{font-size:16px;color:var(--mute);display:flex;align-items:center;gap:6px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--cmd)}
+.dot.off{background:var(--mute)}
+.grid{display:grid;gap:12px}
+@media(min-width:820px){.grid{grid-template-columns:1.6fr 1fr}.arm{grid-row:span 2}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+h2{font-size:22px;margin:0 0 6px;font-weight:600}
+.eq{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:12px;font-size:24px;font-variant-numeric:tabular-nums}
+.eq small{display:block;font-size:16px;color:var(--mute);margin-bottom:4px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:17px;color:var(--mute);margin-bottom:6px}
+.legend b{color:var(--ink);font-variant-numeric:tabular-nums;font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:600}
+.sw{display:inline-block;width:14px;height:4px;border-radius:2px;vertical-align:middle;margin-right:6px}
+canvas{display:block;width:100%}
+#emg,#cmd{height:max(170px,23vh)}
+#armc{aspect-ratio:14/15;max-height:420px;margin:0 auto}
+.controls{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-top:12px}
+.controls label{font-size:16px;color:var(--mute);display:flex;flex-direction:column;gap:2px;min-width:130px;flex:1}
+.controls input[type=range]{width:100%;height:32px}
+button{font:inherit;font-size:17px;padding:12px 20px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+button.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--bic);outline-offset:2px}
+.fgrid{display:grid;gap:12px}
+@media(min-width:820px){.fgrid{grid-template-columns:1fr 1fr;align-items:center}}
+#fr{height:210px}
+.note{font-size:15px;color:var(--mute);margin:10px 0 0}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>EMG elbow monitor</h1>
+  <div class="status"><span class="dot" id="dot"></span><span id="status">Simulated input</span></div>
+</header>
+<div class="eq"><small>EMG is the tiny electrical signal a muscle makes when it tightens. The robot elbow bends by the difference between the two muscles.</small><span style="color:var(--bic)">Biceps <span id="eb">0</span>%</span> − <span style="color:var(--tri)">Triceps <span id="et">0</span>%</span> = <span id="en">0</span>% &rarr; <b>elbow <span id="ea">0</span>°</b></div>
+
+<div class="grid">
+  <section class="panel">
+    <h2>Muscle activity (EMG)</h2>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--bic)"></span>Biceps <b id="vb">0%</b></span>
+      <span><span class="sw" style="background:var(--tri)"></span>Triceps <b id="vt">0%</b></span>
+      <span id="rawkey" hidden>Faint lines: raw signal before filtering</span>
+    </div>
+    <canvas id="emg"></canvas>
+  </section>
+
+  <section class="panel arm">
+    <h2>Robot elbow</h2>
+    <div class="legend"><span>Joint angle <b id="va">0°</b></span><span id="phase">Extending</span></div>
+    <canvas id="armc"></canvas>
+  </section>
+
+  <section class="panel">
+    <h2>Command sent to the robot arm</h2>
+    <div class="legend"><span><span class="sw" style="background:var(--cmd)"></span>Elbow angle command <b id="vc">0°</b></span>
+      <span><span class="sw" style="background:var(--bic);opacity:.35"></span>Shaded: flexing</span><span><span class="sw" style="background:var(--tri);opacity:.35"></span>Shaded: extending</span></div>
+    <canvas id="cmd"></canvas>
+  </section>
+</div>
+
+<section class="panel" style="margin-top:12px"><h2>Band-pass filter</h2>
+  <div class="legend"><span>Muscle signal kept <b id="fk">0%</b></span><span>Motion drift passed <b id="fa">0%</b></span><span>Noise passed <b id="fn">0%</b></span></div>
+  <div class="fgrid"><canvas id="fr"></canvas>
+  <div class="controls" style="margin-top:0">
+    <label>Low cutoff (blocks slow drift): <span id="lflo">20 Hz</span><input type="range" id="flo" min="1" max="100" value="20"></label>
+    <label>High cutoff (blocks fast noise): <span id="lfhi">450 Hz</span><input type="range" id="fhi" min="120" max="1000" step="10" value="450"></label>
+    <label>Filter strength (order): <span id="lford">4</span><input type="range" id="ford" min="1" max="8" value="4"></label>
+    <button id="freset">Reset to 20–450 Hz</button>
+  </div></div>
+  <p class="note">Blue shape: where the muscle signal’s energy lies. Black line: how much of each frequency the filter lets through. Dashed pink: 60 Hz power-line hum. Surface EMG is usually filtered at 20–450 Hz.</p>
+</section>
+<section class="panel" style="margin-top:12px">
+  <div class="controls">
+    <button class="primary" id="play">Pause</button>
+    <label>Cycle length: <span id="lp">10 s</span><input type="range" id="period" min="5" max="20" step="1" value="10"></label>
+    <label>Signal noise: <span id="ln">35%</span><input type="range" id="noise" min="0" max="100" step="5" value="35"></label>
+    <button id="raw">Show raw signal</button>
+    <button id="serial" hidden>Connect microcontroller</button>
+  </div>
+  <p class="note">Showing the last 10 seconds. A live microcontroller should send one line per sample, <code>biceps,triceps</code>, as filtered values from 0 to 1 (or raw 0–1023), about 50 samples per second.</p>
+</section>
+</main>
+
+<script>
+const N=500, DT=0.02;
+/* Band-pass model: 4th-order-style Butterworth magnitude, applied to a modeled spectrum */
+const F={sig:1,noise:1,art:0,hum:1,kept:1,npass:1};
+const bp=(f,lo,hi,n)=>1/Math.sqrt((1+Math.pow(lo/f,2*n))*(1+Math.pow(f/hi,2*n)));
+const emgP=f=>f*f*Math.exp(-f/60);
+function bandStats(lo,hi,n){let s=0,tot=0,w=0;for(let f=1;f<=1000;f++){const h2=Math.pow(bp(f,lo,hi,n),2),p=emgP(f);s+=p*h2;tot+=p;w+=h2}return{s,tot,w}}
+const REF=bandStats(20,450,4);
+function computeF(){
+  const g=id=>+document.getElementById(id).value,lo=g('flo'),hi=g('fhi'),n=g('ford');
+  const b=bandStats(lo,hi,n);
+  F.sig=Math.min(1.15,Math.sqrt(b.s/REF.s));F.kept=b.s/b.tot;
+  F.noise=Math.sqrt(b.w/REF.w);F.npass=b.w/1000;
+  F.art=bp(3,lo,hi,n);F.hum=bp(60,lo,hi,n)/bp(60,20,450,4);
+}
+computeF();
+const buf={b:new Array(N).fill(0),t:new Array(N).fill(0),c:new Array(N).fill(10),rb:new Array(N).fill(0),rt:new Array(N).fill(0)};
+let env={b:0,t:0}, cmdAngle=10, simT=0, running=true, mode='sim';
+let ang=10, bNow=0, tNow=0;
+const $=id=>document.getElementById(id);
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+
+/* One sample in -> command out. Net muscle drive maps to an elbow angle of 10°-140°. */
+function push(b,t,rb=b,rt=t){
+  bNow=b;tNow=t;
+  const target=75+65*clamp(b-t,-1,1);
+  cmdAngle+=0.12*(target-cmdAngle);
+  for(const k of ['b','t','c','rb','rt']) buf[k].shift();
+  buf.b.push(b);buf.t.push(t);buf.c.push(cmdAngle);buf.rb.push(rb);buf.rt.push(rt);
+  ang=cmdAngle;
+}
+
+/* Simulated alternating contraction: biceps flexes, then triceps extends. */
+function simStep(){
+  const period=+$('period').value, nz=+$('noise').value/100;
+  simT+=DT;
+  const s=Math.sin(2*Math.PI*simT/period);
+  const ab=0.06+0.94*Math.pow(Math.max(0,s),0.8);
+  const at=0.06+0.94*Math.pow(Math.max(0,-s),0.8);
+  const g=()=>Math.abs(Math.random()+Math.random()+Math.random()-1.5)*2.5;
+  const art=p=>F.art*0.35*(0.5+0.5*Math.sin(2*Math.PI*0.25*simT+p)), hum=F.hum*0.06*(0.5+Math.random()), nf=nz*0.12*F.noise;
+  const rb=clamp(ab*F.sig*g()+nf*Math.random()+art(0)+hum,0,1.5), rt=clamp(at*F.sig*g()+nf*Math.random()+art(2.1)+hum,0,1.5);
+  env.b+=0.06*(rb-env.b); env.t+=0.06*(rt-env.t);
+  push(clamp(env.b,0,1),clamp(env.t,0,1),Math.min(rb,1),Math.min(rt,1));
+}
+for(let i=0;i<N;i++)simStep();
+
+/* Charts */
+function fit(c){
+  const r=devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;
+  if(c.width!==Math.round(w*r)||c.height!==Math.round(h*r)){c.width=Math.round(w*r);c.height=Math.round(h*r)}
+  const x=c.getContext('2d');x.setTransform(r,0,0,r,0,0);return [x,w,h];
+}
+function chart(c,series,ymax,ticks,fmt){
+  const [x,w,h]=fit(c),L=36,B=18,T=6,R=6,pw=w-L-R,ph=h-T-B;
+  x.clearRect(0,0,w,h);
+  x.font='11px ui-monospace,Menlo,monospace';x.textBaseline='middle';
+  x.strokeStyle=css('--grid');x.fillStyle=css('--mute');x.lineWidth=1;
+  for(const v of ticks){
+    const y=T+ph*(1-v/ymax);
+    x.beginPath();x.moveTo(L,y);x.lineTo(w-R,y);x.stroke();
+    x.textAlign='right';x.fillText(fmt(v),L-5,y);
+  }
+  x.textAlign='center';x.textBaseline='top';
+  for(let s=0;s<=10;s+=2){
+    const px=L+pw*(s/10);
+    x.fillText(s===10?'now':'-'+(10-s)+'s',clamp(px,L+10,w-R-12),h-B+4);
+  }
+  const cb=css('--bic'),ct=css('--tri');x.globalAlpha=0.1;
+  for(let i=0;i<N;i++){const d=buf.b[i]-buf.t[i];if(Math.abs(d)<0.15)continue;x.fillStyle=d>0?cb:ct;x.fillRect(L+pw*i/(N-1),T,pw/N+1,ph)}
+  x.globalAlpha=1;x.lineJoin='round';
+  for(const [data,col,lab,al=1] of series){
+    const cc=css(col);x.globalAlpha=al;x.strokeStyle=cc;x.lineWidth=al<1?1:3;x.beginPath();
+    data.forEach((v,i)=>{const px=L+pw*i/(N-1),py=T+ph*(1-clamp(v/ymax,0,1));i?x.lineTo(px,py):x.moveTo(px,py)});
+    x.stroke();x.globalAlpha=1;
+    if(al===1){const ly=T+ph*(1-clamp(data[N-1]/ymax,0,1));x.fillStyle=cc;x.beginPath();x.arc(L+pw,ly,6,0,7);x.fill();
+      x.font='600 15px system-ui,sans-serif';x.textAlign='right';x.textBaseline='bottom';x.fillText(lab,L+pw-12,Math.max(T+16,ly-8))}
+  }
+}
+
+/* Side-on elbow: upper arm fixed, forearm rotates. 0° = hanging straight, 140° = fully curled. */
+function drawArm(){
+  const [x,w,h]=fit($('armc'));
+  x.clearRect(0,0,w,h);
+  const s=Math.min(w/280,h/300);
+  x.save();x.translate((w-280*s)/2,(h-300*s)/2);x.scale(s,s);
+  const sh={x:110,y:50},el={x:110,y:160},th=ang*Math.PI/180;
+  const fa={x:el.x+105*Math.sin(th),y:el.y+105*Math.cos(th)};
+  x.lineCap='round';
+  // shoulder mount
+  x.strokeStyle=css('--line');x.lineWidth=14;x.beginPath();x.moveTo(sh.x-30,sh.y-18);x.lineTo(sh.x+30,sh.y-18);x.stroke();
+  // upper arm
+  x.strokeStyle=css('--limb');x.lineWidth=30;x.beginPath();x.moveTo(sh.x,sh.y);x.lineTo(el.x,el.y);x.stroke();
+  // muscles on the upper arm: biceps in front (right), triceps behind (left)
+  const m=(dx,a,col)=>{x.globalAlpha=0.15+0.8*a;x.strokeStyle=css(col);x.lineWidth=11;
+    x.beginPath();x.moveTo(sh.x+dx,sh.y+14);x.lineTo(el.x+dx,el.y-14);x.stroke();x.globalAlpha=1};
+  m(9,bNow,'--bic');m(-9,tNow,'--tri');
+  // forearm
+  x.strokeStyle=css('--limb');x.lineWidth=24;x.beginPath();x.moveTo(el.x,el.y);x.lineTo(fa.x,fa.y);x.stroke();
+  x.fillStyle=css('--limb');x.beginPath();x.arc(fa.x,fa.y,15,0,7);x.fill();
+  // angle arc
+  x.strokeStyle=css('--cmd');x.lineWidth=3;x.beginPath();x.arc(el.x,el.y,46,Math.PI/2-th,Math.PI/2);x.stroke();
+  // joint
+  x.fillStyle=css('--panel');x.strokeStyle=css('--joint');x.lineWidth=4;
+  x.beginPath();x.arc(el.x,el.y,10,0,7);x.fill();x.stroke();
+  x.fillStyle=css('--ink');x.font='600 14px ui-monospace,Menlo,monospace';x.textAlign='left';
+  x.font='600 20px ui-monospace,Menlo,monospace';x.fillText(Math.round(ang)+'°',el.x+54,el.y-4);x.font='600 15px system-ui,sans-serif';x.fillStyle=css('--bic');x.fillText('Biceps',el.x+28,sh.y+30);x.fillStyle=css('--tri');x.textAlign='right';x.fillText('Triceps',el.x-28,sh.y+30);
+  x.restore();
+}
+
+function drawFR(){
+  const [x,w,h]=fit($('fr')),L=40,B=24,T=8,R=8,pw=w-L-R,ph=h-T-B;
+  const lo=+$('flo').value,hi=+$('fhi').value,n=+$('ford').value;
+  const X=f=>L+pw*Math.log10(f)/3,Y=v=>T+ph*(1-v);
+  x.clearRect(0,0,w,h);x.font='13px ui-monospace,Menlo,monospace';x.fillStyle=css('--mute');x.strokeStyle=css('--grid');x.lineWidth=1;
+  x.textAlign='center';x.textBaseline='top';
+  for(const f of [1,10,100,1000]){x.beginPath();x.moveTo(X(f),T);x.lineTo(X(f),T+ph);x.stroke();x.fillText(f+' Hz',clamp(X(f),L+16,w-R-20),h-B+6)}
+  x.textAlign='right';x.textBaseline='middle';
+  for(const v of [0,0.5,1]){x.beginPath();x.moveTo(L,Y(v));x.lineTo(w-R,Y(v));x.stroke();x.fillText(Math.round(v*100)+'%',L-5,Y(v))}
+  let pk=0;for(let f=1;f<=1000;f++)pk=Math.max(pk,emgP(f));
+  x.globalAlpha=0.22;x.fillStyle=css('--bic');x.beginPath();x.moveTo(X(1),Y(0));
+  for(let f=1;f<=1000;f*=1.03)x.lineTo(X(f),Y(0.9*emgP(f)/pk));
+  x.lineTo(X(1000),Y(0));x.fill();x.globalAlpha=1;
+  x.setLineDash([4,4]);x.strokeStyle=css('--tri');x.beginPath();x.moveTo(X(60),T);x.lineTo(X(60),T+ph);x.stroke();x.setLineDash([]);
+  x.strokeStyle=css('--ink');x.lineWidth=3;x.lineJoin='round';x.beginPath();
+  for(let f=1,i=0;f<=1000;f*=1.03,i++){const px=X(f),py=Y(bp(f,lo,hi,n));i?x.lineTo(px,py):x.moveTo(px,py)}
+  x.stroke();
+  x.font='600 14px system-ui,sans-serif';x.textBaseline='top';
+  x.fillStyle=css('--bic');x.textAlign='left';x.fillText('Muscle signal',X(170),T+4);
+  x.fillStyle=css('--tri');x.textAlign='right';x.textBaseline='bottom';x.fillText('60 Hz hum',X(60)-5,T+ph-4);
+  x.fillStyle=css('--mute');x.textAlign='left';x.textBaseline='top';x.fillText('Motion drift',X(1.3),T+ph*0.3);
+}
+/* Loop */
+let last=performance.now(),acc=0;
+function frame(now){
+  const dt=Math.min(0.25,(now-last)/1000);last=now;
+  if(running&&mode==='sim'){acc+=dt;while(acc>=DT){simStep();acc-=DT}}
+  chart($('emg'),(showRaw?[[buf.rb,'--bic','',0.4],[buf.rt,'--tri','',0.4]]:[]).concat([[buf.b,'--bic','Biceps'],[buf.t,'--tri','Triceps']]),1,[0,0.5,1],v=>Math.round(v*100)+'%');
+  chart($('cmd'),[[buf.c,'--cmd','Command']],150,[0,45,90,135],v=>v+'°');
+  drawArm();drawFR();
+  $('vb').textContent=Math.round(bNow*100)+'%';
+  $('vt').textContent=Math.round(tNow*100)+'%';
+  $('va').textContent=$('vc').textContent=Math.round(ang)+'°';
+  $('eb').textContent=Math.round(bNow*100);$('et').textContent=Math.round(tNow*100);$('en').textContent=Math.round((bNow-tNow)*100);$('ea').textContent=Math.round(ang);
+  const d=bNow-tNow;$('phase').textContent=Math.abs(d)<0.15?'Holding':d>0?'Flexing':'Extending';
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* Controls */
+let showRaw=false;$('raw').onclick=()=>{showRaw=!showRaw;$('raw').textContent=showRaw?'Hide raw signal':'Show raw signal';$('rawkey').hidden=!showRaw};
+function onFilter(){computeF();$('lflo').textContent=$('flo').value+' Hz';$('lfhi').textContent=$('fhi').value+' Hz';$('lford').textContent=$('ford').value;
+  $('fk').textContent=Math.round(F.kept*100)+'%';$('fa').textContent=Math.round(F.art*100)+'%';$('fn').textContent=Math.round(F.npass*100)+'%'}
+['flo','fhi','ford'].forEach(i=>$(i).oninput=onFilter);
+$('freset').onclick=()=>{$('flo').value=20;$('fhi').value=450;$('ford').value=4;onFilter()};
+onFilter();
+$('play').onclick=()=>{running=!running;$('play').textContent=running?'Pause':'Resume'};
+$('period').oninput=e=>$('lp').textContent=e.target.value+' s';
+$('noise').oninput=e=>$('ln').textContent=e.target.value+'%';
+
+/* Optional live input over Web Serial (desktop Chrome/Edge) */
+if('serial' in navigator){
+  const sb=$('serial');sb.hidden=false;
+  sb.onclick=async()=>{
+    try{
+      const port=await navigator.serial.requestPort();await port.open({baudRate:115200});
+      mode='serial';$('status').textContent='Live: microcontroller';$('dot').classList.remove('off');
+      const rd=port.readable.pipeThrough(new TextDecoderStream()).getReader();let tail='';
+      for(;;){
+        const {value,done}=await rd.read();if(done)break;
+        const lines=(tail+value).split('\n');tail=lines.pop();
+        for(const ln of lines){
+          let [b,t]=ln.split(',').map(parseFloat);
+          if(isNaN(b)||isNaN(t))continue;
+          if(Math.max(b,t)>1){b/=1023;t/=1023}
+          push(clamp(b,0,1),clamp(t,0,1));
+        }
+      }
+    }catch(e){mode='sim';$('status').textContent='Simulated input'}
+  };
+}
+</script>
+</body>
+</html>
