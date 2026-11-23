@@ -46,62 +46,97 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--bic);outline-of
 .fgrid{display:grid;gap:12px}
 @media(min-width:820px){.fgrid{grid-template-columns:1fr 1fr;align-items:center}}
 #fr{height:210px}
+#sc{height:max(250px,30vh)}
+select{font:inherit;font-size:17px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
 .note{font-size:15px;color:var(--mute);margin:10px 0 0}
+.hr{display:flex;align-items:center;gap:14px}
+.sub{margin:2px 0 0;color:var(--mute);font-size:17px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.chips button{padding:8px 14px;font-size:15px;border-radius:999px}
+.step{display:grid;gap:12px}
+@media(min-width:820px){.step{grid-template-columns:minmax(250px,330px) 1fr;align-items:start}}
+.num{display:inline-flex;width:32px;height:32px;border-radius:50%;background:var(--ink);color:var(--bg);align-items:center;justify-content:center;font-size:17px;margin-right:10px;vertical-align:middle}
+.txt h2{margin:0}
+.txt p{margin:6px 0 10px;color:var(--mute);font-size:17px}
+.txt .controls{flex-direction:column;align-items:stretch;margin-top:8px}
+.txt .controls label{flex:none}
+.link{text-align:center;color:var(--mute);font-size:16px;padding:12px 0}
+#s1,#s2,#s3{height:max(150px,19vh)}
+#armc{max-height:520px}
 </style>
 </head>
 <body>
 <main>
 <header>
-  <h1>EMG elbow monitor</h1>
-  <div class="status"><span class="dot" id="dot"></span><span id="status">Simulated input</span></div>
+  <div><h1>From muscle signal to robot arm</h1><p class="sub">Follow one EMG signal through six steps.</p></div>
+  <div class="hr"><div class="status"><span class="dot" id="dot"></span><span id="status">Simulated input</span></div><button class="primary" id="play">Pause</button></div>
 </header>
-<div class="eq"><small>EMG is the tiny electrical signal a muscle makes when it tightens. The robot elbow bends by the difference between the two muscles.</small><span style="color:var(--bic)">Biceps <span id="eb">0</span>%</span> − <span style="color:var(--tri)">Triceps <span id="et">0</span>%</span> = <span id="en">0</span>% &rarr; <b>elbow <span id="ea">0</span>°</b></div>
+<nav class="chips" id="chips">
+  <button data-t="st1">1 Raw signal</button><button data-t="st2">2 Filter</button><button data-t="st3">3 Rectify and RMS</button><button data-t="st4">4 Intensity</button><button data-t="st5">5 Command</button><button data-t="st6">6 Robot arm</button>
+</nav>
 
-<div class="grid">
-  <section class="panel">
-    <h2>Muscle activity (EMG)</h2>
-    <div class="legend">
-      <span><span class="sw" style="background:var(--bic)"></span>Biceps <b id="vb">0%</b></span>
-      <span><span class="sw" style="background:var(--tri)"></span>Triceps <b id="vt">0%</b></span>
-      <span id="rawkey" hidden>Faint lines: raw signal before filtering</span>
-    </div>
-    <canvas id="emg"></canvas>
-  </section>
-
-  <section class="panel arm">
-    <h2>Robot elbow</h2>
-    <div class="legend"><span>Joint angle <b id="va">0°</b></span><span id="phase">Extending</span></div>
-    <canvas id="armc"></canvas>
-  </section>
-
-  <section class="panel">
-    <h2>Command sent to the robot arm</h2>
-    <div class="legend"><span><span class="sw" style="background:var(--cmd)"></span>Elbow angle command <b id="vc">0°</b></span>
-      <span><span class="sw" style="background:var(--bic);opacity:.35"></span>Shaded: flexing</span><span><span class="sw" style="background:var(--tri);opacity:.35"></span>Shaded: extending</span></div>
-    <canvas id="cmd"></canvas>
-  </section>
-</div>
-
-<section class="panel" style="margin-top:12px"><h2>Band-pass filter</h2>
-  <div class="legend"><span>Muscle signal kept <b id="fk">0%</b></span><span>Motion drift passed <b id="fa">0%</b></span><span>Noise passed <b id="fn">0%</b></span></div>
-  <div class="fgrid"><canvas id="fr"></canvas>
-  <div class="controls" style="margin-top:0">
-    <label>Low cutoff (blocks slow drift): <span id="lflo">20 Hz</span><input type="range" id="flo" min="1" max="100" value="20"></label>
-    <label>High cutoff (blocks fast noise): <span id="lfhi">450 Hz</span><input type="range" id="fhi" min="120" max="1000" step="10" value="450"></label>
-    <label>Filter strength (order): <span id="lford">4</span><input type="range" id="ford" min="1" max="8" value="4"></label>
-    <button id="freset">Reset to 20–450 Hz</button>
-  </div></div>
-  <p class="note">Blue shape: where the muscle signal’s energy lies. Black line: how much of each frequency the filter lets through. Dashed pink: 60 Hz power-line hum. Surface EMG is usually filtered at 20–450 Hz.</p>
+<section class="step" id="st1">
+  <div class="txt"><h2><span class="num">1</span>Record the raw signal</h2>
+    <p>Electrodes on the skin pick up the tiny voltage a muscle makes when it tightens. The raw signal is fast, jagged and messy.</p>
+    <div class="controls">
+      <label>Simulated cycle length: <span id="lp">10 s</span><input type="range" id="period" min="5" max="20" step="1" value="10"></label>
+      <label>Electrode noise: <span id="ln">35%</span><input type="range" id="noise" min="0" max="100" step="5" value="35"></label>
+      <button id="serial" hidden>Connect microcontroller</button>
+    </div></div>
+  <div class="panel"><div class="legend"><span><span class="sw" style="background:var(--bic)"></span>Biceps</span><span><span class="sw" style="background:var(--tri)"></span>Triceps</span><span>Last second</span></div><canvas id="s1"></canvas></div>
 </section>
-<section class="panel" style="margin-top:12px">
-  <div class="controls">
-    <button class="primary" id="play">Pause</button>
-    <label>Cycle length: <span id="lp">10 s</span><input type="range" id="period" min="5" max="20" step="1" value="10"></label>
-    <label>Signal noise: <span id="ln">35%</span><input type="range" id="noise" min="0" max="100" step="5" value="35"></label>
-    <button id="raw">Show raw signal</button>
-    <button id="serial" hidden>Connect microcontroller</button>
-  </div>
-  <p class="note">Showing the last 10 seconds. A live microcontroller should send one line per sample, <code>biceps,triceps</code>, as filtered values from 0 to 1 (or raw 0–1023), about 50 samples per second.</p>
+<div class="link">▼ the raw voltage goes into the filters</div>
+
+<section class="step" id="st2">
+  <div class="txt"><h2><span class="num">2</span>Filter out what isn’t muscle</h2>
+    <p>A band-pass filter removes slow drift from cable and arm movement and fast electrical noise. A notch filter removes 60 Hz power-line hum. Compare the trace with step 1.</p>
+    <div class="controls">
+      <label>Low cutoff (blocks slow drift): <span id="lflo">20 Hz</span><input type="range" id="flo" min="1" max="100" value="20"></label>
+      <label>High cutoff (blocks fast noise): <span id="lfhi">450 Hz</span><input type="range" id="fhi" min="120" max="1000" step="10" value="450"></label>
+      <label>Filter strength (order): <span id="lford">4</span><input type="range" id="ford" min="1" max="8" value="4"></label>
+      <label>Notch center: <span id="lnf0">60 Hz</span><input type="range" id="nf0" min="40" max="130" value="60"></label>
+      <label>Notch width: <span id="lnbw">6 Hz</span><input type="range" id="nbw" min="1" max="30" value="6"></label>
+      <button id="nton">Notch: on</button>
+      <button id="freset">Reset to 20–450 Hz</button>
+    </div></div>
+  <div class="panel"><div class="legend"><span>Muscle signal kept <b id="fk">0%</b></span><span>Motion drift passed <b id="fa">0%</b></span><span>Noise passed <b id="fn">0%</b></span><span>60 Hz hum passed <b id="fh">0%</b></span></div>
+    <canvas id="s2"></canvas>
+    <canvas id="fr" style="margin-top:10px"></canvas>
+    <p class="note">Blue shape: where the muscle signal’s energy lies. Black line: how much of each frequency the filters let through. Dashed pink: 60 Hz hum.</p></div>
+</section>
+<div class="link">▼ the clean signal still swings positive and negative</div>
+
+<section class="step" id="st3">
+  <div class="txt"><h2><span class="num">3</span>Rectify, then measure with RMS</h2>
+    <p>Rectifying flips negative swings upward so every sample counts as activity. RMS then averages the signal over a short window into one smooth intensity (thick lines). A longer window is smoother but reacts later.</p>
+    <div class="controls">
+      <label>Rectification<select id="rect"><option value="full">Full-wave (flip negatives)</option><option value="half">Half-wave (drop negatives)</option><option value="off">Off</option></select></label>
+      <label>RMS window: <span id="lrms">100 ms</span><input type="range" id="rmsw" min="20" max="500" step="10" value="100"></label>
+    </div>
+    <p class="note">RMS squares the signal, so full-wave and off give the same intensity. Half-wave discards half the energy, so it reads lower.</p></div>
+  <div class="panel"><div class="legend"><span>Thin: rectified signal</span><span>Thick: RMS intensity</span><span>Shaded: RMS window</span></div><canvas id="s3"></canvas></div>
+</section>
+<div class="link">▼ zoom out: one intensity value per moment</div>
+
+<section class="step" id="st4">
+  <div class="txt"><h2><span class="num">4</span>Read muscle intensity over time</h2>
+    <p>Now the last 10 seconds. Biceps intensity rises when the arm curls, triceps when it extends. Blue shading means the biceps is winning, pink means the triceps is.</p></div>
+  <div class="panel"><div class="legend"><span><span class="sw" style="background:var(--bic)"></span>Biceps <b id="vb">0%</b></span><span><span class="sw" style="background:var(--tri)"></span>Triceps <b id="vt">0%</b></span></div><canvas id="emg"></canvas></div>
+</section>
+<div class="link">▼ the controller compares the two muscles</div>
+
+<section class="step" id="st5">
+  <div class="txt"><h2><span class="num">5</span>Turn intensity into a command</h2>
+    <p>The controller subtracts triceps from biceps. A positive difference bends the elbow, a negative one straightens it, and the command follows smoothly.</p></div>
+  <div class="panel"><div class="eq"><span style="color:var(--bic)">Biceps <span id="eb">0</span>%</span> − <span style="color:var(--tri)">Triceps <span id="et">0</span>%</span> = <span id="en">0</span>% → <b>elbow <span id="ea">0</span>°</b></div>
+    <div class="legend"><span><span class="sw" style="background:var(--cmd)"></span>Elbow angle command <b id="vc">0°</b></span><span><span class="sw" style="background:var(--bic);opacity:.35"></span>Shaded: flexing</span><span><span class="sw" style="background:var(--tri);opacity:.35"></span>Shaded: extending</span></div><canvas id="cmd"></canvas></div>
+</section>
+<div class="link">▼ the command is sent to the robot</div>
+
+<section class="step" id="st6">
+  <div class="txt"><h2><span class="num">6</span>Move the robot arm</h2>
+    <p>The robot elbow bends to the commanded angle. The muscles on the upper arm glow as each one fires, so you can see the whole chain at once.</p></div>
+  <div class="panel"><div class="legend"><span>Joint angle <b id="va">0°</b></span><span id="phase">Extending</span></div><canvas id="armc"></canvas></div>
 </section>
 </main>
 
@@ -111,14 +146,17 @@ const N=500, DT=0.02;
 const F={sig:1,noise:1,art:0,hum:1,kept:1,npass:1};
 const bp=(f,lo,hi,n)=>1/Math.sqrt((1+Math.pow(lo/f,2*n))*(1+Math.pow(f/hi,2*n)));
 const emgP=f=>f*f*Math.exp(-f/60);
-function bandStats(lo,hi,n){let s=0,tot=0,w=0;for(let f=1;f<=1000;f++){const h2=Math.pow(bp(f,lo,hi,n),2),p=emgP(f);s+=p*h2;tot+=p;w+=h2}return{s,tot,w}}
-const REF=bandStats(20,450,4);
+const NT={on:true};
+const nt=(f,f0,bw)=>{const a=f0*f0-f*f;return Math.abs(a)/Math.sqrt(a*a+f*f*bw*bw)};
+const hz=(f,lo,hi,n,no)=>bp(f,lo,hi,n)*(no?nt(f,no[0],no[1]):1);
+function bandStats(lo,hi,n,no){let s=0,tot=0,w=0;for(let f=1;f<=1000;f++){const h2=Math.pow(hz(f,lo,hi,n,no),2),p=emgP(f);s+=p*h2;tot+=p;w+=h2}return{s,tot,w}}
+const REF=bandStats(20,450,4,[60,6]);
 function computeF(){
-  const g=id=>+document.getElementById(id).value,lo=g('flo'),hi=g('fhi'),n=g('ford');
-  const b=bandStats(lo,hi,n);
+  const g=id=>+document.getElementById(id).value,lo=g('flo'),hi=g('fhi'),n=g('ford'),no=NT.on?[g('nf0'),g('nbw')]:null;
+  const b=bandStats(lo,hi,n,no);
   F.sig=Math.min(1.15,Math.sqrt(b.s/REF.s));F.kept=b.s/b.tot;
   F.noise=Math.sqrt(b.w/REF.w);F.npass=b.w/1000;
-  F.art=bp(3,lo,hi,n);F.hum=bp(60,lo,hi,n)/bp(60,20,450,4);
+  F.art=bp(3,lo,hi,n);F.hum=hz(60,lo,hi,n,no);
 }
 computeF();
 const buf={b:new Array(N).fill(0),t:new Array(N).fill(0),c:new Array(N).fill(10),rb:new Array(N).fill(0),rt:new Array(N).fill(0)};
@@ -139,17 +177,36 @@ function push(b,t,rb=b,rt=t){
 }
 
 /* Simulated alternating contraction: biceps flexes, then triceps extends. */
+/* 1 kHz sample stream per channel: raw -> band-pass + notch -> rectify -> sliding RMS */
+const FS=1000,SB=1000;
+const g6=()=>(Math.random()+Math.random()+Math.random()+Math.random()+Math.random()+Math.random()-3)*1.4142;
+const mkCh=()=>({raw:new Float32Array(SB),flt:new Float32Array(SB),rec:new Float32Array(SB),rms:new Float32Array(SB)});
+const chB=mkCh(),chT=mkCh();
+function runCh(ch,act,hAmp,ph,tEnd,mode,W,nz){
+  for(const a of [ch.raw,ch.flt,ch.rec,ch.rms])a.copyWithin(0,20);
+  const rawN=nz*0.12*Math.sqrt(1000/REF.w),fltN=nz*0.12*F.noise;
+  let s2=0;for(let j=980-W;j<980;j++)s2+=ch.rec[j]*ch.rec[j];
+  for(let k=0;k<20;k++){
+    const i=980+k,ts=tEnd-(19-k)/FS,m=act*g6(),w=g6(),d=0.45*Math.sin(6.2832*0.25*ts+ph),h=hAmp*Math.sin(6.2832*60*ts+ph);
+    const r=m+rawN*w+d+h,f=F.sig*m+fltN*w+F.art*d+F.hum*h;
+    const q=mode==='half'?Math.max(0,f):mode==='off'?f:Math.abs(f);
+    ch.raw[i]=r;ch.flt[i]=f;ch.rec[i]=q;
+    s2+=q*q-ch.rec[i-W]*ch.rec[i-W];
+    ch.rms[i]=Math.sqrt(Math.max(0,s2)/W);
+  }
+}
 function simStep(){
   const period=+$('period').value, nz=+$('noise').value/100;
   simT+=DT;
   const s=Math.sin(2*Math.PI*simT/period);
   const ab=0.06+0.94*Math.pow(Math.max(0,s),0.8);
   const at=0.06+0.94*Math.pow(Math.max(0,-s),0.8);
-  const g=()=>Math.abs(Math.random()+Math.random()+Math.random()-1.5)*2.5;
-  const art=p=>F.art*0.35*(0.5+0.5*Math.sin(2*Math.PI*0.25*simT+p)), hum=F.hum*0.06*(0.5+Math.random()), nf=nz*0.12*F.noise;
-  const rb=clamp(ab*F.sig*g()+nf*Math.random()+art(0)+hum,0,1.5), rt=clamp(at*F.sig*g()+nf*Math.random()+art(2.1)+hum,0,1.5);
-  env.b+=0.06*(rb-env.b); env.t+=0.06*(rt-env.t);
-  push(clamp(env.b,0,1),clamp(env.t,0,1),Math.min(rb,1),Math.min(rt,1));
+  const W=+$('rmsw').value,mode=$('rect').value;
+  runCh(chB,ab,0.32,0,simT,mode,W,nz);runCh(chT,at,0.18,2.1,simT,mode,W,nz);
+  
+  
+  
+  push(clamp(chB.rms[SB-1],0,1),clamp(chT.rms[SB-1],0,1),clamp(chB.rec[SB-1],0,1),clamp(chT.rec[SB-1],0,1));
 }
 for(let i=0;i<N;i++)simStep();
 
@@ -218,7 +275,7 @@ function drawArm(){
 
 function drawFR(){
   const [x,w,h]=fit($('fr')),L=40,B=24,T=8,R=8,pw=w-L-R,ph=h-T-B;
-  const lo=+$('flo').value,hi=+$('fhi').value,n=+$('ford').value;
+  const lo=+$('flo').value,hi=+$('fhi').value,n=+$('ford').value,no=NT.on?[+$('nf0').value,+$('nbw').value]:null;
   const X=f=>L+pw*Math.log10(f)/3,Y=v=>T+ph*(1-v);
   x.clearRect(0,0,w,h);x.font='13px ui-monospace,Menlo,monospace';x.fillStyle=css('--mute');x.strokeStyle=css('--grid');x.lineWidth=1;
   x.textAlign='center';x.textBaseline='top';
@@ -231,12 +288,32 @@ function drawFR(){
   x.lineTo(X(1000),Y(0));x.fill();x.globalAlpha=1;
   x.setLineDash([4,4]);x.strokeStyle=css('--tri');x.beginPath();x.moveTo(X(60),T);x.lineTo(X(60),T+ph);x.stroke();x.setLineDash([]);
   x.strokeStyle=css('--ink');x.lineWidth=3;x.lineJoin='round';x.beginPath();
-  for(let f=1,i=0;f<=1000;f*=1.03,i++){const px=X(f),py=Y(bp(f,lo,hi,n));i?x.lineTo(px,py):x.moveTo(px,py)}
+  for(let f=1,i=0;f<=1000;f*=1.008,i++){const px=X(f),py=Y(hz(f,lo,hi,n,no));i?x.lineTo(px,py):x.moveTo(px,py)}
   x.stroke();
   x.font='600 14px system-ui,sans-serif';x.textBaseline='top';
   x.fillStyle=css('--bic');x.textAlign='left';x.fillText('Muscle signal',X(170),T+4);
   x.fillStyle=css('--tri');x.textAlign='right';x.textBaseline='bottom';x.fillText('60 Hz hum',X(60)-5,T+ph-4);
   x.fillStyle=css('--mute');x.textAlign='left';x.textBaseline='top';x.fillText('Motion drift',X(1.3),T+ph*0.3);
+}
+function scope(id,aB,aT,MX,bi,rB,rT,W){
+  const [x,w,h]=fit($(id)),L=34,R=8,T=6,B=20,pw=w-L-R,ph=h-T-B;
+  const Y=v=>bi?T+ph*(0.5-v/(2*MX)):T+ph*(1-v/MX);
+  x.clearRect(0,0,w,h);x.font='12px ui-monospace,Menlo,monospace';x.lineWidth=1;
+  x.fillStyle=css('--mute');x.strokeStyle=css('--grid');x.textAlign='right';x.textBaseline='middle';
+  for(const v of (bi?[-MX,0,MX]:[0,MX/2,MX])){x.beginPath();x.moveTo(L,Y(v));x.lineTo(w-R,Y(v));x.stroke();x.fillText((bi&&v>0?'+':'')+v,L-4,Y(v))}
+  x.textBaseline='top';x.textAlign='left';x.fillText('1 s ago',L,h-B+5);x.textAlign='right';x.fillText('now',w-R,h-B+5);
+  if(W){const xs=L+pw*(1-W/(SB-1));x.globalAlpha=0.1;x.fillStyle=css('--ink');x.fillRect(xs,T,w-R-xs,ph);x.globalAlpha=1}
+  const line=(a,col,lw,al)=>{x.strokeStyle=css(col);x.lineWidth=lw;x.globalAlpha=al;x.beginPath();
+    for(let i=0;i<SB;i+=2){const px=L+pw*i/(SB-1),py=Y(clamp(a[i],bi?-MX:0,MX));i?x.lineTo(px,py):x.moveTo(px,py)}
+    x.stroke();x.globalAlpha=1};
+  const f=rB?0.45:0.9;
+  line(aB,'--bic',1.2,f);line(aT,'--tri',1.2,f);
+  if(rB){line(rB,'--bic',3,1);line(rT,'--tri',3,1)}
+}
+function drawStages(){
+  scope('s1',chB.raw,chT.raw,3,true);
+  scope('s2',chB.flt,chT.flt,3,true);
+  scope('s3',chB.rec,chT.rec,3,$('rect').value==='off',chB.rms,chT.rms,+$('rmsw').value);
 }
 /* Loop */
 let last=performance.now(),acc=0;
@@ -245,7 +322,7 @@ function frame(now){
   if(running&&mode==='sim'){acc+=dt;while(acc>=DT){simStep();acc-=DT}}
   chart($('emg'),(showRaw?[[buf.rb,'--bic','',0.4],[buf.rt,'--tri','',0.4]]:[]).concat([[buf.b,'--bic','Biceps'],[buf.t,'--tri','Triceps']]),1,[0,0.5,1],v=>Math.round(v*100)+'%');
   chart($('cmd'),[[buf.c,'--cmd','Command']],150,[0,45,90,135],v=>v+'°');
-  drawArm();drawFR();
+  drawArm();drawFR();drawStages();
   $('vb').textContent=Math.round(bNow*100)+'%';
   $('vt').textContent=Math.round(tNow*100)+'%';
   $('va').textContent=$('vc').textContent=Math.round(ang)+'°';
@@ -256,11 +333,13 @@ function frame(now){
 requestAnimationFrame(frame);
 
 /* Controls */
-let showRaw=false;$('raw').onclick=()=>{showRaw=!showRaw;$('raw').textContent=showRaw?'Hide raw signal':'Show raw signal';$('rawkey').hidden=!showRaw};
-function onFilter(){computeF();$('lflo').textContent=$('flo').value+' Hz';$('lfhi').textContent=$('fhi').value+' Hz';$('lford').textContent=$('ford').value;
+const showRaw=false;
+function onFilter(){computeF();$('lflo').textContent=$('flo').value+' Hz';$('lfhi').textContent=$('fhi').value+' Hz';$('lford').textContent=$('ford').value;$('lnf0').textContent=$('nf0').value+' Hz';$('lnbw').textContent=$('nbw').value+' Hz';$('fh').textContent=Math.round(F.hum*100)+'%';
   $('fk').textContent=Math.round(F.kept*100)+'%';$('fa').textContent=Math.round(F.art*100)+'%';$('fn').textContent=Math.round(F.npass*100)+'%'}
-['flo','fhi','ford'].forEach(i=>$(i).oninput=onFilter);
-$('freset').onclick=()=>{$('flo').value=20;$('fhi').value=450;$('ford').value=4;onFilter()};
+['flo','fhi','ford','nf0','nbw'].forEach(i=>$(i).oninput=onFilter);
+$('nton').onclick=()=>{NT.on=!NT.on;$('nton').textContent=NT.on?'Notch: on':'Notch: off';onFilter()};
+$('rmsw').oninput=()=>$('lrms').textContent=$('rmsw').value+' ms';
+$('freset').onclick=()=>{$('flo').value=20;$('fhi').value=450;$('ford').value=4;$('nf0').value=60;$('nbw').value=6;NT.on=true;$('nton').textContent='Notch: on';onFilter()};
 onFilter();
 $('play').onclick=()=>{running=!running;$('play').textContent=running?'Pause':'Resume'};
 $('period').oninput=e=>$('lp').textContent=e.target.value+' s';
@@ -287,6 +366,7 @@ if('serial' in navigator){
     }catch(e){mode='sim';$('status').textContent='Simulated input'}
   };
 }
+document.querySelectorAll('#chips button').forEach(b=>b.onclick=()=>$(b.dataset.t).scrollIntoView({behavior:'smooth',block:'start'}));
 </script>
 </body>
 </html>
