@@ -241,6 +241,12 @@ resize();
 function initGame() {
   document.getElementById('start-overlay').classList.remove('show');
   document.getElementById('end-overlay').classList.remove('show');
+  // Restore the end-screen title styling changed by endGame()
+  const t = document.getElementById('end-title');
+  t.style.animation = '';
+  t.style.backgroundImage = '';
+  t.style.webkitTextFillColor = '';
+  t.style.color = '';
   resize();
 
   p1Score = 0;
@@ -506,8 +512,10 @@ window.addEventListener('keyup', e => {
 
 // Dual Screen Touch Matrix Splits Configuration
 function handleTouch(e) {
-  e.preventDefault();
+  // Only block default touch behavior while playing; otherwise the
+  // preventDefault swallows the tap and the overlay buttons never fire.
   if (!gameRunning) return;
+  e.preventDefault();
   const rect = canvas.getBoundingClientRect();
   for (let i = 0; i < e.touches.length; i++) {
     let touch = e.touches[i];
